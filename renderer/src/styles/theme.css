@@ -1,0 +1,86 @@
+/*
+ * ReliquarySSH design tokens.
+ * All colors, spacing, radii, typography and z-index values live here.
+ * Components must reference these variables only — no hardcoded values.
+ */
+
+:root {
+  /* ---- palette ---- */
+  --color-bg-app: #1c2128;
+  --color-bg-sidebar: #22272e;
+  --color-bg-main: #1c2128;
+  --color-bg-panel: #262c34;
+  --color-bg-elevated: #2c333c;
+  --color-bg-input: #171b21;
+  --color-bg-hover: rgba(255, 255, 255, 0.06);
+  --color-bg-active: rgba(255, 255, 255, 0.1);
+  --color-bg-selected: rgba(56, 139, 253, 0.16);
+
+  --color-border: #333b45;
+  --color-border-strong: #414b57;
+
+  --color-text: #d7dde5;
+  --color-text-muted: #8b95a3;
+  --color-text-faint: #616c7a;
+  --color-text-inverse: #10151b;
+
+  --color-accent: #388bfd;
+  --color-accent-hover: #4b98ff;
+  --color-accent-muted: rgba(56, 139, 253, 0.14);
+
+  --color-success: #3fb950;
+  --color-warning: #d29922;
+  --color-danger: #f85149;
+  --color-info: #58a6ff;
+
+  /* ---- spacing ---- */
+  --space-xs: 4px;
+  --space-sm: 8px;
+  --space-md: 12px;
+  --space-lg: 16px;
+  --space-xl: 24px;
+  --space-xxl: 32px;
+
+  /* ---- radii ---- */
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 10px;
+  --radius-pill: 999px;
+
+  /* ---- typography ---- */
+  --font-sans:
+    -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
+  --font-mono: 'SF Mono', 'JetBrains Mono', Menlo, Consolas, monospace;
+  --font-size-xs: 11px;
+  --font-size-sm: 12px;
+  --font-size-md: 13px;
+  --font-size-lg: 15px;
+  --font-size-xl: 18px;
+  --font-weight-normal: 400;
+  --font-weight-medium: 500;
+  --font-weight-semibold: 600;
+  --line-height-normal: 1.5;
+
+  /* ---- layout ---- */
+  --sidebar-width: 260px;
+  --sidebar-width-collapsed: 56px;
+  --topbar-height: 44px;
+  --tabbar-height: 38px;
+
+  /* ---- effects ---- */
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.25);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.35);
+  --shadow-lg: 0 12px 32px rgba(0, 0, 0, 0.45);
+  --focus-ring: 0 0 0 2px var(--color-accent-muted);
+
+  /* ---- z-index ---- */
+  --z-base: 0;
+  --z-sticky: 10;
+  --z-dropdown: 100;
+  --z-modal: 1000;
+  --z-toast: 2000;
+
+  /* ---- transitions ---- */
+  --transition-fast: 120ms ease;
+  --transition-normal: 200ms ease;
+}

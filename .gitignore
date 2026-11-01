@@ -1,0 +1,45 @@
+# dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# build output
+out/
+dist/
+release/
+*.tsbuildinfo
+
+# electron-builder
+electron-builder.yml.bak
+*.dmg
+*.zip
+*.blockmap
+
+# env & secrets
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+!.gitkeep
+
+# runtime data
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+*.sqlite
+*.sqlite3
+
+# logs
+logs/
+*.log
+npm-debug.log*
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/*
+!.vscode/extensions.json
+*.swp

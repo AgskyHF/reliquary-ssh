@@ -1,0 +1,199 @@
+/* Layout component styles — only theme variables, no hardcoded colors/spacing. */
+
+.topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-lg);
+  padding: 0 var(--space-lg);
+  background: var(--color-bg-sidebar);
+  border-bottom: 1px solid var(--color-border);
+  -webkit-app-region: drag;
+}
+
+.topbar__brand {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-sm);
+}
+
+.topbar__title {
+  font-size: var(--font-size-md);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text);
+}
+
+.topbar__subtitle {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-faint);
+}
+
+.topbar__actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  -webkit-app-region: no-drag;
+}
+
+.topbar__button {
+  padding: var(--space-xs) var(--space-md);
+  color: var(--color-text);
+  background: var(--color-bg-elevated);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-sm);
+  transition: background var(--transition-fast);
+}
+
+.topbar__button:hover:not(:disabled) {
+  background: var(--color-bg-hover);
+}
+
+.topbar__button:disabled {
+  color: var(--color-text-faint);
+  cursor: not-allowed;
+}
+
+.topbar__status {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+}
+
+.topbar__status-label {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+}
+
+.status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: var(--radius-pill);
+  background: var(--color-text-faint);
+}
+
+.status-dot--idle {
+  background: var(--color-text-faint);
+}
+
+.status-dot--ok {
+  background: var(--color-success);
+}
+
+.status-dot--error {
+  background: var(--color-danger);
+}
+
+.sidebar {
+  background: var(--color-bg-sidebar);
+  border-right: 1px solid var(--color-border);
+  padding: var(--space-sm);
+  gap: var(--space-sm);
+}
+
+.sidebar__nav {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+}
+
+.sidebar__item {
+  padding: var(--space-sm) var(--space-md);
+  text-align: left;
+  color: var(--color-text-muted);
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-md);
+  font-size: var(--font-size-md);
+  transition:
+    background var(--transition-fast),
+    color var(--transition-fast);
+}
+
+.sidebar__item:hover {
+  background: var(--color-bg-hover);
+  color: var(--color-text);
+}
+
+.sidebar__item--active {
+  background: var(--color-bg-active);
+  color: var(--color-text);
+  font-weight: var(--font-weight-medium);
+}
+
+.sidebar__section {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding-top: var(--space-sm);
+}
+
+.sidebar__section-header {
+  font-size: var(--font-size-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--color-text-faint);
+  padding: var(--space-xs) var(--space-md);
+}
+
+.sidebar__empty {
+  padding: var(--space-md);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-faint);
+}
+
+.main-area {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+
+.main-area__tabs {
+  border-bottom: 1px solid var(--color-border);
+  background: var(--color-bg-sidebar);
+}
+
+.main-area__content {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.tab-bar {
+  display: flex;
+  align-items: stretch;
+  height: var(--tabbar-height);
+  overflow-x: auto;
+}
+
+.tab-bar__empty {
+  display: flex;
+  align-items: center;
+  padding: 0 var(--space-lg);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-faint);
+}
+
+.empty-state {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-sm);
+  text-align: center;
+  padding: var(--space-xl);
+}
+
+.empty-state__title {
+  font-size: var(--font-size-xl);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-muted);
+}
+
+.empty-state__text {
+  font-size: var(--font-size-md);
+  color: var(--color-text-faint);
+}

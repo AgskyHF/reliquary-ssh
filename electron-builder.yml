@@ -1,0 +1,45 @@
+appId: com.agskyhf.reliquary-ssh
+productName: ReliquarySSH
+copyright: Copyright © 2026 AgskyHF
+
+directories:
+  output: release
+  buildResources: build
+
+files:
+  - out/**/*
+  - package.json
+  - '!**/*.map'
+
+asarUnpack:
+  - '**/node_modules/better-sqlite3/**'
+  - '**/node_modules/sqlite3/**'
+
+mac:
+  category: public.app-category.developer-tools
+  target:
+    - target: dmg
+      arch:
+        - arm64
+        - x64
+    - target: zip
+      arch:
+        - arm64
+        - x64
+  darkModeSupport: true
+  hardenedRuntime: true
+  gatekeeperAssess: false
+  entitlements: build/entitlements.mac.plist
+  entitlementsInherit: build/entitlements.mac.plist
+
+# TODO: future — Windows and Linux targets are intentionally not enabled in MVP.
+# win:
+#   target:
+#     - target: nsis
+#       arch: [arm64, x64]
+# linux:
+#   target:
+#     - target: AppImage
+#       arch: [arm64, x64]
+
+publish: null

@@ -1,0 +1,56 @@
+/** Preload script — the only bridge between renderer and main. */
+import { contextBridge, ipcRenderer } from 'electron'
+import { IPC } from '@shared/types'
+import type { ReliquaryApi } from '@shared/api'
+
+const api: ReliquaryApi = {
+  appInfo: (): Promise<{ name: string; version: string; platform: string }> =>
+    ipcRenderer.invoke(IPC.APP_INFO),
+
+  host: {
+    list: () => ipcRenderer.invoke(IPC.HOST_LIST),
+    save: (host) => ipcRenderer.invoke(IPC.HOST_SAVE, host),
+    remove: (id) => ipcRenderer.invoke(IPC.HOST_DELETE, id)
+  },
+
+  key: {
+    list: () => ipcRenderer.invoke(IPC.KEY_LIST),
+    generate: (payload) => ipcRenderer.invoke(IPC.KEY_GENERATE, payload),
+    import: (payload) => ipcRenderer.invoke(IPC.KEY_IMPORT, payload),
+    remove: (id) => ipcRenderer.invoke(IPC.KEY_DELETE, id),
+    exportPublic: (id) => ipcRenderer.invoke(IPC.KEY_EXPORT_PUBLIC, id)
+  },
+
+  session: {
+    connect: (request) => ipcRenderer.invoke(IPC.SESSION_CONNECT, request),
+    write: (payload) => ipcRenderer.invoke(IPC.SESSION_WRITE, payload),
+    resize: (payload) => ipcRenderer.invoke(IPC.SESSION_RESIZE, payload),
+    disconnect: (sessionId) => ipcRenderer.invoke(IPC.SESSION_DISCONNECT, sessionId),
+    onData: (listener) => {
+      const handler = (_event: unknown, payload: { sessionId: string; chunk: string }) =>
+        listener(payload)
+      ipcRenderer.on(IPC.SESSION_DATA, handler)
+      return () => ipcRenderer.removeListener(IPC.SESSION_DATA, handler)
+    },
+    onState: (listener) => {
+      const handler = (_event: unknown, payload: { sessionId: string; state: string }) =>
+        listener(payload)
+      ipcRenderer.on(IPC.SESSION_STATE, handler)
+      return () => ipcRenderer.removeListener(IPC.SESSION_STATE, handler)
+    },
+    onError: (listener) => {
+      const handler = (_event: unknown, payload: { sessionId: string; message: string }) =>
+        listener(payload)
+      ipcRenderer.on(IPC.SESSION_ERROR, handler)
+      return () => ipcRenderer.removeListener(IPC.SESSION_ERROR, handler)
+    }
+  },
+
+  tab: {
+    list: () => ipcRenderer.invoke(IPC.TAB_LIST),
+    save: (tab) => ipcRenderer.invoke(IPC.TAB_SAVE, tab),
+    remove: (id) => ipcRenderer.invoke(IPC.TAB_DELETE, id)
+  }
+}
+
+contextBridge.exposeInMainWorld('reliquary', api)
