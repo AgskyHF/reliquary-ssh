@@ -12,7 +12,7 @@ are reserved in the protocol interface but not implemented yet.
 | 1 | Project skeleton, configs, shared types, base layout | done |
 | 2 | SSH adapter + xterm.js terminal | done |
 | 3 | Tabs and multi-session | done |
-| 4 | SFTP file manager | planned |
+| 4 | SFTP file manager | done |
 | 5 | Keychain (key generation, import, export) | planned |
 | 6 | Local storage (SQLite, repositories, outbox) | planned |
 | 7 | Backend + auth (Google OAuth PKCE, email/password) | planned |
