@@ -22,7 +22,9 @@
     "baseUrl": ".",
     "paths": {
       "@shared/*": ["shared/*"],
+      "@protocols": ["protocols/index.ts"],
       "@protocols/*": ["protocols/*"],
+      "@app": ["app/index.ts"],
       "@app/*": ["app/*"]
     }
   },

@@ -5,6 +5,7 @@ import react from '@vitejs/plugin-react'
 const alias = {
   '@shared': resolve(__dirname, 'shared'),
   '@app': resolve(__dirname, 'app'),
+  '@protocols/index': resolve(__dirname, 'protocols/index.ts'),
   '@protocols': resolve(__dirname, 'protocols')
 }
 
@@ -23,7 +24,13 @@ export default defineConfig({
     plugins: [externalizeDepsPlugin()],
     build: {
       rollupOptions: {
-        input: { index: resolve(__dirname, 'app/preload/index.ts') }
+        input: { index: resolve(__dirname, 'app/preload/index.ts') },
+        // Electron loads the preload through CommonJS require() — keep the
+        // .cjs extension so the path stays resolvable in the packaged app.
+        output: {
+          entryFileNames: '[name].cjs',
+          format: 'cjs'
+        }
       }
     }
   },

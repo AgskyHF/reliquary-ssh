@@ -1,0 +1,161 @@
+/* Terminal, connection form and shared button styles. */
+
+.terminal-panel {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+
+.terminal-panel--empty {
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-lg);
+}
+
+.terminal-panel__header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  padding: var(--space-sm) var(--space-lg);
+  border-bottom: 1px solid var(--color-border);
+  background: var(--color-bg-panel);
+}
+
+.terminal-panel__title {
+  font-family: var(--font-mono);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+}
+
+.terminal-view {
+  flex: 1;
+  min-height: 0;
+  padding: var(--space-sm);
+  background: var(--color-bg-main);
+}
+
+.terminal-view .xterm {
+  height: 100%;
+}
+
+/* ---- connect form ---- */
+.connect-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+  width: 360px;
+  max-width: 100%;
+  padding: var(--space-xl);
+  background: var(--color-bg-panel);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-md);
+}
+
+.connect-form__title {
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text);
+}
+
+.connect-form__error {
+  padding: var(--space-sm) var(--space-md);
+  font-size: var(--font-size-sm);
+  color: var(--color-danger);
+  background: var(--color-bg-input);
+  border: 1px solid var(--color-danger);
+  border-radius: var(--radius-sm);
+}
+
+.connect-form__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-sm);
+  margin-top: var(--space-xs);
+}
+
+/* ---- fields ---- */
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+}
+
+.field__label {
+  font-size: var(--font-size-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--color-text-faint);
+}
+
+.field__row {
+  display: flex;
+  gap: var(--space-sm);
+}
+
+.field__input {
+  flex: 1;
+  min-width: 0;
+  padding: var(--space-sm) var(--space-md);
+  color: var(--color-text);
+  background: var(--color-bg-input);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-md);
+  transition: border-color var(--transition-fast);
+}
+
+.field__input:focus {
+  outline: none;
+  border-color: var(--color-accent);
+  box-shadow: var(--focus-ring);
+}
+
+.field__toggle {
+  padding: 0 var(--space-md);
+  color: var(--color-text-muted);
+  background: var(--color-bg-elevated);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-sm);
+}
+
+.field__toggle:hover {
+  color: var(--color-text);
+  background: var(--color-bg-hover);
+}
+
+/* ---- buttons ---- */
+.button {
+  padding: var(--space-sm) var(--space-lg);
+  border-radius: var(--radius-sm);
+  border: 1px solid transparent;
+  font-size: var(--font-size-md);
+  transition: background var(--transition-fast);
+}
+
+.button--primary {
+  color: var(--color-text-inverse);
+  background: var(--color-accent);
+}
+
+.button--primary:hover:not(:disabled) {
+  background: var(--color-accent-hover);
+}
+
+.button--primary:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.button--ghost {
+  color: var(--color-text-muted);
+  background: transparent;
+  border-color: var(--color-border-strong);
+}
+
+.button--ghost:hover {
+  color: var(--color-text);
+  background: var(--color-bg-hover);
+}

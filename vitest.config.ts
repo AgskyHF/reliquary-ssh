@@ -6,7 +6,9 @@ export default defineConfig({
     alias: {
       '@shared': resolve(__dirname, 'shared'),
       '@app': resolve(__dirname, 'app'),
+      '@protocols/index': resolve(__dirname, 'protocols/index.ts'),
       '@protocols': resolve(__dirname, 'protocols'),
+      '@app/index': resolve(__dirname, 'app/index.ts'),
       '@renderer': resolve(__dirname, 'renderer/src')
     }
   },

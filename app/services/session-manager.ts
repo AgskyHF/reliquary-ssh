@@ -1,0 +1,119 @@
+/**
+ * Session manager — owns the live protocol adapters in the Electron main process.
+ * The renderer never holds a connection; it talks to sessions through IPC.
+ */
+import { EventEmitter } from 'node:events'
+import {
+  ProtocolType,
+  SessionState,
+  type ConnectionAdapter,
+  type ConnectionOptions
+} from '@shared/types'
+import { createAdapter } from '@protocols/index'
+
+export interface SessionManagerEvents {
+  data: { sessionId: string; chunk: string }
+  /**
+   * Named "session-error" instead of "error" on purpose: Node's EventEmitter
+   * treats an unhandled "error" event as a fatal throw.
+   */
+  sessionError: { sessionId: string; message: string }
+  state: { sessionId: string; state: SessionState }
+}
+
+interface ManagedSession {
+  id: string
+  adapter: ConnectionAdapter
+}
+
+/**
+ * Typed facade over EventEmitter.
+ * The class does not merge with an interface — the typed on/emit methods live
+ * here so eslint's no-unsafe-declaration-merging stays happy.
+ */
+export class SessionManager {
+  private readonly emitter = new EventEmitter()
+  private readonly sessions = new Map<string, ManagedSession>()
+
+  on<K extends keyof SessionManagerEvents>(
+    event: K,
+    listener: (payload: SessionManagerEvents[K]) => void
+  ): this {
+    this.emitter.on(event, listener)
+    return this
+  }
+
+  emit<K extends keyof SessionManagerEvents>(
+    event: K,
+    payload: SessionManagerEvents[K]
+  ): boolean {
+    return this.emitter.emit(event, payload)
+  }
+
+  list(): string[] {
+    return [...this.sessions.keys()]
+  }
+
+  async connect(
+    sessionId: string,
+    protocol: ProtocolType,
+    options: ConnectionOptions
+  ): Promise<void> {
+    if (this.sessions.has(sessionId)) {
+      throw new Error(`Session already exists: ${sessionId}`)
+    }
+
+    const adapter = createAdapter(protocol)
+    const managed: ManagedSession = { id: sessionId, adapter }
+    this.sessions.set(sessionId, managed)
+
+    adapter.on('data', (chunk: string) => {
+      this.emit('data', { sessionId, chunk })
+    })
+    adapter.on('error', (error: Error) => {
+      this.emit('sessionError', { sessionId, message: error.message })
+    })
+    adapter.on('close', () => {
+      this.emit('state', { sessionId, state: SessionState.CLOSED })
+      this.sessions.delete(sessionId)
+    })
+    adapter.on('state', (state: SessionState) => {
+      this.emit('state', { sessionId, state })
+    })
+
+    try {
+      await adapter.connect(options)
+    } catch (error) {
+      this.sessions.delete(sessionId)
+      throw error
+    }
+  }
+
+  write(sessionId: string, data: string): void {
+    const session = this.require(sessionId)
+    session.adapter.write?.(data)
+  }
+
+  resize(sessionId: string, cols: number, rows: number): void {
+    const session = this.require(sessionId)
+    session.adapter.resize?.(cols, rows)
+  }
+
+  async disconnect(sessionId: string): Promise<void> {
+    const session = this.sessions.get(sessionId)
+    if (!session) return
+    this.sessions.delete(sessionId)
+    await session.adapter.disconnect()
+  }
+
+  async disconnectAll(): Promise<void> {
+    await Promise.all([...this.sessions.values()].map((session) => session.adapter.disconnect()))
+    this.sessions.clear()
+  }
+
+  private require(sessionId: string): ManagedSession {
+    const session = this.sessions.get(sessionId)
+    if (!session) throw new Error(`Unknown session: ${sessionId}`)
+    return session
+  }
+}
