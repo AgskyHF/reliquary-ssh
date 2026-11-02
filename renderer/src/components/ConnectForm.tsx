@@ -12,6 +12,8 @@ export interface ConnectFormProps {
   onConnect: (values: ConnectFormValues) => void
   /** Called when the user cancels. */
   onCancel?: () => void
+  /** Pre-fills host/port/username (e.g. reconnecting a restored tab). */
+  initialValues?: Partial<ConnectFormValues>
   busy?: boolean
   error?: string | null
 }
@@ -26,8 +28,11 @@ const DEFAULT_VALUES: ConnectFormValues = {
 /**
  * Connection form. Plain and isolated — all logic stays in the parent component.
  */
-export function ConnectForm({ onConnect, onCancel, busy, error }: ConnectFormProps) {
-  const [values, setValues] = useState<ConnectFormValues>(DEFAULT_VALUES)
+export function ConnectForm({ onConnect, onCancel, initialValues, busy, error }: ConnectFormProps) {
+  const [values, setValues] = useState<ConnectFormValues>(() => ({
+    ...DEFAULT_VALUES,
+    ...initialValues
+  }))
   const [showPassword, setShowPassword] = useState(false)
   const formRef = useRef<HTMLFormElement | null>(null)
 

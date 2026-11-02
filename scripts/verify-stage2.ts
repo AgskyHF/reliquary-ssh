@@ -7,6 +7,9 @@
  * (renderer -> IPC -> main -> ssh2 -> remote shell -> renderer).
  */
 import { spawn, type ChildProcess } from 'node:child_process'
+import { mkdtempSync, rmSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 import { setTimeout as delay } from 'node:timers/promises'
 import { WebSocket } from 'ws'
 
@@ -26,9 +29,15 @@ async function startSshServer(): Promise<ChildProcess> {
   return proc
 }
 
-async function startElectron(): Promise<ChildProcess> {
-  const proc = spawn(`${APP_DIR}/node_modules/.bin/electron`, ['.', '--remote-debugging-port=9222'], {
+async function startElectron(userData: string): Promise<ChildProcess> {
+  // Launch the real binary, not the node shim — kill must take the app down.
+  const bin =
+    process.platform === 'darwin'
+      ? join(APP_DIR, 'node_modules/electron/dist/Electron.app/Contents/MacOS/Electron')
+      : join(APP_DIR, 'node_modules/.bin/electron')
+  const proc = spawn(bin, ['.', '--remote-debugging-port=9222'], {
     cwd: APP_DIR,
+    env: { ...process.env, RELIQUARY_USER_DATA: userData, RELIQUARY_OFFSCREEN: '1' },
     stdio: ['ignore', 'pipe', 'pipe']
   })
   proc.stdout?.on('data', (chunk) => process.stdout.write(`[app] ${chunk}`))
@@ -86,8 +95,9 @@ class CdpClient {
 }
 
 async function main(): Promise<void> {
+  const userData = mkdtempSync(join(tmpdir(), 'reliquary-stage2-'))
   const ssh = await startSshServer()
-  const app = await startElectron()
+  const app = await startElectron(userData)
 
   let exitCode = 1
 
@@ -257,6 +267,7 @@ async function main(): Promise<void> {
   } finally {
     app.kill('SIGTERM')
     ssh.kill('SIGTERM')
+    rmSync(userData, { recursive: true, force: true })
     await delay(500)
     process.exit(exitCode)
   }

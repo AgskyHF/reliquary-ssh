@@ -4,7 +4,7 @@
  * `renderer/src/services/api.ts`. Keeping it in /shared avoids the renderer
  * importing from /app.
  */
-import type { Host, SshKey, TabState } from './types'
+import type { Host, SshKey, TabLayoutInput, TabLayoutSnapshot } from './types'
 
 export interface AppInfo {
   name: string
@@ -72,8 +72,9 @@ export interface ReliquaryApi {
   }
 
   tab: {
-    list(): Promise<TabState[]>
-    save(tab: Partial<TabState>): Promise<TabState>
-    remove(id: string): Promise<void>
+    /** The layout saved on the last run (empty snapshot on first start). */
+    load(): Promise<TabLayoutSnapshot>
+    /** Persist the current layout; main stamps savedAt and deviceId. */
+    save(input: TabLayoutInput): Promise<TabLayoutSnapshot>
   }
 }

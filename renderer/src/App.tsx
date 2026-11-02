@@ -1,10 +1,10 @@
 import { AppShell } from './components/layout/AppShell'
-import { TerminalPanel } from './components/TerminalPanel'
+import { TabsWorkspace } from './components/tabs/TabsWorkspace'
 
 export default function App() {
   return (
     <AppShell>
-      <TerminalPanel />
+      <TabsWorkspace />
     </AppShell>
   )
 }

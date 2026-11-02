@@ -3,11 +3,27 @@
  * Usage: node --experimental-strip-types scripts/test-ssh-server.ts [port]
  */
 import ssh2 from 'ssh2'
+import type { Socket } from 'node:net'
 
 const { Server, utils } = ssh2
 
 const port = Number(process.argv[2] ?? 2222)
 const HOST_KEY = utils.generateKeyPairSync('ed25519')
+let shellCounter = 0
+const sockets: Socket[] = []
+
+// SIGUSR2 -> RST every live connection: reproduces a mid-session
+// ECONNRESET so the harness can prove the app survives it without a crash.
+process.on('SIGUSR2', () => {
+  for (const socket of [...sockets]) {
+    try {
+      socket.resetAndDestroy()
+    } catch {
+      // already gone
+    }
+  }
+  console.log(`RST ${sockets.length} connection(s)`)
+})
 
 const server = new Server({ hostKeys: [HOST_KEY.private] }, (client) => {
   client.on('authentication', (ctx) => {
@@ -29,7 +45,9 @@ const server = new Server({ hostKeys: [HOST_KEY.private] }, (client) => {
         const stream = acceptShell()
         let lineBuffer = ''
 
+        shellCounter += 1
         stream.write('\x1b[32mWelcome to ReliquarySSH test server\x1b[0m\r\n')
+        stream.write(`Session-Id: test-${shellCounter}\r\n`)
         stream.write('OS: test-linux\r\n')
         stream.write('$ ')
 
@@ -68,4 +86,13 @@ const server = new Server({ hostKeys: [HOST_KEY.private] }, (client) => {
 
 server.listen(port, '127.0.0.1', () => {
   console.log(`Test SSH server listening on 127.0.0.1:${port} (tester/secret)`)
+  // ssh2 keeps its net.Server private as `_srv`; hook it to track raw sockets.
+  const raw = (server as unknown as { _srv: { on(e: 'connection', l: (s: Socket) => void): void } })._srv
+  raw.on('connection', (socket) => {
+    sockets.push(socket)
+    socket.on('close', () => {
+      const index = sockets.indexOf(socket)
+      if (index >= 0) sockets.splice(index, 1)
+    })
+  })
 })

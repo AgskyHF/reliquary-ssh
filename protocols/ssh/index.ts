@@ -27,6 +27,7 @@ export class SshAdapter extends BaseAdapter {
 
   private client: Client | null = null
   private shell: ClientChannel | null = null
+  private closing = false
   private readonly term: string
   private cols: number
   private rows: number
@@ -66,7 +67,7 @@ export class SshAdapter extends BaseAdapter {
     this.client = client
 
     await new Promise<void>((resolve, reject) => {
-      const onError = (error: Error) => {
+      const onFatal = (error: Error) => {
         cleanup()
         this.client = null
         this.setState(SessionState.ERROR)
@@ -81,12 +82,29 @@ export class SshAdapter extends BaseAdapter {
 
       const cleanup = () => {
         client.off('ready', onReady)
-        client.off('error', onError)
+        client.off('error', onFatal)
       }
 
       client.once('ready', onReady)
-      client.once('error', onError)
+      client.once('error', onFatal)
       client.connect(config)
+    })
+
+    // The handshake listeners above are one-shot. For the rest of the
+    // connection's life the Client must keep 'error'/'close' listeners:
+    // without them a socket reset mid-session (read ECONNRESET thrown from
+    // TCP.onStreamRead) becomes an uncaught exception and Electron shows the
+    // fatal main-process error dialog instead of a reconnect prompt.
+    client.on('error', (error: Error) => {
+      if (this.closing) return
+      this.emitter.emit('error', error)
+      this.emitter.emit('close', undefined)
+    })
+    client.on('close', () => {
+      if (this.closing) return
+      this.shell = null
+      this.setState(SessionState.CLOSED)
+      this.emitter.emit('close', undefined)
     })
 
     this.setState(SessionState.CONNECTED)
@@ -105,6 +123,12 @@ export class SshAdapter extends BaseAdapter {
 
           this.shell = channel
 
+          // A channel-level error with no listener would also crash the
+          // process; surface it through the adapter instead.
+          channel.on('error', (error: Error) => {
+            if (!this.closing) this.emitter.emit('error', error)
+          })
+
           channel.on('data', (chunk: Buffer) => {
             this.emitter.emit('data', chunk.toString('utf8'))
           })
@@ -114,10 +138,14 @@ export class SshAdapter extends BaseAdapter {
           })
 
           channel.on('close', () => {
+            if (this.closing) return
             this.shell = null
             this.setState(SessionState.CLOSED)
             this.emitter.emit('close', undefined)
           })
+
+          // If the connection dies while the shell is opening, fail connect().
+          client.once('error', reject)
 
           resolve()
         }
@@ -138,6 +166,7 @@ export class SshAdapter extends BaseAdapter {
 
   async disconnect(): Promise<void> {
     if (this.currentState === SessionState.CLOSED) return
+    this.closing = true
     this.setState(SessionState.CLOSING)
 
     try {

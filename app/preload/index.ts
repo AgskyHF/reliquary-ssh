@@ -47,9 +47,8 @@ const api: ReliquaryApi = {
   },
 
   tab: {
-    list: () => ipcRenderer.invoke(IPC.TAB_LIST),
-    save: (tab) => ipcRenderer.invoke(IPC.TAB_SAVE, tab),
-    remove: (id) => ipcRenderer.invoke(IPC.TAB_DELETE, id)
+    load: () => ipcRenderer.invoke(IPC.TAB_SNAPSHOT_LOAD),
+    save: (input) => ipcRenderer.invoke(IPC.TAB_SNAPSHOT_SAVE, input)
   }
 }
 

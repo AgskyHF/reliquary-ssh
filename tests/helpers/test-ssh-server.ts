@@ -4,6 +4,7 @@
  * exercised end to end instead of against a mock.
  */
 import { Server, utils } from 'ssh2'
+import { createServer, type Socket } from 'node:net'
 
 export interface TestSshServer {
   port: number
@@ -11,6 +12,8 @@ export interface TestSshServer {
   username: string
   password: string
   close(): Promise<void>
+  /** RST every established TCP connection — simulates a mid-session network cut. */
+  resetConnections(): void
 }
 
 const HOST_KEY = utils.generateKeyPairSync('ed25519')
@@ -19,6 +22,7 @@ const HOST_KEY = utils.generateKeyPairSync('ed25519')
  * The shell echoes back a fixed banner and a prompt, and responds to "echo <text>".
  */
 export async function startTestSshServer(): Promise<TestSshServer> {
+  const sockets: Socket[] = []
   const sshServer = new Server({ hostKeys: [HOST_KEY.private] }, (client) => {
     client.on('authentication', (ctx) => {
       if (ctx.method === 'password' && ctx.username === 'tester' && ctx.password === 'secret') {
@@ -65,6 +69,16 @@ export async function startTestSshServer(): Promise<TestSshServer> {
   })
 
   const port = await new Promise<number>((resolve, reject) => {
+    // Track raw TCP sockets through ssh2's internal net.Server (private
+    // `_srv`): needed to force RSTs that reproduce mid-session ECONNRESET.
+    const raw = (sshServer as unknown as { _srv: ReturnType<typeof createServer> })._srv
+    raw.on('connection', (socket) => {
+      sockets.push(socket)
+      socket.on('close', () => {
+        const index = sockets.indexOf(socket)
+        if (index >= 0) sockets.splice(index, 1)
+      })
+    })
     sshServer.once('error', reject)
     sshServer.listen(0, '127.0.0.1', () => {
       const address = sshServer.address()
@@ -82,6 +96,15 @@ export async function startTestSshServer(): Promise<TestSshServer> {
     close: () =>
       new Promise<void>((resolve) => {
         sshServer.close(() => resolve())
-      })
+      }),
+    resetConnections: () => {
+      for (const socket of [...sockets]) {
+        try {
+          socket.resetAndDestroy()
+        } catch {
+          // Already destroyed — nothing to reset.
+        }
+      }
+    }
   }
 }

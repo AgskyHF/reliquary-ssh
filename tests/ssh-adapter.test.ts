@@ -1,4 +1,4 @@
-import { afterAll, beforeAll, describe, expect, it } from 'vitest'
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
 import { AuthMethod, ProtocolType, SessionState } from '@shared/types'
 import { SshAdapter } from '@protocols/ssh'
 import { startTestSshServer, type TestSshServer } from './helpers/test-ssh-server'
@@ -73,6 +73,34 @@ describe('SshAdapter against a real SSH server', () => {
     expect(chunks.join('')).toContain('hello-reliquary')
 
     await adapter.disconnect()
+  })
+
+  it('survives a mid-session connection reset (ECONNRESET) instead of crashing', async () => {
+    const adapter = new SshAdapter()
+    const errors: Error[] = []
+    const events: string[] = []
+    adapter.on('error', (error) => errors.push(error))
+    adapter.on('close', () => events.push('close'))
+
+    await adapter.connect({
+      host: server.host,
+      port: server.port,
+      username: server.username,
+      authMethod: AuthMethod.PASSWORD,
+      password: server.password
+    })
+
+    // Server RSTs the socket: the Client emits 'error' mid-session. Before
+    // the permanent error listener existed, this was an uncaught exception.
+    server.resetConnections()
+
+    await vi.waitFor(
+      () => {
+        expect(errors.length).toBeGreaterThan(0)
+        expect(events).toContain('close')
+      },
+      { timeout: 3000 }
+    )
   })
 
   it('reports the protocol and terminal capability', () => {

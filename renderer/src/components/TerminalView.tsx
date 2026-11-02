@@ -71,18 +71,23 @@ export function TerminalView({
     const fit = new FitAddon()
     terminal.loadAddon(fit)
 
-    terminal.open(container)
-    fit.fit()
-
-    const dataDisposable = terminal.onData((data) => inputRef.current(data))
-    const resizeObserver = new ResizeObserver(() => {
+    const fitIfVisible = (): void => {
+      // Hidden tabs have a zero-size container — fitting there would shrink
+      // the PTY to 2x1. The ResizeObserver refits once the pane is shown.
+      if (container.clientWidth < 2 || container.clientHeight < 2) return
       try {
         fit.fit()
         resizeRef.current?.(terminal.cols, terminal.rows)
       } catch {
         // The terminal can be detached mid-resize; ignoring is safe here.
       }
-    })
+    }
+
+    terminal.open(container)
+    fitIfVisible()
+
+    const dataDisposable = terminal.onData((data) => inputRef.current(data))
+    const resizeObserver = new ResizeObserver(() => fitIfVisible())
     resizeObserver.observe(container)
 
     readyRef.current?.(terminal)

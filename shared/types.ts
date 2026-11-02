@@ -95,6 +95,13 @@ export interface Host {
   deviceId: string
 }
 
+/** Remote endpoint of a tab session. Contains no credentials. */
+export interface ConnectionTarget {
+  host: string
+  port: number
+  username: string
+}
+
 /** Persisted tab state — restored on next app start. */
 export interface TabState {
   id: string
@@ -102,6 +109,8 @@ export interface TabState {
   title: string
   /** Host id for remote tabs; null for the local terminal. */
   hostId: string | null
+  /** Last endpoint used by the tab (no credentials) — prefills the reconnect form. */
+  connection: ConnectionTarget | null
   /** Serialized terminal buffer, so the session can be visually restored. */
   buffer: string
   createdAt: string
@@ -110,6 +119,17 @@ export interface TabState {
   version: number
   deviceId: string
 }
+
+/** Persisted tab layout: which tabs were open and which one was active. */
+export interface TabLayoutSnapshot {
+  tabs: TabState[]
+  activeTabId: string | null
+  savedAt: string
+  deviceId: string
+}
+
+/** What the renderer sends when saving the layout — main stamps deviceId/savedAt. */
+export type TabLayoutInput = Pick<TabLayoutSnapshot, 'tabs' | 'activeTabId'>
 
 /** Encrypted sync payload. Format is fixed by the sync contract. */
 export interface SyncBlob {
@@ -219,9 +239,8 @@ export const IPC = {
   SESSION_DATA: 'session:data',
   SESSION_STATE: 'session:state',
   SESSION_ERROR: 'session:error',
-  TAB_LIST: 'tab:list',
-  TAB_SAVE: 'tab:save',
-  TAB_DELETE: 'tab:delete',
+  TAB_SNAPSHOT_LOAD: 'tab:snapshot:load',
+  TAB_SNAPSHOT_SAVE: 'tab:snapshot:save',
   SFTP_LIST: 'sftp:list',
   SFTP_DOWNLOAD: 'sftp:download',
   SFTP_UPLOAD: 'sftp:upload',

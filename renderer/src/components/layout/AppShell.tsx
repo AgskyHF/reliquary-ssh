@@ -6,16 +6,15 @@ interface AppShellProps {
 
 /**
  * Root layout: TopBar + Sidebar + MainArea.
- * New panels/tabs are added inside the regions below — the shell itself stays untouched.
+ * The MainArea content (tabs, panels) is owned by the children —
+ * new panels are added inside the regions below, the shell stays untouched.
  */
 export function AppShell({ children }: AppShellProps) {
   return (
     <div className="app-shell">
       <TopBar />
       <Sidebar />
-      <main className="app-shell__main">
-        <MainArea>{children}</MainArea>
-      </main>
+      <main className="app-shell__main">{children}</main>
     </div>
   )
 }
@@ -59,29 +58,5 @@ function Sidebar() {
         <div className="sidebar__empty">No hosts yet</div>
       </div>
     </aside>
-  )
-}
-
-function MainArea({ children }: AppShellProps) {
-  return (
-    <section className="main-area">
-      <div className="main-area__tabs">
-        <div className="tab-bar">
-          <div className="tab-bar__empty">No open sessions</div>
-        </div>
-      </div>
-      <div className="main-area__content">{children ?? <EmptyState />}</div>
-    </section>
-  )
-}
-
-function EmptyState() {
-  return (
-    <div className="empty-state">
-      <div className="empty-state__title">Welcome to ReliquarySSH</div>
-      <div className="empty-state__text">
-        Add a host from the sidebar to start a terminal session.
-      </div>
-    </div>
   )
 }
