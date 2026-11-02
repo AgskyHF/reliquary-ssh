@@ -9,9 +9,9 @@ are reserved in the protocol interface but not implemented yet.
 
 | Stage | Scope | State |
 | --- | --- | --- |
-| 1 | Project skeleton, configs, shared types, base layout | in progress |
-| 2 | SSH adapter + xterm.js terminal | planned |
-| 3 | Tabs and multi-session | planned |
+| 1 | Project skeleton, configs, shared types, base layout | done |
+| 2 | SSH adapter + xterm.js terminal | done |
+| 3 | Tabs and multi-session | done |
 | 4 | SFTP file manager | planned |
 | 5 | Keychain (key generation, import, export) | planned |
 | 6 | Local storage (SQLite, repositories, outbox) | planned |
@@ -19,7 +19,7 @@ are reserved in the protocol interface but not implemented yet.
 | 8 | E2EE + sync | planned |
 | 9 | Polish, packaging, roadmap | planned |
 
-See `docs/` for the per-stage reports.
+Per-stage reports live in the Obsidian vault, under `GitHubProjects/ReliquarySSH/`.
 
 ## Architecture
 
