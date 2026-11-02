@@ -97,4 +97,11 @@ describe('SessionManager against a real SSH server', () => {
 
     expect(manager.list()).toEqual([])
   })
+
+  it('ignores writes and resizes for unknown sessions', async () => {
+    // A restored tab is not connected yet, but the renderer still sends
+    // keystrokes and resize events for it. These must not throw.
+    expect(() => manager.write('ghost-session', 'echo nope\n')).not.toThrow()
+    expect(() => manager.resize('ghost-session', 80, 24)).not.toThrow()
+  })
 })

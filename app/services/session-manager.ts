@@ -89,14 +89,18 @@ export class SessionManager {
     }
   }
 
+  /**
+   * Writes to a session. A session that is gone (closed tab, restored tab
+   * that is not connected yet) is silently ignored: the renderer may still
+   * send keystrokes or resize events for a session that no longer exists,
+   * and that must not raise an error in the main process.
+   */
   write(sessionId: string, data: string): void {
-    const session = this.require(sessionId)
-    session.adapter.write?.(data)
+    this.sessions.get(sessionId)?.adapter.write?.(data)
   }
 
   resize(sessionId: string, cols: number, rows: number): void {
-    const session = this.require(sessionId)
-    session.adapter.resize?.(cols, rows)
+    this.sessions.get(sessionId)?.adapter.resize?.(cols, rows)
   }
 
   async disconnect(sessionId: string): Promise<void> {
@@ -109,11 +113,5 @@ export class SessionManager {
   async disconnectAll(): Promise<void> {
     await Promise.all([...this.sessions.values()].map((session) => session.adapter.disconnect()))
     this.sessions.clear()
-  }
-
-  private require(sessionId: string): ManagedSession {
-    const session = this.sessions.get(sessionId)
-    if (!session) throw new Error(`Unknown session: ${sessionId}`)
-    return session
   }
 }
