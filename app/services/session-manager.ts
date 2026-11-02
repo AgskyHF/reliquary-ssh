@@ -7,7 +7,10 @@ import {
   ProtocolType,
   SessionState,
   type ConnectionAdapter,
-  type ConnectionOptions
+  type ConnectionOptions,
+  type FileManagerAdapter,
+  type FileTransferRequest,
+  type RemoteListing
 } from '@shared/types'
 import { createAdapter } from '@protocols/index'
 
@@ -113,5 +116,37 @@ export class SessionManager {
   async disconnectAll(): Promise<void> {
     await Promise.all([...this.sessions.values()].map((session) => session.adapter.disconnect()))
     this.sessions.clear()
+  }
+
+  /** Lists a remote directory of a file-manager session. */
+  async listFiles(sessionId: string, path: string): Promise<RemoteListing> {
+    return this.requireFileManager(sessionId).list(path)
+  }
+
+  /** Downloads a remote file to a local path. */
+  async download(sessionId: string, request: FileTransferRequest): Promise<string> {
+    return this.requireFileManager(sessionId).download(request)
+  }
+
+  /** Uploads a local file to a remote path. */
+  async upload(sessionId: string, request: FileTransferRequest): Promise<string> {
+    return this.requireFileManager(sessionId).upload(request)
+  }
+
+  /** The directory a file-manager session currently sits in. */
+  cwd(sessionId: string): string {
+    return this.requireFileManager(sessionId).cwd
+  }
+
+  private requireFileManager(sessionId: string): FileManagerAdapter {
+    const session = this.sessions.get(sessionId)
+    if (!session) throw new Error(`Unknown session: ${sessionId}`)
+
+    const adapter = session.adapter as Partial<FileManagerAdapter>
+    if (typeof adapter.list !== 'function' || typeof adapter.download !== 'function') {
+      throw new Error(`Session ${sessionId} is not a file manager session`)
+    }
+
+    return adapter as FileManagerAdapter
   }
 }

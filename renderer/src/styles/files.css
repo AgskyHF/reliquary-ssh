@@ -1,0 +1,137 @@
+/*
+ * File manager styles (SFTP and later FTP).
+ * Only theme variables — no hardcoded colors, spacing or fonts.
+ */
+
+.file-manager {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+
+.file-manager__toolbar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  padding: var(--space-sm) var(--space-lg);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.file-manager__path {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  direction: rtl;
+  text-align: left;
+  font-family: var(--font-mono);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+}
+
+.file-manager__status {
+  padding: var(--space-xs) var(--space-lg);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.file-manager__status--error {
+  color: var(--color-danger);
+}
+
+.file-manager__list {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+}
+
+.file-manager__row {
+  display: grid;
+  grid-template-columns: minmax(0, 3fr) 90px 70px 120px 100px;
+  align-items: center;
+  gap: var(--space-md);
+  padding: var(--space-xs) var(--space-lg);
+  font-size: var(--font-size-sm);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.file-manager__row:hover:not(.file-manager__row--head) {
+  background: var(--color-bg-hover);
+}
+
+.file-manager__row--selected {
+  background: var(--color-bg-selected);
+}
+
+.file-manager__row--head {
+  position: sticky;
+  top: 0;
+  z-index: var(--z-sticky);
+  font-size: var(--font-size-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--color-text-faint);
+  background: var(--color-bg-panel);
+}
+
+.file-manager__cell {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.file-manager__cell--name {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+.file-manager__cell--size,
+.file-manager__cell--mode,
+.file-manager__cell--date {
+  color: var(--color-text-muted);
+  font-family: var(--font-mono);
+  font-size: var(--font-size-xs);
+}
+
+.file-manager__cell--actions {
+  text-align: right;
+}
+
+.file-manager__icon {
+  flex: none;
+}
+
+.file-manager__empty {
+  padding: var(--space-xl);
+  text-align: center;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-faint);
+}
+
+/* ---- protocol switch on the connect form ---- */
+.protocol-switch {
+  display: inline-flex;
+  padding: var(--space-xs);
+  background: var(--color-bg-input);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+}
+
+.protocol-switch__option {
+  padding: var(--space-xs) var(--space-md);
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: 0.06em;
+  color: var(--color-text-faint);
+  transition: background var(--transition-fast), color var(--transition-fast);
+}
+
+.protocol-switch__option--active {
+  color: var(--color-text-inverse);
+  background: var(--color-accent);
+}

@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { Terminal } from '@xterm/xterm'
 import type { TabPatch } from '@shared/tabs-model'
-import type { TabState } from '@shared/types'
+import { TabKind, type TabState } from '@shared/types'
 import { api } from '../../services/api'
 import { useSession, type SessionStatus } from '../../hooks/useSession'
 import { TerminalView } from '../TerminalView'
 import { ConnectForm, type ConnectFormValues } from '../ConnectForm'
+import { FileManager } from '../files/FileManager'
 
 const RESTORE_NOTE = '\r\n— restored from previous session; reconnect to continue —\r\n'
 
@@ -35,6 +36,8 @@ function serializeTerminal(terminal: Terminal | null): string {
  * One tab = one independent session. The component owns its xterm instance,
  * its subscription (filtered by sessionId inside useSession) and its
  * reconnect flow. Hidden tabs stay mounted so their terminal state survives.
+ *
+ * An SFTP tab has no terminal at all — it renders the FileManager instead.
  */
 export function SessionTab({
   tab,
@@ -44,6 +47,7 @@ export function SessionTab({
   onActivity
 }: SessionTabProps) {
   const sessionId = tab.id
+  const isFileManager = tab.kind === TabKind.SFTP
 
   const terminalRef = useRef<Terminal | null>(null)
   // Output that arrives before the terminal is mounted is buffered and replayed.
@@ -56,6 +60,9 @@ export function SessionTab({
   const [hideRestored, setHideRestored] = useState(false)
   const [connecting, setConnecting] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [protocol, setProtocol] = useState<'ssh' | 'sftp'>(
+    isFileManager ? 'sftp' : 'ssh'
+  )
 
   const handleData = useCallback(
     (chunk: string) => {
@@ -112,6 +119,7 @@ export function SessionTab({
       try {
         await api.session.connect({
           sessionId,
+          protocol: values.protocol,
           host: values.host,
           port: values.port,
           username: values.username,
@@ -121,7 +129,9 @@ export function SessionTab({
         everConnectedRef.current = true
         setConnected(true)
         setHideRestored(false)
+        setProtocol(values.protocol)
         onPatch({
+          kind: values.protocol === 'sftp' ? TabKind.SFTP : TabKind.SSH,
           title: `${values.username}@${values.host}`,
           connection: { host: values.host, port: values.port, username: values.username }
         })
@@ -147,13 +157,39 @@ export function SessionTab({
       }
     : undefined
 
-  const showForm = !connected && (hideRestored || !hadRestoredBuffer)
+  // A file-manager tab has no terminal buffer to restore, so it always
+  // shows the connect form until the session is up.
+  const showForm = !connected && (isFileManager || hideRestored || !hadRestoredBuffer)
   const showRestored = !connected && hadRestoredBuffer && !hideRestored
 
   if (showForm) {
     return (
       <div className="terminal-panel terminal-panel--empty">
-        <ConnectForm onConnect={connect} busy={connecting} error={error} initialValues={initialValues} />
+        <ConnectForm
+          onConnect={connect}
+          busy={connecting}
+          error={error}
+          initialValues={initialValues}
+          protocol={protocol}
+          allowProtocolSwitch={!isFileManager}
+        />
+      </div>
+    )
+  }
+
+  if (isFileManager) {
+    return (
+      <div className="terminal-panel">
+        <div className="terminal-panel__header">
+          <span className="terminal-panel__title">{tab.title}</span>
+          <span
+            className={`status-dot status-dot--${status.state === 'connected' ? 'ok' : 'idle'}`}
+          />
+          <button type="button" className="button button--ghost" onClick={closeSession}>
+            Disconnect
+          </button>
+        </div>
+        <FileManager sessionId={sessionId} onError={setError} />
       </div>
     )
   }
@@ -184,7 +220,14 @@ export function SessionTab({
       )}
       {showRestored ? (
         <div className="reconnect-form-wrap">
-          <ConnectForm onConnect={connect} busy={connecting} error={error} initialValues={initialValues} />
+          <ConnectForm
+            onConnect={connect}
+            busy={connecting}
+            error={error}
+            initialValues={initialValues}
+            protocol={protocol}
+            allowProtocolSwitch
+          />
         </div>
       ) : null}
       <TerminalView

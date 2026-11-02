@@ -5,7 +5,11 @@ export interface ConnectFormValues {
   port: number
   username: string
   password: string
+  /** Protocol the user picked in the form (SSH when the switch is hidden). */
+  protocol: ConnectProtocol
 }
+
+export type ConnectProtocol = 'ssh' | 'sftp'
 
 export interface ConnectFormProps {
   /** Called with the entered values when the user submits the form. */
@@ -14,6 +18,10 @@ export interface ConnectFormProps {
   onCancel?: () => void
   /** Pre-fills host/port/username (e.g. reconnecting a restored tab). */
   initialValues?: Partial<ConnectFormValues>
+  /** Protocol the form connects with; SSH when omitted. */
+  protocol?: ConnectProtocol
+  /** Shows the SSH/SFTP switch. */
+  allowProtocolSwitch?: boolean
   busy?: boolean
   error?: string | null
 }
@@ -22,17 +30,27 @@ const DEFAULT_VALUES: ConnectFormValues = {
   host: '127.0.0.1',
   port: 22,
   username: '',
-  password: ''
+  password: '',
+  protocol: 'ssh'
 }
 
 /**
  * Connection form. Plain and isolated — all logic stays in the parent component.
  */
-export function ConnectForm({ onConnect, onCancel, initialValues, busy, error }: ConnectFormProps) {
+export function ConnectForm({
+  onConnect,
+  onCancel,
+  initialValues,
+  protocol = 'ssh',
+  allowProtocolSwitch = false,
+  busy,
+  error
+}: ConnectFormProps) {
   const [values, setValues] = useState<ConnectFormValues>(() => ({
     ...DEFAULT_VALUES,
     ...initialValues
   }))
+  const [selectedProtocol, setSelectedProtocol] = useState<ConnectProtocol>(protocol)
   const [showPassword, setShowPassword] = useState(false)
   const formRef = useRef<HTMLFormElement | null>(null)
 
@@ -54,14 +72,33 @@ export function ConnectForm({ onConnect, onCancel, initialValues, busy, error }:
     (event: FormEvent<HTMLFormElement>) => {
       event.preventDefault()
       if (!values.host || !values.username) return
-      onConnect(values)
+      onConnect({ ...values, protocol: selectedProtocol })
     },
-    [onConnect, values]
+    [onConnect, selectedProtocol, values]
   )
 
   return (
     <form className="connect-form" ref={formRef} onSubmit={submit}>
-      <div className="connect-form__title">New SSH connection</div>
+      <div className="connect-form__title">New connection</div>
+
+      {allowProtocolSwitch ? (
+        <div className="protocol-switch" role="radiogroup" aria-label="Protocol">
+          {(['ssh', 'sftp'] as const).map((item) => (
+            <button
+              key={item}
+              type="button"
+              role="radio"
+              aria-checked={selectedProtocol === item}
+              className={`protocol-switch__option${
+                selectedProtocol === item ? ' protocol-switch__option--active' : ''
+              }`}
+              onClick={() => setSelectedProtocol(item)}
+            >
+              {item.toUpperCase()}
+            </button>
+          ))}
+        </div>
+      ) : null}
 
       <label className="field">
         <span className="field__label">Host</span>

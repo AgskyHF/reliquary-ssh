@@ -174,6 +174,61 @@ export interface ConnectionOptions {
 }
 
 /**
+ * A single entry of a remote directory listing.
+ * Mirrors the subset of ssh2-sftp-client's FileInfo the UI needs.
+ */
+export interface RemoteFileEntry {
+  /** File name without the directory part. */
+  name: string
+  /** Absolute remote path. */
+  path: string
+  /** 'd' = directory, '-' = regular file, 'l' = symlink. */
+  type: 'd' | '-' | 'l'
+  /** Size in bytes; 0 for directories. */
+  size: number
+  /** Modification time, ISO string. */
+  modifiedAt: string
+  /** Unix permissions in octal, e.g. "644". */
+  mode: string
+}
+
+/** Result of a directory listing request. */
+export interface RemoteListing {
+  /** Absolute path of the listed directory. */
+  path: string
+  /** Absolute path of the parent directory (".." goes up). */
+  parentPath: string
+  entries: RemoteFileEntry[]
+}
+
+/**
+ * Connection options for a file-manager session (SFTP/FTP).
+ * The adapter owns the transfer; the renderer only asks for a path.
+ */
+export interface FileTransferRequest {
+  /** Remote path (for downloads) — relative paths are resolved against cwd. */
+  remotePath?: string
+  /** Absolute local path (for uploads/downloads). */
+  localPath?: string
+}
+
+/**
+ * Adapters that expose a remote file system.
+ * Implemented by SFTP (and later FTP); the UI talks to them through the
+ * same session id it uses for terminals.
+ */
+export interface FileManagerAdapter extends ConnectionAdapter {
+  /** Lists a directory. */
+  list(remotePath: string): Promise<RemoteListing>
+  /** Downloads a remote file to a local path. */
+  download(request: FileTransferRequest): Promise<string>
+  /** Uploads a local file to a remote path. */
+  upload(request: FileTransferRequest): Promise<string>
+  /** The directory the session starts in. */
+  readonly cwd: string
+}
+
+/**
  * Common interface for every protocol adapter.
  * Adapters live in /protocols/<name>/ and are registered in the main process.
  */
@@ -239,6 +294,11 @@ export const IPC = {
   SESSION_DATA: 'session:data',
   SESSION_STATE: 'session:state',
   SESSION_ERROR: 'session:error',
+  FILE_LIST: 'file:list',
+  FILE_DOWNLOAD: 'file:download',
+  FILE_UPLOAD: 'file:upload',
+  FILE_CWD: 'file:cwd',
+  FILE_PICK_LOCAL: 'file:pickLocal',
   TAB_SNAPSHOT_LOAD: 'tab:snapshot:load',
   TAB_SNAPSHOT_SAVE: 'tab:snapshot:save',
   SFTP_LIST: 'sftp:list',

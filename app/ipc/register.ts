@@ -1,5 +1,5 @@
 /** IPC handlers registered in the main process. */
-import { app, ipcMain } from 'electron'
+import { app, BrowserWindow, dialog, ipcMain } from 'electron'
 import { join } from 'node:path'
 import { AuthMethod, IPC, ProtocolType, type ConnectionOptions, type TabLayoutInput } from '@shared/types'
 import type { ConnectRequest } from '@shared/api'
@@ -52,7 +52,10 @@ export function registerIpcHandlers(): void {
         timeoutMs: 20_000
       }
 
-      await sessionManager.connect(request.sessionId, ProtocolType.SSH, options)
+      const protocol =
+        request.protocol === 'sftp' ? ProtocolType.SFTP : ProtocolType.SSH
+
+      await sessionManager.connect(request.sessionId, protocol, options)
     }
   )
 
@@ -75,9 +78,62 @@ export function registerIpcHandlers(): void {
   })
 
   ipcMain.handle(IPC.TAB_SNAPSHOT_LOAD, async () => getTabStore().load())
-
   ipcMain.handle(IPC.TAB_SNAPSHOT_SAVE, async (_event, input: TabLayoutInput) =>
     getTabStore().save(input)
+  )
+
+  ipcMain.handle(
+    IPC.FILE_LIST,
+    async (_event, payload: { sessionId: string; path: string }) =>
+      sessionManager.listFiles(payload.sessionId, payload.path)
+  )
+
+  ipcMain.handle(
+    IPC.FILE_DOWNLOAD,
+    async (
+      _event,
+      payload: { sessionId: string; remotePath: string; localPath: string }
+    ) => sessionManager.download(payload.sessionId, payload)
+  )
+
+  ipcMain.handle(
+    IPC.FILE_UPLOAD,
+    async (
+      _event,
+      payload: { sessionId: string; remotePath: string; localPath: string }
+    ) => sessionManager.upload(payload.sessionId, payload)
+  )
+
+  ipcMain.handle(IPC.FILE_CWD, async (_event, sessionId: string) =>
+    sessionManager.cwd(sessionId)
+  )
+
+  // Native file picker — the only place the app touches the OS dialog.
+  // dialog.showOpenDialog/showSaveDialog are cross-platform Electron APIs.
+  ipcMain.handle(
+    IPC.FILE_PICK_LOCAL,
+    async (
+      _event,
+      payload: { mode: 'open' | 'save'; defaultPath?: string }
+    ): Promise<string | null> => {
+      const window = BrowserWindow.getFocusedWindow() ?? BrowserWindow.getAllWindows()[0]
+      if (!window) return null
+
+      if (payload.mode === 'save') {
+        const result = await dialog.showSaveDialog(window, {
+          defaultPath: payload.defaultPath,
+          title: 'Choose where to save the file'
+        })
+        return result.canceled ? null : (result.filePath ?? null)
+      }
+
+      const result = await dialog.showOpenDialog(window, {
+        defaultPath: payload.defaultPath,
+        title: 'Choose a file',
+        properties: ['openFile']
+      })
+      return result.canceled ? null : (result.filePaths[0] ?? null)
+    }
   )
 
   // Host / key handlers are wired in later stages.
