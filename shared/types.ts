@@ -304,6 +304,7 @@ export const IPC = {
   HOST_LIST: 'host:list',
   HOST_SAVE: 'host:save',
   HOST_DELETE: 'host:delete',
+  CHANGES_PENDING_COUNT: 'changes:pendingCount',
   KEY_LIST: 'key:list',
   KEY_GENERATE: 'key:generate',
   KEY_IMPORT: 'key:import',

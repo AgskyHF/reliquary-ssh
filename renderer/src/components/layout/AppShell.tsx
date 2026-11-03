@@ -1,5 +1,6 @@
 import { useCallback, useState, type ReactNode } from 'react'
 import { KeychainPanel } from '../keys/KeychainPanel'
+import { HostList } from '../hosts/HostList'
 
 interface AppShellProps {
   children?: ReactNode
@@ -88,7 +89,7 @@ function Sidebar({
       ) : section === 'hosts' ? (
         <div className="sidebar__section">
           <div className="sidebar__section-header">Hosts</div>
-          <div className="sidebar__empty">No hosts yet</div>
+          <HostList />
         </div>
       ) : (
         <div className="sidebar__section">

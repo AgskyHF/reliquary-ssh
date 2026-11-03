@@ -6,23 +6,26 @@ import { join } from 'node:path'
 import { utils as sshUtils } from 'ssh2'
 import { KeyType } from '@shared/types'
 import { KeychainService, fingerprintFromPublicKey } from '@app/services/keychain'
-import { JsonFileKeyRepository } from '@app/services/key-store'
+import { SqliteKeyRepository, openDatabase } from '@app/services/database'
 import { MasterPasswordManager } from '@app/services/master-password'
 import { createMasterKey } from '@app/services/crypto'
 import { getDeviceSecret } from '@app/services/device-id'
 
 describe('KeychainService', () => {
   let dir: string
-  let repository: JsonFileKeyRepository
+  let repository: SqliteKeyRepository
   let keychain: KeychainService
+  let db: ReturnType<typeof openDatabase>
 
   beforeEach(() => {
     dir = mkdtempSync(join(tmpdir(), 'reliquary-keychain-'))
-    repository = new JsonFileKeyRepository(join(dir, 'keys.json'), () => 'test-device')
+    db = openDatabase(join(dir, 'reliquary.db'))
+    repository = new SqliteKeyRepository(db)
     keychain = new KeychainService(repository, createMasterKey('master'))
   })
 
   afterEach(() => {
+    db.close()
     rmSync(dir, { recursive: true, force: true })
   })
 
@@ -51,7 +54,7 @@ describe('KeychainService', () => {
   it('never stores the private key in plaintext', async () => {
     await keychain.generate({ name: 'deploy', type: 'ed25519' })
 
-    const raw = readFileSync(join(dir, 'keys.json'), 'utf8')
+    const raw = readFileSync(join(dir, 'reliquary.db'), 'utf8')
     expect(raw).not.toContain('PRIVATE KEY')
     expect(raw).not.toContain('deploy-key-comment')
   })

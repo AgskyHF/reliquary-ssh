@@ -1,11 +1,17 @@
 /** IPC handlers registered in the main process. */
 import { app, BrowserWindow, dialog, ipcMain } from 'electron'
 import { join } from 'node:path'
-import { AuthMethod, IPC, ProtocolType, type ConnectionOptions, type TabLayoutInput } from '@shared/types'
+import {
+  AuthMethod,
+  IPC,
+  ProtocolType,
+  type ConnectionOptions,
+  type Host,
+  type TabLayoutInput
+} from '@shared/types'
 import type { ConnectRequest } from '@shared/api'
 import { SessionManager } from '../services/session-manager'
-import { JsonFileTabStore, type TabRepository } from '../services/tab-store'
-import { JsonFileKeyRepository } from '../services/key-store'
+import { Storage, type TabRepository } from '../services/storage'
 import { KeychainService } from '../services/keychain'
 import { MasterPasswordManager } from '../services/master-password'
 import { getDeviceId, getDeviceSecret } from '../services/device-id'
@@ -13,30 +19,22 @@ import { broadcast } from './broadcast'
 
 const sessionManager = new SessionManager()
 
-let tabStore: TabRepository | null = null
-let keyRepository: JsonFileKeyRepository | null = null
+let storage: Storage | null = null
 let masterPassword: MasterPasswordManager | null = null
 let keychain: KeychainService | null = null
 
 /** Lazily created — app.getPath('userData') is only valid after ready. */
-function getTabStore(): TabRepository {
-  if (!tabStore) {
+function getStorage(): Storage {
+  if (!storage) {
     const userData = app.getPath('userData')
-    tabStore = new JsonFileTabStore(join(userData, 'tabs.json'), () => getDeviceId(userData))
+    storage = Storage.inUserData(userData)
   }
-  return tabStore
+  return storage
 }
 
 /** Lazily created — app.getPath('userData') is only valid after ready. */
-function getKeyRepository(): JsonFileKeyRepository {
-  if (!keyRepository) {
-    const userData = app.getPath('userData')
-    keyRepository = new JsonFileKeyRepository(
-      join(userData, 'keys.json'),
-      () => getDeviceId(userData)
-    )
-  }
-  return keyRepository
+function getTabStore(): TabRepository {
+  return getStorage().tabs
 }
 
 /** Lazily created — app.getPath('userData') is only valid after ready. */
@@ -65,7 +63,7 @@ function getKeychain(): KeychainService {
   }
 
   if (!keychain) {
-    keychain = new KeychainService(getKeyRepository(), material)
+    keychain = new KeychainService(getStorage().keys, material)
   }
   return keychain
 }
@@ -223,6 +221,62 @@ export function registerIpcHandlers(): void {
   })
 
   ipcMain.handle(IPC.MASTER_STATUS, async () => getMasterPassword().status())
+
+  // ---- hosts ----
+  ipcMain.handle(IPC.HOST_LIST, async () => getStorage().hosts.list())
+
+  ipcMain.handle(IPC.HOST_SAVE, async (_event, host: Partial<Host>) => {
+    const storage = getStorage()
+    const now = new Date().toISOString()
+    const deviceId = getDeviceId(app.getPath('userData'))
+
+    const saved = storage.hosts.save({
+      ...host,
+      id: host.id ?? crypto.randomUUID(),
+      createdAt: host.createdAt ?? now,
+      updatedAt: now,
+      version: (host.version ?? 0) + 1,
+      deviceId: host.deviceId ?? deviceId
+    })
+
+    // Every local change is journalled for the sync backend.
+    storage.changes.record({
+      id: crypto.randomUUID(),
+      entity: 'hosts',
+      entityId: saved.id,
+      operation: 'upsert',
+      payload: JSON.stringify(saved),
+      synced: false,
+      createdAt: now,
+      updatedAt: now,
+      version: saved.version,
+      deviceId
+    })
+
+    return saved
+  })
+
+  ipcMain.handle(IPC.HOST_DELETE, async (_event, id: string) => {
+    const storage = getStorage()
+    storage.hosts.remove(id)
+
+    const now = new Date().toISOString()
+    storage.changes.record({
+      id: crypto.randomUUID(),
+      entity: 'hosts',
+      entityId: id,
+      operation: 'delete',
+      payload: JSON.stringify({ id }),
+      synced: false,
+      createdAt: now,
+      updatedAt: now,
+      version: 2,
+      deviceId: getDeviceId(app.getPath('userData'))
+    })
+  })
+
+  // ---- sync outbox ----
+  ipcMain.handle(IPC.CHANGES_PENDING_COUNT, async () => getStorage().changes.count())
 
   // ---- keychain ----
   ipcMain.handle(IPC.KEY_LIST, async () => {

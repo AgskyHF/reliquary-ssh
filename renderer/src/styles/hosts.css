@@ -1,0 +1,81 @@
+/*
+ * Host list styles.
+ * Only theme variables — no hardcoded colors, spacing or fonts.
+ */
+
+.host-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+  padding: var(--space-sm);
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.host-list__item {
+  padding: var(--space-sm);
+  background: var(--color-bg-panel);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+}
+
+.host-list__item-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-sm);
+  cursor: pointer;
+}
+
+.host-list__name {
+  font-size: var(--font-size-md);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.host-list__protocol {
+  flex: none;
+  padding: 0 var(--space-sm);
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+  background: var(--color-bg-elevated);
+  border-radius: var(--radius-pill);
+}
+
+.host-list__target {
+  margin-top: var(--space-xs);
+  font-family: var(--font-mono);
+  font-size: var(--font-size-xs);
+  color: var(--color-text-faint);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.host-list__detail {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  margin-top: var(--space-sm);
+  padding-top: var(--space-sm);
+  border-top: 1px solid var(--color-border);
+}
+
+.host-list__notes {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+}
+
+.host-list__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-sm);
+}
+
+.host-list__actions .button {
+  padding: var(--space-xs) var(--space-sm);
+  font-size: var(--font-size-sm);
+}

@@ -57,6 +57,11 @@ export interface ReliquaryApi {
     remove(id: string): Promise<void>
   }
 
+  changes: {
+    /** The number of local changes waiting to be pushed to the backend. */
+    pendingCount(): Promise<number>
+  }
+
   key: {
     /** All stored keys; the private part is never included. */
     list(): Promise<KeySummary[]>

@@ -63,6 +63,10 @@ const api: ReliquaryApi = {
     pickLocalPath: (payload) => ipcRenderer.invoke(IPC.FILE_PICK_LOCAL, payload)
   },
 
+  changes: {
+    pendingCount: () => ipcRenderer.invoke(IPC.CHANGES_PENDING_COUNT)
+  },
+
   tab: {
     load: () => ipcRenderer.invoke(IPC.TAB_SNAPSHOT_LOAD),
     save: (input) => ipcRenderer.invoke(IPC.TAB_SNAPSHOT_SAVE, input)

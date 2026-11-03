@@ -7,6 +7,7 @@ import './styles/layout.css'
 import './styles/terminal.css'
 import './styles/files.css'
 import './styles/keychain.css'
+import './styles/hosts.css'
 
 const container = document.getElementById('root')
 if (!container) throw new Error('Root container #root not found')
