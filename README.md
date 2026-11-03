@@ -14,7 +14,7 @@ are reserved in the protocol interface but not implemented yet.
 | 3 | Tabs and multi-session | done |
 | 4 | SFTP file manager | done |
 | 5 | Keychain (key generation, import, export) | done |
-| 6 | Local storage (SQLite, repositories, outbox) | planned |
+| 6 | Local storage (SQLite, repositories, outbox) | done |
 | 7 | Backend + auth (Google OAuth PKCE, email/password) | planned |
 | 8 | E2EE + sync | planned |
 | 9 | Polish, packaging, roadmap | planned |
