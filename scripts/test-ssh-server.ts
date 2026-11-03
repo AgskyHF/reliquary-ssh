@@ -25,13 +25,34 @@ process.on('SIGUSR2', () => {
   console.log(`RST ${sockets.length} connection(s)`)
 })
 
+// A key pair the server authorizes, so the Keychain flow can be tested.
+// The private key is printed on startup — the harness imports it.
+const CLIENT_KEY = utils.generateKeyPairSync('ed25519')
+const AUTHORIZED = utils.parseKey(CLIENT_KEY.private)
+if (AUTHORIZED instanceof Error) {
+  throw new Error('Could not prepare the authorized key pair')
+}
+const AUTHORIZED_BLOB = AUTHORIZED.getPublicSSH()
+
 const server = new Server({ hostKeys: [HOST_KEY.private] }, (client) => {
   client.on('authentication', (ctx) => {
     if (ctx.method === 'password' && ctx.username === 'tester' && ctx.password === 'secret') {
       ctx.accept()
       return
     }
-    ctx.reject(['password'], false)
+
+    if (ctx.method === 'publickey' && ctx.username === 'tester') {
+      if (ctx.key.data.equals(AUTHORIZED_BLOB)) {
+        if (ctx.blob && ctx.signature && !AUTHORIZED.verify(ctx.blob, ctx.signature, ctx.hashAlgo)) {
+          ctx.reject(['password', 'publickey'], false)
+          return
+        }
+        ctx.accept()
+        return
+      }
+    }
+
+    ctx.reject(['password', 'publickey'], false)
   })
 
   client.on('ready', () => {
@@ -86,6 +107,7 @@ const server = new Server({ hostKeys: [HOST_KEY.private] }, (client) => {
 
 server.listen(port, '127.0.0.1', () => {
   console.log(`Test SSH server listening on 127.0.0.1:${port} (tester/secret)`)
+  console.log(`AUTHORIZED_PRIVATE_KEY:${CLIENT_KEY.private.replace(/\n/g, '\\n')}`)
   // ssh2 keeps its net.Server private as `_srv`; hook it to track raw sockets.
   const raw = (server as unknown as { _srv: { on(e: 'connection', l: (s: Socket) => void): void } })._srv
   raw.on('connection', (socket) => {

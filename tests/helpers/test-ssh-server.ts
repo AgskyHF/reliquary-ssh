@@ -11,6 +11,10 @@ export interface TestSshServer {
   host: string
   username: string
   password: string
+  /** The public key authorized for key authentication (base64 wire blob). */
+  authorizedPublicKey: string
+  /** The private key of the authorized pair — the client imports it. */
+  authorizedPrivateKey: string
   close(): Promise<void>
   /** RST every established TCP connection — simulates a mid-session network cut. */
   resetConnections(): void
@@ -23,13 +27,42 @@ const HOST_KEY = utils.generateKeyPairSync('ed25519')
  */
 export async function startTestSshServer(): Promise<TestSshServer> {
   const sockets: Socket[] = []
+
+  // A dedicated key pair the server authorizes — the client side generates
+  // its own key and uses it against this server.
+  const clientPair = utils.generateKeyPairSync('ed25519')
+  const authorizedKey = utils.parseKey(clientPair.private)
+  if (authorizedKey instanceof Error) {
+    throw new Error('Could not prepare the test key pair')
+  }
+  const authorizedBlob = authorizedKey.getPublicSSH()
   const sshServer = new Server({ hostKeys: [HOST_KEY.private] }, (client) => {
     client.on('authentication', (ctx) => {
       if (ctx.method === 'password' && ctx.username === 'tester' && ctx.password === 'secret') {
         ctx.accept()
-      } else {
-        ctx.reject(['password'], false)
+        return
       }
+
+      // Public key authentication: the authorized key is the one the test
+      // generated, so the Keychain flow can be exercised end to end.
+      if (ctx.method === 'publickey' && ctx.username === 'tester') {
+        // ctx.key.data is the SSH wire blob of the offered public key.
+        if (ctx.key.data.equals(authorizedBlob)) {
+          // The client may first probe the key without a signature; in that
+          // case ssh2 verifies the signature itself.
+          if (ctx.blob && ctx.signature) {
+            const verified = authorizedKey.verify(ctx.blob, ctx.signature, ctx.hashAlgo)
+            if (!verified) {
+              ctx.reject(['password', 'publickey'], false)
+              return
+            }
+          }
+          ctx.accept()
+          return
+        }
+      }
+
+      ctx.reject(['password', 'publickey'], false)
     })
 
     client.on('ready', () => {
@@ -93,6 +126,8 @@ export async function startTestSshServer(): Promise<TestSshServer> {
     host: '127.0.0.1',
     username: 'tester',
     password: 'secret',
+    authorizedPublicKey: authorizedBlob.toString('base64'),
+    authorizedPrivateKey: clientPair.private,
     close: () =>
       new Promise<void>((resolve) => {
         sshServer.close(() => resolve())
