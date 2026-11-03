@@ -1,9 +1,16 @@
 import { useCallback, useState, type ReactNode } from 'react'
 import { KeychainPanel } from '../keys/KeychainPanel'
 import { HostList } from '../hosts/HostList'
+import { LoginForm } from '../auth/LoginForm'
 
 interface AppShellProps {
   children?: ReactNode
+  /** The email of the signed-in account, or null when signed out. */
+  signedInAs?: string | null
+  /** Called after a successful sign-in. */
+  onSignIn?: (email: string) => void
+  /** Called when the user signs out. */
+  onSignOut?: () => void
 }
 
 type SidebarSection = 'hosts' | 'keychain' | 'settings'
@@ -13,19 +20,30 @@ type SidebarSection = 'hosts' | 'keychain' | 'settings'
  * The MainArea content (tabs, panels) is owned by the children —
  * new panels are added inside the regions below, the shell stays untouched.
  */
-export function AppShell({ children }: AppShellProps) {
+export function AppShell({
+  children,
+  signedInAs = null,
+  onSignIn,
+  onSignOut
+}: AppShellProps) {
   const [section, setSection] = useState<SidebarSection>('hosts')
 
   return (
     <div className="app-shell">
-      <TopBar />
-      <Sidebar section={section} onSelect={setSection} />
+      <TopBar signedInAs={signedInAs} onSignOut={onSignOut} />
+      <Sidebar section={section} onSelect={setSection} signedInAs={signedInAs} onSignIn={onSignIn} />
       <main className="app-shell__main">{children}</main>
     </div>
   )
 }
 
-function TopBar() {
+function TopBar({
+  signedInAs,
+  onSignOut
+}: {
+  signedInAs: string | null
+  onSignOut?: () => void
+}) {
   return (
     <header className="app-shell__topbar topbar">
       <div className="topbar__brand">
@@ -37,9 +55,16 @@ function TopBar() {
           Connect
         </button>
         <div className="topbar__status" title="Sync status">
-          <span className="status-dot status-dot--idle" />
-          <span className="topbar__status-label">Offline</span>
+          <span className={`status-dot status-dot--${signedInAs ? 'ok' : 'idle'}`} />
+          <span className="topbar__status-label">
+            {signedInAs ? signedInAs : 'Offline'}
+          </span>
         </div>
+        {signedInAs && onSignOut ? (
+          <button type="button" className="topbar__button" onClick={onSignOut}>
+            Sign out
+          </button>
+        ) : null}
       </div>
     </header>
   )
@@ -47,10 +72,14 @@ function TopBar() {
 
 function Sidebar({
   section,
-  onSelect
+  onSelect,
+  signedInAs,
+  onSignIn
 }: {
   section: SidebarSection
   onSelect: (section: SidebarSection) => void
+  signedInAs: string | null
+  onSignIn?: (email: string) => void
 }) {
   // The key list is refreshed by the panel itself when it mounts.
   const handleKeysChanged = useCallback(() => undefined, [])
@@ -81,7 +110,16 @@ function Sidebar({
         </button>
       </nav>
 
-      {section === 'keychain' ? (
+      {section === 'settings' ? (
+        <div className="sidebar__section">
+          <div className="sidebar__section-header">Settings</div>
+          {signedInAs ? (
+            <div className="sidebar__empty">Signed in as {signedInAs}</div>
+          ) : (
+            <LoginForm onSignedIn={onSignIn} />
+          )}
+        </div>
+      ) : section === 'keychain' ? (
         <div className="sidebar__section">
           <div className="sidebar__section-header">Keychain</div>
           <KeychainPanel onKeysChanged={handleKeysChanged} />
@@ -91,12 +129,7 @@ function Sidebar({
           <div className="sidebar__section-header">Hosts</div>
           <HostList />
         </div>
-      ) : (
-        <div className="sidebar__section">
-          <div className="sidebar__section-header">Settings</div>
-          <div className="sidebar__empty">Settings arrive with the sync backend</div>
-        </div>
-      )}
+      ) : null}
     </aside>
   )
 }

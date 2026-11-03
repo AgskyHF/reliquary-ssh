@@ -24,7 +24,9 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "package:mac": "npm run build && electron-builder --mac --publish never",
-    "package": "npm run build && electron-builder --publish never"
+    "package": "npm run build && electron-builder --publish never",
+    "server": "node --experimental-strip-types server/index.ts",
+    "server:dev": "node --experimental-strip-types --watch server/index.ts"
   },
   "dependencies": {
     "@types/ssh2-sftp-client": "^9.0.6",

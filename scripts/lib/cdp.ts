@@ -22,10 +22,19 @@ export const ELECTRON_BIN =
     ? `${APP_DIR}/node_modules/electron/dist/Electron.app/Contents/MacOS/Electron`
     : `${APP_DIR}/node_modules/.bin/electron`
 
-export function startElectron(userData: string, cdpPort: number): ChildProcess {
+export function startElectron(
+  userData: string,
+  cdpPort: number,
+  extraEnv: Record<string, string> = {}
+): ChildProcess {
   const proc = spawn(ELECTRON_BIN, ['.', `--remote-debugging-port=${cdpPort}`], {
     cwd: APP_DIR,
-    env: { ...process.env, RELIQUARY_USER_DATA: userData, RELIQUARY_OFFSCREEN: '1' },
+    env: {
+      ...process.env,
+      RELIQUARY_USER_DATA: userData,
+      RELIQUARY_OFFSCREEN: '1',
+      ...extraEnv
+    },
     stdio: ['ignore', 'pipe', 'pipe']
   })
   proc.stdout?.on('data', (chunk) => process.stdout.write(`[app] ${chunk}`))

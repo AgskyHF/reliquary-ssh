@@ -67,6 +67,21 @@ const api: ReliquaryApi = {
     pendingCount: () => ipcRenderer.invoke(IPC.CHANGES_PENDING_COUNT)
   },
 
+  auth: {
+    register: (payload) => ipcRenderer.invoke(IPC.AUTH_REGISTER, payload),
+    login: (payload) => ipcRenderer.invoke(IPC.AUTH_LOGIN, payload),
+    loginWithGoogle: (payload) => ipcRenderer.invoke(IPC.AUTH_LOGIN_GOOGLE, payload),
+    me: () => ipcRenderer.invoke(IPC.AUTH_ME),
+    signOut: () => ipcRenderer.invoke(IPC.AUTH_SIGN_OUT),
+    status: () => ipcRenderer.invoke(IPC.AUTH_STATUS),
+    setServerUrl: (url) => ipcRenderer.invoke(IPC.AUTH_SERVER_URL, url)
+  },
+
+  sync: {
+    push: (payload) => ipcRenderer.invoke(IPC.SYNC_PUSH_ENTRIES, payload),
+    pull: (payload) => ipcRenderer.invoke(IPC.SYNC_PULL_ENTRIES, payload)
+  },
+
   tab: {
     load: () => ipcRenderer.invoke(IPC.TAB_SNAPSHOT_LOAD),
     save: (input) => ipcRenderer.invoke(IPC.TAB_SNAPSHOT_SAVE, input)

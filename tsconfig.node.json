@@ -3,8 +3,12 @@
     "target": "ES2022",
     "module": "ESNext",
     "moduleResolution": "bundler",
-    "lib": ["ES2023"],
-    "types": ["node"],
+    "lib": [
+      "ES2023"
+    ],
+    "types": [
+      "node"
+    ],
     "strict": true,
     "noImplicitOverride": true,
     "noUnusedLocals": true,
@@ -21,12 +25,23 @@
     "composite": true,
     "baseUrl": ".",
     "paths": {
-      "@shared/*": ["shared/*"],
-      "@protocols": ["protocols/index.ts"],
-      "@protocols/*": ["protocols/*"],
-      "@app": ["app/index.ts"],
-      "@app/*": ["app/*"]
-    }
+      "@shared/*": [
+        "shared/*"
+      ],
+      "@protocols": [
+        "protocols/index.ts"
+      ],
+      "@protocols/*": [
+        "protocols/*"
+      ],
+      "@app": [
+        "app/index.ts"
+      ],
+      "@app/*": [
+        "app/*"
+      ]
+    },
+    "allowImportingTsExtensions": true
   },
   "include": [
     "app/**/*.ts",
@@ -36,5 +51,10 @@
     "electron.vite.config.ts",
     "tests/**/*.ts"
   ],
-  "exclude": ["node_modules", "out", "dist", "release"]
+  "exclude": [
+    "node_modules",
+    "out",
+    "dist",
+    "release"
+  ]
 }

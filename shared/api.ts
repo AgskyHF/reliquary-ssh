@@ -13,6 +13,16 @@ import type {
   TabLayoutSnapshot
 } from './types'
 
+/** The session the backend returns after a successful sign-in. */
+export interface AuthSession {
+  token: string
+  user: {
+    id: string
+    email: string
+    provider: 'google' | 'email'
+  }
+}
+
 export interface AppInfo {
   name: string
   version: string
@@ -60,6 +70,30 @@ export interface ReliquaryApi {
   changes: {
     /** The number of local changes waiting to be pushed to the backend. */
     pendingCount(): Promise<number>
+  }
+
+  auth: {
+    /** Creates an account and signs in. */
+    register(payload: { email: string; password: string }): Promise<AuthSession>
+    /** Signs in with email and password. */
+    login(payload: { email: string; password: string }): Promise<AuthSession>
+    /** Signs in with a Google authorization code. */
+    loginWithGoogle(payload: { code: string; codeVerifier?: string }): Promise<AuthSession>
+    /** The current session. */
+    me(): Promise<AuthSession['user']>
+    /** Forgets the session. */
+    signOut(): Promise<void>
+    /** Whether a session exists and which account it belongs to. */
+    status(): Promise<{ signedIn: boolean; email: string | null; serverUrl: string }>
+    /** Changes the address of the backend. */
+    setServerUrl(url: string): Promise<{ serverUrl: string }>
+  }
+
+  sync: {
+    /** Pushes the encrypted entries to the backend. */
+    push(payload: { entries: unknown[] }): Promise<{ accepted: number }>
+    /** Reads the encrypted entries of the account. */
+    pull(payload?: { entity?: string }): Promise<{ entries: unknown[] }>
   }
 
   key: {

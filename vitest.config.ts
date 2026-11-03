@@ -9,7 +9,8 @@ export default defineConfig({
       '@protocols/index': resolve(__dirname, 'protocols/index.ts'),
       '@protocols': resolve(__dirname, 'protocols'),
       '@app/index': resolve(__dirname, 'app/index.ts'),
-      '@renderer': resolve(__dirname, 'renderer/src')
+      '@renderer': resolve(__dirname, 'renderer/src'),
+      '@server': resolve(__dirname, 'server')
     }
   },
   test: {

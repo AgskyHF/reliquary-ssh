@@ -12,6 +12,7 @@ import {
 import type { ConnectRequest } from '@shared/api'
 import { SessionManager } from '../services/session-manager'
 import { Storage, type TabRepository } from '../services/storage'
+import { BackendClient } from '../services/backend-client'
 import { KeychainService } from '../services/keychain'
 import { MasterPasswordManager } from '../services/master-password'
 import { getDeviceId, getDeviceSecret } from '../services/device-id'
@@ -20,6 +21,7 @@ import { broadcast } from './broadcast'
 const sessionManager = new SessionManager()
 
 let storage: Storage | null = null
+let backend: BackendClient | null = null
 let masterPassword: MasterPasswordManager | null = null
 let keychain: KeychainService | null = null
 
@@ -36,6 +38,25 @@ function getStorage(): Storage {
 function getTabStore(): TabRepository {
   return getStorage().tabs
 }
+
+/**
+ * The backend client.
+ *
+ * The requests run in the main process: the renderer is loaded from a
+ * file:// origin and Chromium blocks such pages from reaching the local
+ * network.
+ */
+function getBackend(): BackendClient {
+  if (!backend) {
+    backend = new BackendClient({
+      serverUrl: process.env.RELIQUARY_SERVER_URL ?? DEFAULT_SERVER_URL
+    })
+  }
+  return backend
+}
+
+/** The default address of the sync backend. */
+const DEFAULT_SERVER_URL = 'http://127.0.0.1:8790'
 
 /** Lazily created — app.getPath('userData') is only valid after ready. */
 function getMasterPassword(): MasterPasswordManager {
@@ -274,6 +295,61 @@ export function registerIpcHandlers(): void {
       deviceId: getDeviceId(app.getPath('userData'))
     })
   })
+
+  // ---- auth ----
+  ipcMain.handle(
+    IPC.AUTH_REGISTER,
+    async (_event, payload: { email: string; password: string }) =>
+      getBackend().register(payload.email, payload.password)
+  )
+
+  ipcMain.handle(
+    IPC.AUTH_LOGIN,
+    async (_event, payload: { email: string; password: string }) =>
+      getBackend().login(payload.email, payload.password)
+  )
+
+  ipcMain.handle(
+    IPC.AUTH_LOGIN_GOOGLE,
+    async (_event, payload: { code: string; codeVerifier?: string }) =>
+      getBackend().loginWithGoogle(payload.code, payload.codeVerifier)
+  )
+
+  ipcMain.handle(IPC.AUTH_ME, async () => getBackend().me())
+
+  ipcMain.handle(IPC.AUTH_SIGN_OUT, async () => {
+    getBackend().signOut()
+  })
+
+  ipcMain.handle(IPC.AUTH_STATUS, async () => {
+    const client = getBackend()
+    return {
+      signedIn: client.isSignedIn(),
+      email: client.signedInAs(),
+      serverUrl: client.serverUrl
+    }
+  })
+
+  ipcMain.handle(IPC.AUTH_SERVER_URL, async (_event, url: string) => {
+    const client = getBackend()
+    client.setServerUrl(url)
+    return { serverUrl: client.serverUrl }
+  })
+
+  // ---- sync ----
+  ipcMain.handle(
+    IPC.SYNC_PUSH_ENTRIES,
+    async (_event, payload: { entries: unknown[] }) => ({
+      accepted: await getBackend().pushEntries(payload.entries)
+    })
+  )
+
+  ipcMain.handle(
+    IPC.SYNC_PULL_ENTRIES,
+    async (_event, payload?: { entity?: string }) => ({
+      entries: await getBackend().pullEntries(payload?.entity)
+    })
+  )
 
   // ---- sync outbox ----
   ipcMain.handle(IPC.CHANGES_PENDING_COUNT, async () => getStorage().changes.count())
