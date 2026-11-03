@@ -1,27 +1,57 @@
 /**
- * Stable device identifier. Persisted in the userData directory; used by
- * every entity model (hosts/keys/tabs) and by the sync outbox later on.
+ * Stable device identifier and device-bound secret.
+ *
+ * The identifier is persisted in the userData directory and is used by every
+ * entity model (hosts/keys/tabs) and by the sync outbox later on.
+ *
+ * The secret is a 32-byte random value kept next to the identifier. It
+ * encrypts the master key material on disk, so the store file is useless on
+ * another machine. In a later stage it is moved into the OS keychain
+ * (safeStorage) instead of the filesystem.
  */
-import { randomUUID } from 'node:crypto'
+import { randomBytes, randomUUID } from 'node:crypto'
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 
-let cached: string | null = null
+let cachedId: string | null = null
+let cachedSecret: Buffer | null = null
 
 export function getDeviceId(userDataDir: string): string {
-  if (cached) return cached
+  if (cachedId) return cachedId
 
   const file = join(userDataDir, 'device.id')
   try {
-    cached = readFileSync(file, 'utf8').trim()
+    cachedId = readFileSync(file, 'utf8').trim()
   } catch {
-    cached = ''
+    cachedId = ''
   }
 
-  if (!cached) {
-    cached = randomUUID()
+  if (!cachedId) {
+    cachedId = randomUUID()
     mkdirSync(userDataDir, { recursive: true })
-    writeFileSync(file, `${cached}\n`, 'utf8')
+    writeFileSync(file, `${cachedId}\n`, 'utf8')
   }
-  return cached
+  return cachedId
+}
+
+/** The device-bound secret used to protect local key material. */
+export function getDeviceSecret(userDataDir: string): Buffer {
+  if (cachedSecret) return cachedSecret
+
+  const file = join(userDataDir, 'device.secret')
+  try {
+    const stored = Buffer.from(readFileSync(file, 'utf8').trim(), 'base64')
+    if (stored.length === 32) {
+      cachedSecret = stored
+      return stored
+    }
+  } catch {
+    // The file is missing — it is created below.
+  }
+
+  const secret = randomBytes(32)
+  mkdirSync(userDataDir, { recursive: true })
+  writeFileSync(file, `${secret.toString('base64')}\n`, 'utf8')
+  cachedSecret = secret
+  return secret
 }

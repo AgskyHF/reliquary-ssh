@@ -4,7 +4,14 @@
  * `renderer/src/services/api.ts`. Keeping it in /shared avoids the renderer
  * importing from /app.
  */
-import type { Host, RemoteListing, SshKey, TabLayoutInput, TabLayoutSnapshot } from './types'
+import type {
+  Host,
+  KeySummary,
+  MasterStatus,
+  RemoteListing,
+  TabLayoutInput,
+  TabLayoutSnapshot
+} from './types'
 
 export interface AppInfo {
   name: string
@@ -51,16 +58,41 @@ export interface ReliquaryApi {
   }
 
   key: {
-    list(): Promise<SshKey[]>
+    /** All stored keys; the private part is never included. */
+    list(): Promise<KeySummary[]>
+    /** Generates a new key pair. */
     generate(payload: {
       name: string
       type: string
       passphrase?: string
       comment?: string
-    }): Promise<SshKey>
-    import(payload: { name: string; privateKey: string; passphrase?: string }): Promise<SshKey>
+      bits?: number
+    }): Promise<KeySummary>
+    /** Imports an existing private key. */
+    import(payload: {
+      name: string
+      privateKey: string
+      passphrase?: string
+      comment?: string
+    }): Promise<KeySummary>
     remove(id: string): Promise<void>
+    /** The OpenSSH public key, ready for authorized_keys. */
     exportPublic(id: string): Promise<string>
+  }
+
+  master: {
+    /** Sets the master password and stores the derived key material. */
+    set(password: string): Promise<MasterStatus>
+    /** True when a master password has been configured. */
+    has(): Promise<boolean>
+    /** Checks a password against the stored material. */
+    verify(password: string): Promise<boolean>
+    /** Verifies the password and loads the key material into memory. */
+    unlock(password: string): Promise<MasterStatus>
+    /** Forgets the master key from memory. */
+    clear(): Promise<void>
+    /** Current state of the master key in the main process. */
+    status(): Promise<MasterStatus>
   }
 
   session: {

@@ -5,12 +5,18 @@ import { AuthMethod, IPC, ProtocolType, type ConnectionOptions, type TabLayoutIn
 import type { ConnectRequest } from '@shared/api'
 import { SessionManager } from '../services/session-manager'
 import { JsonFileTabStore, type TabRepository } from '../services/tab-store'
-import { getDeviceId } from '../services/device-id'
+import { JsonFileKeyRepository } from '../services/key-store'
+import { KeychainService } from '../services/keychain'
+import { MasterPasswordManager } from '../services/master-password'
+import { getDeviceId, getDeviceSecret } from '../services/device-id'
 import { broadcast } from './broadcast'
 
 const sessionManager = new SessionManager()
 
 let tabStore: TabRepository | null = null
+let keyRepository: JsonFileKeyRepository | null = null
+let masterPassword: MasterPasswordManager | null = null
+let keychain: KeychainService | null = null
 
 /** Lazily created — app.getPath('userData') is only valid after ready. */
 function getTabStore(): TabRepository {
@@ -19,6 +25,49 @@ function getTabStore(): TabRepository {
     tabStore = new JsonFileTabStore(join(userData, 'tabs.json'), () => getDeviceId(userData))
   }
   return tabStore
+}
+
+/** Lazily created — app.getPath('userData') is only valid after ready. */
+function getKeyRepository(): JsonFileKeyRepository {
+  if (!keyRepository) {
+    const userData = app.getPath('userData')
+    keyRepository = new JsonFileKeyRepository(
+      join(userData, 'keys.json'),
+      () => getDeviceId(userData)
+    )
+  }
+  return keyRepository
+}
+
+/** Lazily created — app.getPath('userData') is only valid after ready. */
+function getMasterPassword(): MasterPasswordManager {
+  if (!masterPassword) {
+    const userData = app.getPath('userData')
+    masterPassword = new MasterPasswordManager(
+      join(userData, 'master.json'),
+      getDeviceSecret(userData)
+    )
+    // The stored file has to be read before the status is meaningful.
+    // init() is idempotent, so it is safe to call it on every access.
+    masterPassword.init()
+  }
+  return masterPassword
+}
+
+/**
+ * The keychain service. It needs the master key, so it is only available
+ * while the master password is unlocked.
+ */
+function getKeychain(): KeychainService {
+  const material = getMasterPassword().getMasterKey()
+  if (!material) {
+    throw new Error('The master password is not set — the keychain is locked')
+  }
+
+  if (!keychain) {
+    keychain = new KeychainService(getKeyRepository(), material)
+  }
+  return keychain
 }
 
 sessionManager.on('data', ({ sessionId, chunk }) => {
@@ -50,6 +99,13 @@ export function registerIpcHandlers(): void {
         authMethod: request.authMethod as AuthMethod,
         password: request.password,
         timeoutMs: 20_000
+      }
+
+      // Key authentication: the private key is decrypted in the main
+      // process and never travels to the renderer.
+      if (request.authMethod === 'key') {
+        if (!request.keyId) throw new Error('Key authentication requires a key')
+        options.privateKey = await getKeychain().privateKeyMaterial(request.keyId)
       }
 
       const protocol =
@@ -136,7 +192,71 @@ export function registerIpcHandlers(): void {
     }
   )
 
-  // Host / key handlers are wired in later stages.
+  // ---- master password ----
+  ipcMain.handle(IPC.MASTER_SET, async (_event, password: string) => {
+    const manager = getMasterPassword()
+    await manager.set(password)
+    // The keychain must be rebuilt with the new material.
+    keychain = null
+    return manager.status()
+  })
+
+  ipcMain.handle(IPC.MASTER_HAS, async () => getMasterPassword().has())
+
+  ipcMain.handle(IPC.MASTER_VERIFY, async (_event, password: string) =>
+    getMasterPassword().verify(password)
+  )
+
+  ipcMain.handle(IPC.MASTER_UNLOCK, async (_event, password: string) => {
+    const manager = getMasterPassword()
+    if (!manager.unlock(password)) {
+      throw new Error('Wrong master password')
+    }
+    // The keychain is rebuilt with the freshly loaded material.
+    keychain = null
+    return manager.status()
+  })
+
+  ipcMain.handle(IPC.MASTER_CLEAR, async () => {
+    getMasterPassword().lock()
+    keychain = null
+  })
+
+  ipcMain.handle(IPC.MASTER_STATUS, async () => getMasterPassword().status())
+
+  // ---- keychain ----
+  ipcMain.handle(IPC.KEY_LIST, async () => {
+    // A locked keychain has no keys to show — the renderer shows the
+    // unlock screen instead.
+    if (!getMasterPassword().unlocked) return []
+    return getKeychain().list()
+  })
+
+  ipcMain.handle(
+    IPC.KEY_GENERATE,
+    async (
+      _event,
+      payload: { name: string; type: string; passphrase?: string; comment?: string; bits?: number }
+    ) => getKeychain().generate(payload)
+  )
+
+  ipcMain.handle(
+    IPC.KEY_IMPORT,
+    async (
+      _event,
+      payload: { name: string; privateKey: string; passphrase?: string; comment?: string }
+    ) => getKeychain().import(payload)
+  )
+
+  ipcMain.handle(IPC.KEY_DELETE, async (_event, id: string) => {
+    await getKeychain().remove(id)
+  })
+
+  ipcMain.handle(IPC.KEY_EXPORT_PUBLIC, async (_event, id: string) =>
+    getKeychain().exportPublic(id)
+  )
+
+  // Host handlers are wired in a later stage.
   // The channels exist from stage 1 so the renderer contract is stable.
 }
 

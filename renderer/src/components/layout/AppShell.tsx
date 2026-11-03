@@ -1,8 +1,11 @@
-import type { ReactNode } from 'react'
+import { useCallback, useState, type ReactNode } from 'react'
+import { KeychainPanel } from '../keys/KeychainPanel'
 
 interface AppShellProps {
   children?: ReactNode
 }
+
+type SidebarSection = 'hosts' | 'keychain' | 'settings'
 
 /**
  * Root layout: TopBar + Sidebar + MainArea.
@@ -10,10 +13,12 @@ interface AppShellProps {
  * new panels are added inside the regions below, the shell stays untouched.
  */
 export function AppShell({ children }: AppShellProps) {
+  const [section, setSection] = useState<SidebarSection>('hosts')
+
   return (
     <div className="app-shell">
       <TopBar />
-      <Sidebar />
+      <Sidebar section={section} onSelect={setSection} />
       <main className="app-shell__main">{children}</main>
     </div>
   )
@@ -39,24 +44,58 @@ function TopBar() {
   )
 }
 
-function Sidebar() {
+function Sidebar({
+  section,
+  onSelect
+}: {
+  section: SidebarSection
+  onSelect: (section: SidebarSection) => void
+}) {
+  // The key list is refreshed by the panel itself when it mounts.
+  const handleKeysChanged = useCallback(() => undefined, [])
+
   return (
     <aside className="app-shell__sidebar sidebar">
       <nav className="sidebar__nav">
-        <button type="button" className="sidebar__item sidebar__item--active">
+        <button
+          type="button"
+          className={`sidebar__item${section === 'hosts' ? ' sidebar__item--active' : ''}`}
+          onClick={() => onSelect('hosts')}
+        >
           Hosts
         </button>
-        <button type="button" className="sidebar__item">
+        <button
+          type="button"
+          className={`sidebar__item${section === 'keychain' ? ' sidebar__item--active' : ''}`}
+          onClick={() => onSelect('keychain')}
+        >
           Keychain
         </button>
-        <button type="button" className="sidebar__item">
+        <button
+          type="button"
+          className={`sidebar__item${section === 'settings' ? ' sidebar__item--active' : ''}`}
+          onClick={() => onSelect('settings')}
+        >
           Settings
         </button>
       </nav>
-      <div className="sidebar__section">
-        <div className="sidebar__section-header">Hosts</div>
-        <div className="sidebar__empty">No hosts yet</div>
-      </div>
+
+      {section === 'keychain' ? (
+        <div className="sidebar__section">
+          <div className="sidebar__section-header">Keychain</div>
+          <KeychainPanel onKeysChanged={handleKeysChanged} />
+        </div>
+      ) : section === 'hosts' ? (
+        <div className="sidebar__section">
+          <div className="sidebar__section-header">Hosts</div>
+          <div className="sidebar__empty">No hosts yet</div>
+        </div>
+      ) : (
+        <div className="sidebar__section">
+          <div className="sidebar__section-header">Settings</div>
+          <div className="sidebar__empty">Settings arrive with the sync backend</div>
+        </div>
+      )}
     </aside>
   )
 }

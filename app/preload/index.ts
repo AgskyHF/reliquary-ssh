@@ -21,6 +21,15 @@ const api: ReliquaryApi = {
     exportPublic: (id) => ipcRenderer.invoke(IPC.KEY_EXPORT_PUBLIC, id)
   },
 
+  master: {
+    set: (password) => ipcRenderer.invoke(IPC.MASTER_SET, password),
+    has: () => ipcRenderer.invoke(IPC.MASTER_HAS),
+    verify: (password) => ipcRenderer.invoke(IPC.MASTER_VERIFY, password),
+    unlock: (password) => ipcRenderer.invoke(IPC.MASTER_UNLOCK, password),
+    clear: () => ipcRenderer.invoke(IPC.MASTER_CLEAR),
+    status: () => ipcRenderer.invoke(IPC.MASTER_STATUS)
+  },
+
   session: {
     connect: (request) => ipcRenderer.invoke(IPC.SESSION_CONNECT, request),
     write: (payload) => ipcRenderer.invoke(IPC.SESSION_WRITE, payload),

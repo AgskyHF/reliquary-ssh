@@ -1,0 +1,200 @@
+/*
+ * Keychain panel styles.
+ * Only theme variables — no hardcoded colors, spacing or fonts.
+ */
+
+.keychain-panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  padding: var(--space-sm);
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.keychain-panel__toolbar {
+  display: flex;
+  gap: var(--space-sm);
+}
+
+.keychain-panel__toolbar .button {
+  flex: 1;
+  padding: var(--space-xs) var(--space-sm);
+  font-size: var(--font-size-sm);
+}
+
+.keychain-panel__error {
+  padding: var(--space-xs) var(--space-sm);
+  font-size: var(--font-size-xs);
+  color: var(--color-danger);
+  background: var(--color-bg-input);
+  border: 1px solid var(--color-danger);
+  border-radius: var(--radius-sm);
+}
+
+.keychain-panel__notice {
+  padding: var(--space-xs) var(--space-sm);
+  font-size: var(--font-size-xs);
+  color: var(--color-success);
+  background: var(--color-bg-input);
+  border: 1px solid var(--color-success);
+  border-radius: var(--radius-sm);
+}
+
+.keychain-panel__dialog {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  padding: var(--space-sm);
+  background: var(--color-bg-panel);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+}
+
+.keychain-panel__dialog .field__input {
+  font-size: var(--font-size-sm);
+  padding: var(--space-xs) var(--space-sm);
+}
+
+.keychain-panel__dialog .field__input--area {
+  font-family: var(--font-mono);
+  resize: vertical;
+}
+
+.keychain-panel__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-sm);
+}
+
+.keychain-panel__actions .button {
+  padding: var(--space-xs) var(--space-sm);
+  font-size: var(--font-size-sm);
+}
+
+.keychain-panel__empty {
+  padding: var(--space-lg) var(--space-sm);
+  text-align: center;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-faint);
+}
+
+.keychain-panel__item {
+  padding: var(--space-sm);
+  background: var(--color-bg-panel);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+}
+
+.keychain-panel__item-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-sm);
+  cursor: pointer;
+}
+
+.keychain-panel__name {
+  font-size: var(--font-size-md);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.keychain-panel__type {
+  flex: none;
+  padding: 0 var(--space-sm);
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+  background: var(--color-bg-elevated);
+  border-radius: var(--radius-pill);
+}
+
+.keychain-panel__meta {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-sm);
+  margin-top: var(--space-xs);
+}
+
+.keychain-panel__fingerprint {
+  font-family: var(--font-mono);
+  font-size: var(--font-size-xs);
+  color: var(--color-text-faint);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.keychain-panel__date {
+  flex: none;
+  font-size: var(--font-size-xs);
+  color: var(--color-text-faint);
+}
+
+.keychain-panel__detail {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  margin-top: var(--space-sm);
+  padding-top: var(--space-sm);
+  border-top: 1px solid var(--color-border);
+}
+
+.keychain-panel__public {
+  display: block;
+  padding: var(--space-xs);
+  font-family: var(--font-mono);
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+  background: var(--color-bg-input);
+  border-radius: var(--radius-sm);
+  word-break: break-all;
+  max-height: 120px;
+  overflow: auto;
+}
+
+.keychain-panel__comment {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-faint);
+}
+
+/* ---- master password ---- */
+.master-setup {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  padding: var(--space-sm);
+}
+
+.master-setup__title {
+  font-size: var(--font-size-md);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text);
+}
+
+.master-setup__text {
+  margin: 0;
+  font-size: var(--font-size-xs);
+  line-height: var(--line-height-normal);
+  color: var(--color-text-muted);
+}
+
+.master-setup .field__input {
+  font-size: var(--font-size-sm);
+  padding: var(--space-xs) var(--space-sm);
+}
+
+.master-setup__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-sm);
+}
+
+.master-setup__actions .button {
+  padding: var(--space-xs) var(--space-sm);
+  font-size: var(--font-size-sm);
+}

@@ -50,6 +50,28 @@ export enum SessionState {
   ERROR = 'error'
 }
 
+/** Metadata of a stored SSH key, safe to send to the renderer. */
+export interface KeySummary {
+  id: string
+  name: string
+  type: KeyType
+  /** SHA256 fingerprint of the public key, e.g. "SHA256:xxxx". */
+  fingerprint: string
+  /** OpenSSH public key, single line. */
+  publicKey: string
+  comment: string
+  hasPassphrase: boolean
+  createdAt: string
+}
+
+/** Status of the master password in the main process. */
+export interface MasterStatus {
+  /** True when a master key is loaded in memory. */
+  unlocked: boolean
+  /** True when a master password has been set up at all. */
+  configured: boolean
+}
+
 /** A stored SSH key pair. The private part is never stored in plaintext. */
 export interface SshKey {
   id: string
@@ -287,6 +309,12 @@ export const IPC = {
   KEY_IMPORT: 'key:import',
   KEY_DELETE: 'key:delete',
   KEY_EXPORT_PUBLIC: 'key:exportPublic',
+  MASTER_SET: 'master:set',
+  MASTER_HAS: 'master:has',
+  MASTER_VERIFY: 'master:verify',
+  MASTER_UNLOCK: 'master:unlock',
+  MASTER_CLEAR: 'master:clear',
+  MASTER_STATUS: 'master:status',
   SESSION_CONNECT: 'session:connect',
   SESSION_WRITE: 'session:write',
   SESSION_RESIZE: 'session:resize',

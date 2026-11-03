@@ -123,8 +123,9 @@ export function SessionTab({
           host: values.host,
           port: values.port,
           username: values.username,
-          authMethod: 'password',
-          password: values.password
+          authMethod: values.authMethod,
+          password: values.authMethod === 'password' ? values.password : undefined,
+          keyId: values.keyId
         })
         everConnectedRef.current = true
         setConnected(true)
@@ -172,6 +173,7 @@ export function SessionTab({
           initialValues={initialValues}
           protocol={protocol}
           allowProtocolSwitch={!isFileManager}
+          allowAuthSwitch
         />
       </div>
     )
@@ -227,6 +229,7 @@ export function SessionTab({
             initialValues={initialValues}
             protocol={protocol}
             allowProtocolSwitch
+            allowAuthSwitch
           />
         </div>
       ) : null}

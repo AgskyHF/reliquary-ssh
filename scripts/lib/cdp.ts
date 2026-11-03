@@ -6,6 +6,7 @@
  * the renderer is evaluated with Runtime.evaluate.
  */
 import { spawn, type ChildProcess } from 'node:child_process'
+import { rmSync } from 'node:fs'
 import { setTimeout as delay } from 'node:timers/promises'
 import { WebSocket } from 'ws'
 
@@ -118,6 +119,34 @@ export async function portIsFree(port: number): Promise<boolean> {
     return false
   } catch {
     return true
+  }
+}
+
+/**
+ * Kills the app and removes its scratch profile.
+ *
+ * The app writes to userData while it shuts down, so the directory is
+ * removed with retries and the processes are killed by their profile path
+ * (killing the parent alone leaves the helper processes behind).
+ */
+export async function cleanupApp(app: ChildProcess | null, userData: string): Promise<void> {
+  app?.kill('SIGKILL')
+  await delay(500)
+
+  // The helper processes keep the profile open; kill them by the path.
+  try {
+    const { execSync } = await import('node:child_process')
+    execSync(`pkill -f ${JSON.stringify(`--user-data-dir=${userData}`)}`, { stdio: 'ignore' })
+  } catch {
+    // No matching process — nothing to kill.
+  }
+
+  await delay(500)
+
+  try {
+    rmSync(userData, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 })
+  } catch {
+    // The scratch directory is left behind in the temp folder — harmless.
   }
 }
 

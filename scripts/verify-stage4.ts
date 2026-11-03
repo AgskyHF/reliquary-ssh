@@ -15,13 +15,14 @@
  * so the harness knows the served directory up front.
  */
 import { spawn, type ChildProcess } from 'node:child_process'
-import { mkdtempSync, rmSync } from 'node:fs'
+import { mkdtempSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { setTimeout as delay } from 'node:timers/promises'
 import type { WebSocket } from 'ws'
 import {
   Checks,
+  cleanupApp,
   attach,
   exists,
   paneText,
@@ -215,10 +216,9 @@ async function main(): Promise<void> {
     const ok = !errored && checks.allPassed
     console.log(ok ? 'RESULT: PASS' : 'RESULT: FAIL')
     socket?.close()
-    app?.kill('SIGKILL')
+    await cleanupApp(app, userData)
     ssh.kill('SIGTERM')
     await sftp?.close()
-    rmSync(userData, { recursive: true, force: true })
     await delay(500)
     process.exit(exitCode)
   }

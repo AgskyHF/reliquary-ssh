@@ -6,7 +6,7 @@
  * reads the xterm buffer back out. This proves the whole chain
  * (renderer -> IPC -> main -> ssh2 -> remote shell -> renderer).
  */
-import { spawn, type ChildProcess } from 'node:child_process'
+import { execSync, spawn, type ChildProcess } from 'node:child_process'
 import { mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -91,6 +91,31 @@ class CdpClient {
       returnByValue: true
     })) as { result?: { value?: unknown } }
     return result?.result?.value
+  }
+}
+
+/**
+ * Kills the app and removes its scratch profile.
+ *
+ * The helper processes keep the profile open, so they are killed by the
+ * profile path before the directory is removed.
+ */
+async function cleanupApp(app: ChildProcess | null, userData: string): Promise<void> {
+  app?.kill('SIGKILL')
+  await delay(500)
+
+  try {
+    execSync(`pkill -f ${JSON.stringify(`--user-data-dir=${userData}`)}`, { stdio: 'ignore' })
+  } catch {
+    // No matching process — nothing to kill.
+  }
+
+  await delay(500)
+
+  try {
+    rmSync(userData, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 })
+  } catch {
+    // The scratch directory is left behind in the temp folder — harmless.
   }
 }
 
@@ -265,9 +290,8 @@ async function main(): Promise<void> {
   } catch (error) {
     console.error('RESULT: ERROR —', error instanceof Error ? error.message : error)
   } finally {
-    app.kill('SIGTERM')
+    await cleanupApp(app, userData)
     ssh.kill('SIGTERM')
-    rmSync(userData, { recursive: true, force: true })
     await delay(500)
     process.exit(exitCode)
   }

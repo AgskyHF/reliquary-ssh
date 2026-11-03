@@ -1,4 +1,6 @@
 import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react'
+import type { KeySummary } from '@shared/types'
+import { api } from '../services/api'
 
 export interface ConnectFormValues {
   host: string
@@ -7,6 +9,10 @@ export interface ConnectFormValues {
   password: string
   /** Protocol the user picked in the form (SSH when the switch is hidden). */
   protocol: ConnectProtocol
+  /** Authentication method: password or a key from the Keychain. */
+  authMethod: 'password' | 'key'
+  /** The Keychain key id, when authMethod is 'key'. */
+  keyId: string | null
 }
 
 export type ConnectProtocol = 'ssh' | 'sftp'
@@ -22,6 +28,8 @@ export interface ConnectFormProps {
   protocol?: ConnectProtocol
   /** Shows the SSH/SFTP switch. */
   allowProtocolSwitch?: boolean
+  /** Shows the password / key switch. */
+  allowAuthSwitch?: boolean
   busy?: boolean
   error?: string | null
 }
@@ -31,7 +39,9 @@ const DEFAULT_VALUES: ConnectFormValues = {
   port: 22,
   username: '',
   password: '',
-  protocol: 'ssh'
+  protocol: 'ssh',
+  authMethod: 'password',
+  keyId: null
 }
 
 /**
@@ -43,6 +53,7 @@ export function ConnectForm({
   initialValues,
   protocol = 'ssh',
   allowProtocolSwitch = false,
+  allowAuthSwitch = false,
   busy,
   error
 }: ConnectFormProps) {
@@ -51,12 +62,40 @@ export function ConnectForm({
     ...initialValues
   }))
   const [selectedProtocol, setSelectedProtocol] = useState<ConnectProtocol>(protocol)
+  const [authMethod, setAuthMethod] = useState<'password' | 'key'>(
+    initialValues?.authMethod ?? 'password'
+  )
   const [showPassword, setShowPassword] = useState(false)
+  const [keys, setKeys] = useState<KeySummary[]>([])
+  const [keyId, setKeyId] = useState<string | null>(initialValues?.keyId ?? null)
   const formRef = useRef<HTMLFormElement | null>(null)
 
   useEffect(() => {
     formRef.current?.querySelector<HTMLInputElement>('input[name="host"]')?.focus()
   }, [])
+
+  // The key list is needed only when key authentication is available.
+  useEffect(() => {
+    if (!allowAuthSwitch) return
+
+    let cancelled = false
+    void (async () => {
+      try {
+        const status = await api.master.status()
+        if (!status.unlocked) return
+
+        const list = await api.key.list()
+        if (!cancelled) setKeys(list)
+      } catch {
+        // The keychain is locked or unavailable — the password method
+        // still works, so this is not an error.
+      }
+    })()
+
+    return () => {
+      cancelled = true
+    }
+  }, [allowAuthSwitch])
 
   const update = useCallback(
     (field: keyof ConnectFormValues, value: string) => {
@@ -72,9 +111,15 @@ export function ConnectForm({
     (event: FormEvent<HTMLFormElement>) => {
       event.preventDefault()
       if (!values.host || !values.username) return
-      onConnect({ ...values, protocol: selectedProtocol })
+      if (authMethod === 'key' && !keyId) return
+      onConnect({
+        ...values,
+        protocol: selectedProtocol,
+        authMethod,
+        keyId: authMethod === 'key' ? keyId : null
+      })
     },
-    [onConnect, selectedProtocol, values]
+    [authMethod, keyId, onConnect, selectedProtocol, values]
   )
 
   return (
@@ -97,6 +142,33 @@ export function ConnectForm({
               {item.toUpperCase()}
             </button>
           ))}
+        </div>
+      ) : null}
+
+      {allowAuthSwitch ? (
+        <div className="protocol-switch" role="radiogroup" aria-label="Authentication">
+          <button
+            type="button"
+            role="radio"
+            aria-checked={authMethod === 'password'}
+            className={`protocol-switch__option${
+              authMethod === 'password' ? ' protocol-switch__option--active' : ''
+            }`}
+            onClick={() => setAuthMethod('password')}
+          >
+            Password
+          </button>
+          <button
+            type="button"
+            role="radio"
+            aria-checked={authMethod === 'key'}
+            className={`protocol-switch__option${
+              authMethod === 'key' ? ' protocol-switch__option--active' : ''
+            }`}
+            onClick={() => setAuthMethod('key')}
+          >
+            Key
+          </button>
         </div>
       ) : null}
 
@@ -138,26 +210,47 @@ export function ConnectForm({
         />
       </label>
 
-      <label className="field">
-        <span className="field__label">Password</span>
-        <span className="field__row">
-          <input
+      {authMethod === 'key' ? (
+        <label className="field">
+          <span className="field__label">Key</span>
+          <select
             className="field__input"
-            name="password"
-            type={showPassword ? 'text' : 'password'}
-            value={values.password}
-            onChange={(event) => update('password', event.target.value)}
-            autoComplete="off"
-          />
-          <button
-            type="button"
-            className="field__toggle"
-            onClick={() => setShowPassword((prev) => !prev)}
+            name="key"
+            value={keyId ?? ''}
+            onChange={(event) => setKeyId(event.target.value || null)}
           >
-            {showPassword ? 'Hide' : 'Show'}
-          </button>
-        </span>
-      </label>
+            <option value="">
+              {keys.length === 0 ? 'No keys in the Keychain' : 'Select a key…'}
+            </option>
+            {keys.map((key) => (
+              <option key={key.id} value={key.id}>
+                {key.name} ({key.type})
+              </option>
+            ))}
+          </select>
+        </label>
+      ) : (
+        <label className="field">
+          <span className="field__label">Password</span>
+          <span className="field__row">
+            <input
+              className="field__input"
+              name="password"
+              type={showPassword ? 'text' : 'password'}
+              value={values.password}
+              onChange={(event) => update('password', event.target.value)}
+              autoComplete="off"
+            />
+            <button
+              type="button"
+              className="field__toggle"
+              onClick={() => setShowPassword((prev) => !prev)}
+            >
+              {showPassword ? 'Hide' : 'Show'}
+            </button>
+          </span>
+        </label>
+      )}
 
       {error ? <div className="connect-form__error">{error}</div> : null}
 
@@ -167,7 +260,11 @@ export function ConnectForm({
             Cancel
           </button>
         ) : null}
-        <button type="submit" className="button button--primary" disabled={busy}>
+        <button
+          type="submit"
+          className="button button--primary"
+          disabled={busy || (authMethod === 'key' && !keyId)}
+        >
           {busy ? 'Connecting…' : 'Connect'}
         </button>
       </div>

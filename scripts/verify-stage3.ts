@@ -14,7 +14,7 @@
  *  7. the tab reconnects, the server RSTs the socket mid-session
  *     (ECONNRESET regression — the app must show the banner, not crash).
  */
-import { spawn, type ChildProcess } from 'node:child_process'
+import { execSync, spawn, type ChildProcess } from 'node:child_process'
 import { mkdtempSync, readFileSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -222,6 +222,31 @@ async function portIsFree(port: number): Promise<boolean> {
   }
 }
 
+/**
+ * Kills the app and removes its scratch profile.
+ *
+ * The helper processes keep the profile open, so they are killed by the
+ * profile path before the directory is removed.
+ */
+async function cleanupApp(app: ChildProcess | null, userData: string): Promise<void> {
+  app?.kill('SIGKILL')
+  await delay(500)
+
+  try {
+    execSync(`pkill -f ${JSON.stringify(`--user-data-dir=${userData}`)}`, { stdio: 'ignore' })
+  } catch {
+    // No matching process — nothing to kill.
+  }
+
+  await delay(500)
+
+  try {
+    rmSync(userData, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 })
+  } catch {
+    // The scratch directory is left behind in the temp folder — harmless.
+  }
+}
+
 async function main(): Promise<void> {
   if (!(await portIsFree(CDP_PORT))) throw new Error(`CDP port ${CDP_PORT} is busy — stale harness?`)
   if (!(await portIsFree(SSH_PORT))) throw new Error(`SSH test port ${SSH_PORT} is busy — stale server?`)
@@ -404,9 +429,8 @@ async function main(): Promise<void> {
     const ok = !errored && failed === 0 && results.length > 0
     console.log(ok ? 'RESULT: PASS' : 'RESULT: FAIL')
     socket?.close()
-    app?.kill('SIGKILL')
+    await cleanupApp(app, userData)
     ssh.kill('SIGTERM')
-    rmSync(userData, { recursive: true, force: true })
     await delay(500)
     process.exit(exitCode)
   }

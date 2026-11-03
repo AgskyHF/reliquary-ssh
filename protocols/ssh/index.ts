@@ -3,7 +3,11 @@
  * Wraps ssh2's Client and exposes the shared ConnectionAdapter interface.
  * The adapter owns the shell channel; the app talks to it through write()/resize().
  */
-import { Client, type ClientChannel, type ConnectConfig } from 'ssh2'
+import ssh2, { type Client, type ClientChannel, type ConnectConfig } from 'ssh2'
+
+// ssh2 is a CommonJS module: the ESM build of the main process cannot use
+// named imports for it, so the namespace is imported as a default.
+const { Client: SshClient } = ssh2
 import {
   AuthMethod,
   ProtocolCapability,
@@ -63,7 +67,7 @@ export class SshAdapter extends BaseAdapter {
       config.tryKeyboard = true
     }
 
-    const client = new Client()
+    const client = new SshClient()
     this.client = client
 
     await new Promise<void>((resolve, reject) => {
