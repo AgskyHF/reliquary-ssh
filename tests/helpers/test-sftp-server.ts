@@ -76,8 +76,10 @@ function longName(name: string, stats: { mode: number; isDirectory(): boolean; i
 /**
  * Starts an SSH server that accepts password `tester`/`secret` and serves an
  * SFTP subsystem over a fresh temporary directory.
+ *
+ * @param fixedPort Port to listen on; 0 (default) picks an ephemeral one.
  */
-export async function startTestSftpServer(): Promise<TestSftpServer> {
+export async function startTestSftpServer(fixedPort = 0): Promise<TestSftpServer> {
   const root = mkdtempSync(join(tmpdir(), 'reliquary-sftp-'))
   const sockets: Socket[] = []
 
@@ -112,7 +114,7 @@ export async function startTestSftpServer(): Promise<TestSftpServer> {
       })
     })
     sshServer.once('error', reject)
-    sshServer.listen(0, '127.0.0.1', () => {
+    sshServer.listen(fixedPort, '127.0.0.1', () => {
       const address = sshServer.address()
       if (address && typeof address === 'object') resolvePort(address.port)
       else reject(new Error('Failed to determine test server port'))
@@ -191,10 +193,11 @@ function serveSftp(sftp: SftpServerStream, root: string): void {
   }
 
   sftp.on('REALPATH', (reqid: number, path: string) => {
+    // A real server answers with the absolute path of the home directory;
+    // the test server exposes its temporary root under its real path.
     const target = resolveInside(root, path === '.' ? '/' : path)
     if (!target) return fail(reqid, STATUS_CODE.NO_SUCH_FILE)
-    const relative = target === root ? '/' : `/${target.slice(root.length + 1)}`
-    sftp.name(reqid, [{ filename: relative }])
+    sftp.name(reqid, [{ filename: target }])
   })
 
   sftp.on('STAT', (reqid: number, path: string) => {
