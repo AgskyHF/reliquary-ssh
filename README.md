@@ -13,7 +13,7 @@ are reserved in the protocol interface but not implemented yet.
 | 2 | SSH adapter + xterm.js terminal | done |
 | 3 | Tabs and multi-session | done |
 | 4 | SFTP file manager | done |
-| 5 | Keychain (key generation, import, export) | planned |
+| 5 | Keychain (key generation, import, export) | done |
 | 6 | Local storage (SQLite, repositories, outbox) | planned |
 | 7 | Backend + auth (Google OAuth PKCE, email/password) | planned |
 | 8 | E2EE + sync | planned |
