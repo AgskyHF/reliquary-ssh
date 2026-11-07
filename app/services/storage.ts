@@ -14,6 +14,8 @@ import type { TabLayoutInput, TabLayoutSnapshot, TabState } from '@shared/types'
 import { ChangeRepository, HostRepository, SqliteKeyRepository, TabRepository as SqliteTabRepository, openDatabase, type SqliteDatabase } from './database'
 import { getDeviceId } from './device-id'
 import { SettingsService } from './settings'
+import { HostPasswordRepository } from './host-passwords'
+import { SupersededRepository } from './superseded'
 
 /** The tab repository contract the main process uses. */
 export interface TabRepository {
@@ -83,6 +85,10 @@ export class Storage {
   readonly tabs: TabRepository
   readonly changes: ChangeRepository
   readonly settings: SettingsService
+  /** The saved passwords of the hosts, encrypted with the master key. */
+  readonly passwords: HostPasswordRepository
+  /** The versions that lost a merge — they are never deleted. */
+  readonly superseded: SupersededRepository
 
   constructor(
     filePath: string,
@@ -94,6 +100,8 @@ export class Storage {
     this.tabs = new SqliteTabStore(this.db, deviceId)
     this.changes = new ChangeRepository(this.db)
     this.settings = new SettingsService(this.db)
+    this.passwords = new HostPasswordRepository(this.db)
+    this.superseded = new SupersededRepository(this.db)
   }
 
   /** Creates the storage in the app's userData directory. */

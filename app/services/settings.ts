@@ -23,6 +23,14 @@ export interface AppSettings {
   syncTransport: 'server' | 'folder'
   /** The shared folder used by the 'folder' transport. */
   syncFolder: string
+  /**
+   * The PBKDF2 parameters an import brought, as JSON.
+   *
+   * The salt belongs to the account, not to the device: a device that
+   * imported an archive stores it here, so the master password it gets
+   * derives the same key as on the device that made the export.
+   */
+  importedKdf: string
 }
 
 export const DEFAULT_SETTINGS: AppSettings = {
@@ -30,7 +38,8 @@ export const DEFAULT_SETTINGS: AppSettings = {
   logLevel: 'info',
   logPath: 'reliquary.log',
   syncTransport: 'server',
-  syncFolder: ''
+  syncFolder: '',
+  importedKdf: ''
 }
 
 /** The keys of the settings table. */
@@ -39,7 +48,8 @@ const KEYS = {
   logLevel: 'log.level',
   logPath: 'log.path',
   syncTransport: 'sync.transport',
-  syncFolder: 'sync.folder'
+  syncFolder: 'sync.folder',
+  importedKdf: 'imported.kdf'
 } as const
 
 export class SettingsService {
@@ -60,7 +70,8 @@ export class SettingsService {
       logPath: stored.get(KEYS.logPath) ?? DEFAULT_SETTINGS.logPath,
       syncTransport:
         stored.get(KEYS.syncTransport) === 'folder' ? 'folder' : DEFAULT_SETTINGS.syncTransport,
-      syncFolder: stored.get(KEYS.syncFolder) ?? DEFAULT_SETTINGS.syncFolder
+      syncFolder: stored.get(KEYS.syncFolder) ?? DEFAULT_SETTINGS.syncFolder,
+      importedKdf: stored.get(KEYS.importedKdf) ?? DEFAULT_SETTINGS.importedKdf
     }
   }
 

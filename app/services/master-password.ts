@@ -43,6 +43,14 @@ export class MasterPasswordManager {
 
   private configured = false
 
+  /**
+   * Reads the PBKDF2 parameters an import brought.
+   *
+   * The import writes them into the settings table; the manager does not
+   * know the table, so the caller provides the reader.
+   */
+  readImportedKdf: (() => string | null) | null = null
+
   constructor(
     private readonly filePath: string,
     /** Device-bound secret the stored material is encrypted with. */
@@ -87,12 +95,17 @@ export class MasterPasswordManager {
    * `kdf` carries the PBKDF2 parameters of the account. A device that joins
    * an existing account must reuse them, otherwise the same password would
    * derive a different key and the synced data would be unreadable.
+   *
+   * When no parameters are given, the ones an import brought are used —
+   * that is how a second device of the same account derives the same key.
    */
   async set(password: string, kdf?: SyncMasterParams): Promise<MasterStatus> {
     if (!password) throw new Error('The master password must not be empty')
 
-    const salt = kdf ? Buffer.from(kdf.salt, 'base64') : undefined
-    const iterations = kdf?.iterations ?? KDF_ITERATIONS
+    const params = kdf ?? this.importedKdf()
+
+    const salt = params ? Buffer.from(params.salt, 'base64') : undefined
+    const iterations = params?.iterations ?? KDF_ITERATIONS
     const material = createMasterKey(password, salt, iterations)
     const stored: MasterStoreFile = {
       version: 1,
@@ -107,6 +120,26 @@ export class MasterPasswordManager {
     this.configured = true
 
     return this.status()
+  }
+
+  /**
+   * The PBKDF2 parameters an import brought, or null when there are none.
+   *
+   * They are read from the settings table, which the import filled.
+   */
+  private importedKdf(): SyncMasterParams | null {
+    try {
+      const raw = this.readImportedKdf?.()
+      if (!raw) return null
+
+      const parsed = JSON.parse(raw) as Partial<SyncMasterParams>
+      if (typeof parsed.salt !== 'string' || !parsed.salt) return null
+      if (typeof parsed.iterations !== 'number' || parsed.iterations <= 0) return null
+
+      return { salt: parsed.salt, iterations: parsed.iterations }
+    } catch {
+      return null
+    }
   }
 
   /**

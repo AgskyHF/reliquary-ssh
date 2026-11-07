@@ -78,6 +78,37 @@ export const SCHEMA_STATEMENTS: string[] = [
     device_id   TEXT NOT NULL DEFAULT ''
   )`,
 
+  // The saved passwords of the hosts. The plaintext never leaves the
+  // process: the column holds the master-password envelope, the same way
+  // the private keys do.
+  `CREATE TABLE IF NOT EXISTS host_passwords (
+    id                   TEXT PRIMARY KEY,
+    host_id              TEXT NOT NULL,
+    encrypted_password   TEXT NOT NULL,
+    has_passphrase       INTEGER NOT NULL DEFAULT 0,
+    created_at           TEXT NOT NULL,
+    updated_at           TEXT NOT NULL,
+    deleted_at           TEXT,
+    version              INTEGER NOT NULL DEFAULT 1,
+    device_id            TEXT NOT NULL DEFAULT ''
+  )`,
+
+  // The versions that lost a merge. They are never deleted: the user may
+  // still need the old password, so they travel with the export.
+  `CREATE TABLE IF NOT EXISTS superseded_connections (
+    id            TEXT PRIMARY KEY,
+    host_id       TEXT NOT NULL,
+    payload       TEXT NOT NULL,
+    replaced_at   TEXT NOT NULL,
+    replaced_by   TEXT NOT NULL,
+    reason        TEXT NOT NULL,
+    created_at    TEXT NOT NULL,
+    updated_at    TEXT NOT NULL,
+    deleted_at    TEXT,
+    version       INTEGER NOT NULL DEFAULT 1,
+    device_id     TEXT NOT NULL DEFAULT ''
+  )`,
+
   // The outbox journal: every local change is recorded here and marked as
   // synced once the backend has accepted it.
   `CREATE TABLE IF NOT EXISTS changes (
@@ -97,5 +128,7 @@ export const SCHEMA_STATEMENTS: string[] = [
   `CREATE INDEX IF NOT EXISTS idx_keys_deleted ON keys (deleted_at)`,
   `CREATE INDEX IF NOT EXISTS idx_tabs_deleted ON tabs (deleted_at)`,
   `CREATE INDEX IF NOT EXISTS idx_changes_synced ON changes (synced)`,
-  `CREATE INDEX IF NOT EXISTS idx_changes_entity ON changes (entity, entity_id)`
+  `CREATE INDEX IF NOT EXISTS idx_changes_entity ON changes (entity, entity_id)`,
+  `CREATE INDEX IF NOT EXISTS idx_host_passwords_host ON host_passwords (host_id)`,
+  `CREATE INDEX IF NOT EXISTS idx_superseded_host ON superseded_connections (host_id)`
 ]

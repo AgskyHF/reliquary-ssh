@@ -1,0 +1,98 @@
+/*
+ * Transfer panel styles.
+ * Only theme variables — no hardcoded colors, spacing or fonts.
+ */
+
+.transfer-panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  padding: var(--space-sm);
+}
+
+.transfer-panel__title {
+  font-size: var(--font-size-md);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text);
+}
+
+.transfer-panel__check {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  font-size: var(--font-size-sm);
+  color: var(--color-text);
+  cursor: pointer;
+}
+
+.transfer-panel__check input {
+  accent-color: var(--color-accent);
+}
+
+.transfer-panel__hint {
+  margin: 0;
+  font-size: var(--font-size-xs);
+  line-height: var(--line-height-normal);
+  color: var(--color-text-muted);
+}
+
+.transfer-panel__message {
+  padding: var(--space-xs) var(--space-sm);
+  border-radius: var(--radius-sm);
+  background: var(--color-bg-panel);
+  border: 1px solid var(--color-success);
+  color: var(--color-success);
+  font-size: var(--font-size-sm);
+  word-break: break-word;
+}
+
+.transfer-panel__result {
+  padding: var(--space-xs) var(--space-sm);
+  border-radius: var(--radius-sm);
+  background: var(--color-bg-panel);
+  border: 1px solid var(--color-border);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+}
+
+.transfer-panel__actions {
+  display: flex;
+  gap: var(--space-sm);
+}
+
+.transfer-panel__old {
+  margin-top: var(--space-sm);
+  padding-top: var(--space-sm);
+  border-top: 1px solid var(--color-border);
+}
+
+.transfer-panel__old-title {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-muted);
+  margin-bottom: var(--space-xs);
+}
+
+.transfer-panel__old-item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: var(--space-xs) 0;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.transfer-panel__old-name {
+  font-size: var(--font-size-sm);
+  color: var(--color-text);
+}
+
+.transfer-panel__old-target {
+  font-family: var(--font-mono);
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+}
+
+.transfer-panel__old-time {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-faint);
+}

@@ -36,6 +36,20 @@ const api: ReliquaryApi = {
     set: (payload) => ipcRenderer.invoke(IPC.SETTINGS_SET, payload)
   },
 
+  transfer: {
+    export: (payload) => ipcRenderer.invoke(IPC.EXPORT_BUILD, payload),
+    import: (payload) => ipcRenderer.invoke(IPC.EXPORT_IMPORT, payload),
+    superseded: () => ipcRenderer.invoke(IPC.EXPORT_SUPERSEDED_LIST)
+  },
+
+  hostPassword: {
+    set: (payload) => ipcRenderer.invoke(IPC.HOST_PASSWORD_SET, payload),
+    remove: (payload) => ipcRenderer.invoke(IPC.HOST_PASSWORD_REMOVE, payload),
+    has: (payload) => ipcRenderer.invoke(IPC.HOST_PASSWORD_HAS, payload),
+    saveFromConnect: (payload) =>
+      ipcRenderer.invoke(IPC.HOST_PASSWORD_SAVE_FROM_CONNECT, payload)
+  },
+
   session: {
     connect: (request) => ipcRenderer.invoke(IPC.SESSION_CONNECT, request),
     write: (payload) => ipcRenderer.invoke(IPC.SESSION_WRITE, payload),

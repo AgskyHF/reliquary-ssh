@@ -13,6 +13,7 @@ import type {
   TabLayoutSnapshot
 } from './types'
 import type { SyncEntry, SyncResult, SyncStatusView } from './sync'
+import type { ExportOptions, ImportResult } from './export'
 
 /** The session the backend returns after a successful sign-in. */
 export interface AuthSession {
@@ -71,6 +72,22 @@ export interface AppSettings {
   syncTransport: 'server' | 'folder'
   /** The shared folder used by the 'folder' transport. */
   syncFolder: string
+}
+
+/** One version that lost a merge, as the renderer sees it. */
+export interface SupersededSummary {
+  id: string
+  hostId: string
+  /** The name of the connection the version belonged to. */
+  name: string
+  /** The endpoint of that version. */
+  target: string
+  /** When it was replaced. */
+  replacedAt: string
+  /** Why it was replaced: 'newer' or 'deleted'. */
+  reason: string
+  /** True when the version carries a sealed password. */
+  hasPassword: boolean
 }
 
 export interface ReliquaryApi {
@@ -164,6 +181,41 @@ export interface ReliquaryApi {
     get(): Promise<AppSettings>
     /** Writes one setting. */
     set(payload: { key: keyof AppSettings; value: string }): Promise<AppSettings>
+  }
+
+  transfer: {
+    /**
+     * Builds the export archive and writes it to a path the user picked.
+     * Without a path the native save dialog is shown.
+     */
+    export(payload: { options: ExportOptions; path?: string }): Promise<{
+      path: string
+      summary: string
+    }>
+    /**
+     * Reads an archive the user picked and merges it into the local
+     * database. The versions that lose the merge go to the old folder.
+     * Without a path the native open dialog is shown.
+     */
+    import(payload?: { path?: string }): Promise<ImportResult>
+    /** The versions that lost a merge — they are never deleted. */
+    superseded(): Promise<SupersededSummary[]>
+  }
+
+  hostPassword: {
+    /** Stores the password of a host, encrypted with the master key. */
+    set(payload: { hostId: string; password: string }): Promise<{ stored: boolean }>
+    /** Removes the stored password of a host. */
+    remove(payload: { hostId: string }): Promise<void>
+    /** True when the host has a stored password. */
+    has(payload: { hostId: string }): Promise<boolean>
+    /**
+     * Saves the password of a host that was just connected to. The host
+     * id is null when the connection was made from the ad-hoc form.
+     */
+    saveFromConnect(payload: { hostId: string | null; password: string }): Promise<{
+      stored: boolean
+    }>
   }
 
   session: {

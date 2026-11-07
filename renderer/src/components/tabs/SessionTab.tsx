@@ -136,6 +136,18 @@ export function SessionTab({
           title: `${values.username}@${values.host}`,
           connection: { host: values.host, port: values.port, username: values.username }
         })
+
+        // The password of a saved host is stored encrypted, so it can be
+        // exported. A connection made from the ad-hoc form has no host to
+        // attach it to — nothing is stored then.
+        if (values.authMethod === 'password' && values.password) {
+          const host = await findHostByEndpoint(values.host, values.port, values.username)
+          if (host) {
+            await api.hostPassword
+              .saveFromConnect({ hostId: host.id, password: values.password })
+              .catch(() => undefined)
+          }
+        }
       } catch (err) {
         setError(err instanceof Error ? err.message : String(err))
       } finally {
@@ -241,4 +253,27 @@ export function SessionTab({
       />
     </div>
   )
+}
+
+/**
+ * Finds the saved host that matches an endpoint.
+ *
+ * The password can only be attached to a host that is already in the
+ * list — a connection made from the ad-hoc form has nothing to attach to.
+ */
+async function findHostByEndpoint(
+  host: string,
+  port: number,
+  username: string
+): Promise<{ id: string } | null> {
+  try {
+    const hosts = await api.host.list()
+    const match = hosts.find(
+      (candidate) =>
+        candidate.host === host && candidate.port === port && candidate.username === username
+    )
+    return match ? { id: match.id } : null
+  } catch {
+    return null
+  }
 }

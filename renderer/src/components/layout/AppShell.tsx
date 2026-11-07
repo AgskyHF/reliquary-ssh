@@ -4,6 +4,7 @@ import { HostList } from '../hosts/HostList'
 import { LoginForm } from '../auth/LoginForm'
 import { SyncPanel } from '../sync/SyncPanel'
 import { SettingsPanel } from '../settings/SettingsPanel'
+import { TransferPanel } from '../transfer/TransferPanel'
 
 interface AppShellProps {
   children?: ReactNode
@@ -15,7 +16,7 @@ interface AppShellProps {
   onSignOut?: () => void
 }
 
-type SidebarSection = 'hosts' | 'keychain' | 'sync' | 'settings'
+type SidebarSection = 'hosts' | 'keychain' | 'sync' | 'transfer' | 'settings'
 
 /**
  * Root layout: TopBar + Sidebar + MainArea.
@@ -112,6 +113,13 @@ function Sidebar({
         </button>
         <button
           type="button"
+          className={`sidebar__item${section === 'transfer' ? ' sidebar__item--active' : ''}`}
+          onClick={() => onSelect('transfer')}
+        >
+          Export
+        </button>
+        <button
+          type="button"
           className={`sidebar__item${section === 'settings' ? ' sidebar__item--active' : ''}`}
           onClick={() => onSelect('settings')}
         >
@@ -135,6 +143,11 @@ function Sidebar({
         <div className="sidebar__section">
           <div className="sidebar__section-header">Sync</div>
           <SyncPanel />
+        </div>
+      ) : section === 'transfer' ? (
+        <div className="sidebar__section">
+          <div className="sidebar__section-header">Export</div>
+          <TransferPanel />
         </div>
       ) : section === 'keychain' ? (
         <div className="sidebar__section">

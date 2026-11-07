@@ -1,6 +1,6 @@
 /** IPC handlers registered in the main process. */
 import { app, BrowserWindow, dialog, ipcMain } from 'electron'
-import { existsSync } from 'node:fs'
+import { existsSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import {
   AuthMethod,
@@ -11,7 +11,9 @@ import {
   type TabLayoutInput
 } from '@shared/types'
 import type { ConnectRequest } from '@shared/api'
-import type { AppSettings } from '../services/settings'
+import type { AppSettings, SupersededSummary } from '@shared/api'
+import type { ExportOptions } from '@shared/export'
+import { EXPORT_FILE_NAME } from '@shared/export'
 import type { SyncEntry } from '@shared/sync'
 import { SessionManager } from '../services/session-manager'
 import { Storage, type TabRepository } from '../services/storage'
@@ -20,6 +22,7 @@ import { KeychainService } from '../services/keychain'
 import { MasterPasswordManager } from '../services/master-password'
 import { SyncService } from '../services/sync'
 import { SyncTransportRouter } from '../services/sync-transport'
+import { ExportService } from '../services/export'
 import { getDeviceId, getDeviceSecret } from '../services/device-id'
 import { logger } from '../services/logger'
 import { broadcast } from './broadcast'
@@ -32,6 +35,15 @@ let masterPassword: MasterPasswordManager | null = null
 let keychain: KeychainService | null = null
 let sync: SyncService | null = null
 let transport: SyncTransportRouter | null = null
+let exporter: ExportService | null = null
+
+/** The export/import service. */
+function getExport(): ExportService {
+  if (!exporter) {
+    exporter = new ExportService(getStorage(), getMasterPassword())
+  }
+  return exporter
+}
 
 /** Lazily created — app.getPath('userData') is only valid after ready. */
 function getStorage(): Storage {
@@ -72,6 +84,13 @@ function getMasterPassword(): MasterPasswordManager {
       join(userData, 'master.json'),
       getDeviceSecret(userData)
     )
+    // The import brings the salt of the account — the manager reads it
+    // when the master password is set, so this device derives the same
+    // key as the device that made the export.
+    masterPassword.readImportedKdf = () => {
+      const raw = getStorage().settings.get('importedKdf')
+      return raw === '' ? null : raw
+    }
     // The stored file has to be read before the status is meaningful.
     // init() is idempotent, so it is safe to call it on every access.
     masterPassword.init()
@@ -310,6 +329,9 @@ export function registerIpcHandlers(): void {
     await manager.set(password)
     // The keychain must be rebuilt with the new material.
     keychain = null
+    // An import may have brought sealed passwords — they open now.
+    const material = manager.getMasterKey()
+    if (material) await getExport().openSealedPasswords(material)
     return manager.status()
   })
 
@@ -533,6 +555,153 @@ export function registerIpcHandlers(): void {
       getSync().reset()
 
       return settings.all()
+    }
+  )
+
+  // ---- export and import ----
+  handle(
+    IPC.EXPORT_BUILD,
+    async (_event, payload: { options: ExportOptions; path?: string }) => {
+      const options = payload.options
+      let target = payload.path
+
+      if (!target) {
+        const window = BrowserWindow.getFocusedWindow() ?? BrowserWindow.getAllWindows()[0]
+        if (!window) throw new Error('The app window is not available')
+
+        const result = await dialog.showSaveDialog(window, {
+          title: 'Export the connections',
+          defaultPath: EXPORT_FILE_NAME,
+          filters: [{ name: 'ReliquarySSH export', extensions: ['zip'] }]
+        })
+        if (result.canceled || !result.filePath) {
+          return { path: '', summary: 'Cancelled' }
+        }
+        target = result.filePath
+      }
+
+      const buffer = await getExport().build(options, app.getVersion())
+      writeFileSync(target, buffer)
+
+      return {
+        path: target,
+        summary:
+          options.mode === 'sealed'
+            ? 'Exported with the passwords'
+            : 'Exported without the passwords'
+      }
+    }
+  )
+
+  handle(IPC.EXPORT_IMPORT, async (_event, payload?: { path?: string }) => {
+    let target = payload?.path
+
+    if (!target) {
+      const window = BrowserWindow.getFocusedWindow() ?? BrowserWindow.getAllWindows()[0]
+      if (!window) throw new Error('The app window is not available')
+
+      const result = await dialog.showOpenDialog(window, {
+        title: 'Import the connections',
+        properties: ['openFile'],
+        filters: [{ name: 'ReliquarySSH export', extensions: ['zip'] }]
+      })
+      if (result.canceled || result.filePaths.length === 0) {
+        return {
+          added: 0,
+          updated: 0,
+          unchanged: 0,
+          superseded: 0,
+          keysAdded: 0,
+          undecryptable: 0,
+          summary: 'Cancelled'
+        }
+      }
+      target = result.filePaths[0]
+    }
+
+    const buffer = readFileSync(target)
+    const material = getMasterPassword().getMasterKey()
+
+    return getExport().import(buffer, material)
+  })
+
+  handle(IPC.EXPORT_SUPERSEDED_LIST, async (): Promise<SupersededSummary[]> => {
+    return getStorage().superseded.list().map((record) => {
+      let name = record.hostId
+      let target = ''
+      let hasPassword = false
+
+      try {
+        const payload = JSON.parse(record.payload) as {
+          connection?: { name?: string; host?: string; port?: number; username?: string }
+          encryptedPassword?: string | null
+        }
+        name = payload.connection?.name ?? record.hostId
+        target = payload.connection
+          ? `${payload.connection.username ?? ''}@${payload.connection.host ?? ''}:${payload.connection.port ?? 22}`
+          : ''
+        hasPassword = Boolean(payload.encryptedPassword)
+      } catch {
+        // A broken payload still shows the id.
+      }
+
+      return {
+        id: record.id,
+        hostId: record.hostId,
+        name,
+        target,
+        replacedAt: record.replacedAt,
+        reason: record.reason,
+        hasPassword
+      }
+    })
+  })
+
+  // ---- host passwords ----
+  handle(IPC.HOST_PASSWORD_SET, async (_event, payload: { hostId: string; password: string }) => {
+    const material = getMasterPassword().getMasterKey()
+    if (!material) throw new Error('The master password is locked')
+
+    getStorage().passwords.save(
+      payload.hostId,
+      payload.password,
+      material,
+      getDeviceId(app.getPath('userData'))
+    )
+    return { stored: true }
+  })
+
+  handle(IPC.HOST_PASSWORD_REMOVE, async (_event, payload: { hostId: string }) => {
+    getStorage().passwords.remove(payload.hostId)
+  })
+
+  handle(IPC.HOST_PASSWORD_HAS, async (_event, payload: { hostId: string }) => {
+    return getStorage().passwords.has(payload.hostId)
+  })
+
+  /**
+   * Saves the password of a host that was just connected to.
+   *
+   * The password is tied to a host id, so a connection made from the
+   * ad-hoc form (no host in the list) does not store anything — there is
+   * nothing to attach it to.
+   */
+  handle(
+    IPC.HOST_PASSWORD_SAVE_FROM_CONNECT,
+    async (_event, payload: { hostId: string | null; password: string }) => {
+      if (!payload.hostId) return { stored: false }
+      if (!payload.password) return { stored: false }
+
+      const material = getMasterPassword().getMasterKey()
+      if (!material) return { stored: false }
+
+      getStorage().passwords.save(
+        payload.hostId,
+        payload.password,
+        material,
+        getDeviceId(app.getPath('userData'))
+      )
+      return { stored: true }
     }
   )
 
