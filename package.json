@@ -23,8 +23,9 @@
     "lint": "eslint .",
     "test": "vitest run",
     "test:watch": "vitest",
-    "package:mac": "npm run build && electron-builder --mac --publish never",
-    "package": "npm run build && electron-builder --publish never",
+    "package:mac": "npm run build && npm run prepare:native && electron-builder --mac --publish never",
+    "package": "npm run build && npm run prepare:native && electron-builder --publish never",
+    "prepare:native": "node scripts/prepare-native.mjs",
     "server": "node --experimental-strip-types server/index.ts",
     "server:dev": "node --experimental-strip-types --watch server/index.ts"
   },
