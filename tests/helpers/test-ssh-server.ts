@@ -5,6 +5,7 @@
  */
 import { Server, utils } from 'ssh2'
 import { createServer, type Socket } from 'node:net'
+import { generateUsableKeyPair } from './test-keys.ts'
 
 export interface TestSshServer {
   port: number
@@ -20,7 +21,16 @@ export interface TestSshServer {
   resetConnections(): void
 }
 
-const HOST_KEY = utils.generateKeyPairSync('ed25519')
+/**
+ * Generates a key pair that actually parses.
+ *
+ * ssh2 1.17 produces a malformed OpenSSH private key for ed25519 roughly
+ * once in 300 runs. The keychain service regenerates on a parse failure —
+ * the test helper needs the same guard, otherwise the suite fails at
+ * random.
+ */
+const HOST_KEY = generateUsableKeyPair()
+
 /**
  * Starts an SSH server on an ephemeral port.
  * The shell echoes back a fixed banner and a prompt, and responds to "echo <text>".
@@ -30,7 +40,7 @@ export async function startTestSshServer(): Promise<TestSshServer> {
 
   // A dedicated key pair the server authorizes — the client side generates
   // its own key and uses it against this server.
-  const clientPair = utils.generateKeyPairSync('ed25519')
+  const clientPair = generateUsableKeyPair()
   const authorizedKey = utils.parseKey(clientPair.private)
   if (authorizedKey instanceof Error) {
     throw new Error('Could not prepare the test key pair')

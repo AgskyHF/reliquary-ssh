@@ -67,6 +67,10 @@ export interface AppSettings {
   logLevel: string
   /** The path of the log file, relative to userData. */
   logPath: string
+  /** The transport: 'server' (HTTP backend) or 'folder' (shared folder). */
+  syncTransport: 'server' | 'folder'
+  /** The shared folder used by the 'folder' transport. */
+  syncFolder: string
 }
 
 export interface ReliquaryApi {

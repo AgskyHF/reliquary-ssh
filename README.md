@@ -46,10 +46,22 @@ Rules that hold across the whole codebase:
 
 ## Sync
 
-The backend stores opaque blobs — it never sees a host name, a user name or a key.
+Two transports, chosen in the Settings section. The encryption is the same in both —
+only the way the encrypted entries travel differs.
+
+| Transport | What it needs | What it is good for |
+| --- | --- | --- |
+| **Server** | the bundled backend (`server/`) on a reachable host, plus an account | many devices, no shared folder, a proper sign-in |
+| **Shared folder** | a folder every device can see — Syncthing, a NAS share, a cloud disk | no server at all: the folder *is* the server |
+
+With the folder transport there is no account and no backend process. The folder holds
+encrypted entries only — its content can be read by anyone and still tells them nothing.
+Every device writes its own files (one per device and entity), so two devices never
+overwrite each other.
+
 The master password derives the AES key (PBKDF2-SHA256), and the PBKDF2 salt travels
-with the account, so a second device derives the same key from the same password and
-reads the data of the first one.
+with the account (or with the folder), so a second device derives the same key from the
+same password and reads the data of the first one.
 
 Merging is last-write-wins on `(version, updated_at)`. A delete is a tombstone and
 takes part in the same comparison. The sync runs on demand, from the Sync section of
@@ -90,6 +102,7 @@ node --experimental-strip-types scripts/verify-key-auth.ts
 node --experimental-strip-types scripts/verify-stage7.ts
 node --experimental-strip-types scripts/verify-stage8.ts
 node --experimental-strip-types scripts/verify-stage9.ts
+node --experimental-strip-types scripts/verify-folder-sync.ts
 ```
 
 ## Roadmap

@@ -1,5 +1,6 @@
 /** IPC handlers registered in the main process. */
 import { app, BrowserWindow, dialog, ipcMain } from 'electron'
+import { existsSync } from 'node:fs'
 import { join } from 'node:path'
 import {
   AuthMethod,
@@ -10,6 +11,7 @@ import {
   type TabLayoutInput
 } from '@shared/types'
 import type { ConnectRequest } from '@shared/api'
+import type { AppSettings } from '../services/settings'
 import type { SyncEntry } from '@shared/sync'
 import { SessionManager } from '../services/session-manager'
 import { Storage, type TabRepository } from '../services/storage'
@@ -17,6 +19,7 @@ import { BackendClient } from '../services/backend-client'
 import { KeychainService } from '../services/keychain'
 import { MasterPasswordManager } from '../services/master-password'
 import { SyncService } from '../services/sync'
+import { SyncTransportRouter } from '../services/sync-transport'
 import { getDeviceId, getDeviceSecret } from '../services/device-id'
 import { logger } from '../services/logger'
 import { broadcast } from './broadcast'
@@ -28,6 +31,7 @@ let backend: BackendClient | null = null
 let masterPassword: MasterPasswordManager | null = null
 let keychain: KeychainService | null = null
 let sync: SyncService | null = null
+let transport: SyncTransportRouter | null = null
 
 /** Lazily created — app.getPath('userData') is only valid after ready. */
 function getStorage(): Storage {
@@ -92,6 +96,24 @@ function getKeychain(): KeychainService {
 }
 
 /**
+ * The transport router — the HTTP backend or a shared folder.
+ *
+ * The transport is a device setting: it decides where the encrypted
+ * entries travel, not how they are encrypted.
+ */
+function getTransport(): SyncTransportRouter {
+  if (!transport) {
+    const settings = getStorage().settings.all()
+    transport = new SyncTransportRouter(getBackend(), {
+      transport: settings.syncTransport,
+      serverUrl: settings.serverUrl,
+      folder: settings.syncFolder
+    })
+  }
+  return transport
+}
+
+/**
  * The sync engine — encryption, push and pull of the local changes.
  * It is built once and keeps its last-run state for the UI.
  */
@@ -100,7 +122,7 @@ function getSync(): SyncService {
     sync = new SyncService(
       getStorage(),
       getMasterPassword(),
-      getBackend(),
+      getTransport(),
       () => getDeviceId(app.getPath('userData'))
     )
   }
@@ -297,7 +319,11 @@ export function registerIpcHandlers(): void {
    * derives exactly the key the other devices use.
    */
   handle(IPC.MASTER_SET_FROM_ACCOUNT, async (_event, password: string) => {
-    if (!getBackend().isSignedIn()) throw new Error('Sign in to the account first')
+    // The folder transport has no account — the salt comes from the shared
+    // folder instead of the backend.
+    if (getTransport().transport === 'server' && !getBackend().isSignedIn()) {
+      throw new Error('Sign in to the account first')
+    }
 
     const params = await getSync().fetchKdfParams()
     if (!params) {
@@ -469,20 +495,43 @@ export function registerIpcHandlers(): void {
 
   handle(
     IPC.SETTINGS_SET,
-    async (_event, payload: { key: 'serverUrl' | 'logLevel' | 'logPath'; value: string }) => {
+    async (_event, payload: { key: keyof AppSettings; value: string }) => {
       const value = payload.value.trim()
       if (!value) throw new Error('The setting must not be empty')
 
       const settings = getStorage().settings
 
-      if (payload.key === 'serverUrl') {
-        // The client is the one that talks to the backend — it has to be
-        // pointed at the new address as well.
-        getBackend().setServerUrl(value)
-        getSync().reset()
+      switch (payload.key) {
+        case 'serverUrl':
+          // The client is the one that talks to the backend — it has to be
+          // pointed at the new address as well.
+          getBackend().setServerUrl(value)
+          break
+        case 'syncFolder':
+          if (payload.value !== '' && !existsSync(value)) {
+            throw new Error(`The folder does not exist: ${value}`)
+          }
+          break
+        case 'syncTransport':
+          if (value !== 'server' && value !== 'folder') {
+            throw new Error(`Unknown transport: ${value}`)
+          }
+          break
+        default:
+          break
       }
 
       settings.set(payload.key, value)
+
+      // The transport may have changed — the router has to follow it.
+      const current = settings.all()
+      getTransport().setSettings({
+        transport: current.syncTransport,
+        serverUrl: current.serverUrl,
+        folder: current.syncFolder
+      })
+      getSync().reset()
+
       return settings.all()
     }
   )

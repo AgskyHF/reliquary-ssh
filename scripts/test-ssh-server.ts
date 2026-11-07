@@ -4,11 +4,12 @@
  */
 import ssh2 from 'ssh2'
 import type { Socket } from 'node:net'
+import { generateUsableKeyPair } from '../tests/helpers/test-keys.ts'
 
 const { Server, utils } = ssh2
 
 const port = Number(process.argv[2] ?? 2222)
-const HOST_KEY = utils.generateKeyPairSync('ed25519')
+const HOST_KEY = generateUsableKeyPair()
 let shellCounter = 0
 const sockets: Socket[] = []
 
@@ -27,7 +28,7 @@ process.on('SIGUSR2', () => {
 
 // A key pair the server authorizes, so the Keychain flow can be tested.
 // The private key is printed on startup — the harness imports it.
-const CLIENT_KEY = utils.generateKeyPairSync('ed25519')
+const CLIENT_KEY = generateUsableKeyPair()
 const AUTHORIZED = utils.parseKey(CLIENT_KEY.private)
 if (AUTHORIZED instanceof Error) {
   throw new Error('Could not prepare the authorized key pair')

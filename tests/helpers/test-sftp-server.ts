@@ -14,8 +14,9 @@ import { createServer, type Socket } from 'node:net'
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync, readdirSync, statSync, existsSync, openSync, readSync, writeSync, closeSync, unlinkSync, rmdirSync, renameSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join, resolve, basename } from 'node:path'
+import { generateUsableKeyPair } from './test-keys.ts'
 
-const { Server, utils } = ssh2
+const { Server } = ssh2
 const sftpConstants = (ssh2.utils as unknown as { sftp: Record<string, unknown> }).sftp as unknown as {
   OPEN_MODE: Record<string, number>
   STATUS_CODE: Record<string, number>
@@ -83,7 +84,7 @@ export async function startTestSftpServer(fixedPort = 0): Promise<TestSftpServer
   const root = mkdtempSync(join(tmpdir(), 'reliquary-sftp-'))
   const sockets: Socket[] = []
 
-  const sshServer = new Server({ hostKeys: [utils.generateKeyPairSync('ed25519').private] }, (client) => {
+  const sshServer = new Server({ hostKeys: [generateUsableKeyPair().private] }, (client) => {
     client.on('authentication', (ctx) => {
       if (ctx.method === 'password' && ctx.username === 'tester' && ctx.password === 'secret') {
         ctx.accept()

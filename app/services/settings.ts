@@ -19,19 +19,27 @@ export interface AppSettings {
   logLevel: string
   /** The path of the log file, relative to userData. */
   logPath: string
+  /** The transport: 'server' (HTTP backend) or 'folder' (shared folder). */
+  syncTransport: 'server' | 'folder'
+  /** The shared folder used by the 'folder' transport. */
+  syncFolder: string
 }
 
 export const DEFAULT_SETTINGS: AppSettings = {
   serverUrl: 'http://127.0.0.1:8790',
   logLevel: 'info',
-  logPath: 'reliquary.log'
+  logPath: 'reliquary.log',
+  syncTransport: 'server',
+  syncFolder: ''
 }
 
 /** The keys of the settings table. */
 const KEYS = {
   serverUrl: 'server.url',
   logLevel: 'log.level',
-  logPath: 'log.path'
+  logPath: 'log.path',
+  syncTransport: 'sync.transport',
+  syncFolder: 'sync.folder'
 } as const
 
 export class SettingsService {
@@ -49,7 +57,10 @@ export class SettingsService {
     return {
       serverUrl: stored.get(KEYS.serverUrl) ?? DEFAULT_SETTINGS.serverUrl,
       logLevel: stored.get(KEYS.logLevel) ?? DEFAULT_SETTINGS.logLevel,
-      logPath: stored.get(KEYS.logPath) ?? DEFAULT_SETTINGS.logPath
+      logPath: stored.get(KEYS.logPath) ?? DEFAULT_SETTINGS.logPath,
+      syncTransport:
+        stored.get(KEYS.syncTransport) === 'folder' ? 'folder' : DEFAULT_SETTINGS.syncTransport,
+      syncFolder: stored.get(KEYS.syncFolder) ?? DEFAULT_SETTINGS.syncFolder
     }
   }
 
@@ -62,7 +73,6 @@ export class SettingsService {
   set<K extends keyof AppSettings>(key: K, value: string): AppSettings[K] {
     const now = new Date().toISOString()
     const storageKey = KEYS[key as keyof typeof KEYS]
-
     this.db
       .prepare(
         `INSERT INTO settings (id, key, value, created_at, updated_at, deleted_at, version, device_id)
