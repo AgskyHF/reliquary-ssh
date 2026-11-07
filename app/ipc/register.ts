@@ -23,6 +23,7 @@ import { MasterPasswordManager } from '../services/master-password'
 import { SyncService } from '../services/sync'
 import { SyncTransportRouter } from '../services/sync-transport'
 import { ExportService } from '../services/export'
+import { RestoreService } from '../services/restore'
 import { getDeviceId, getDeviceSecret } from '../services/device-id'
 import { logger } from '../services/logger'
 import { broadcast } from './broadcast'
@@ -36,6 +37,7 @@ let keychain: KeychainService | null = null
 let sync: SyncService | null = null
 let transport: SyncTransportRouter | null = null
 let exporter: ExportService | null = null
+let restorer: RestoreService | null = null
 
 /** The export/import service. */
 function getExport(): ExportService {
@@ -43,6 +45,14 @@ function getExport(): ExportService {
     exporter = new ExportService(getStorage(), getMasterPassword())
   }
   return exporter
+}
+
+/** The service that brings a replaced version back. */
+function getRestore(): RestoreService {
+  if (!restorer) {
+    restorer = new RestoreService(getStorage())
+  }
+  return restorer
 }
 
 /** Lazily created — app.getPath('userData') is only valid after ready. */
@@ -655,6 +665,16 @@ export function registerIpcHandlers(): void {
         hasPassword
       }
     })
+  })
+
+  // ---- restoring a replaced version ----
+  handle(IPC.EXPORT_SUPERSEDED_RESTORE, async (_event, payload: { id: string }) => {
+    const material = getMasterPassword().getMasterKey()
+    return getRestore().restore(payload.id, material)
+  })
+
+  handle(IPC.EXPORT_SUPERSEDED_REMOVE, async (_event, payload: { id: string }) => {
+    getStorage().superseded.remove(payload.id)
   })
 
   // ---- host passwords ----

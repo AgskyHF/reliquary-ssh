@@ -331,6 +331,8 @@ export const IPC = {
   EXPORT_BUILD: 'export:build',
   EXPORT_IMPORT: 'export:import',
   EXPORT_SUPERSEDED_LIST: 'export:supersededList',
+  EXPORT_SUPERSEDED_RESTORE: 'export:supersededRestore',
+  EXPORT_SUPERSEDED_REMOVE: 'export:supersededRemove',
   HOST_PASSWORD_SET: 'host:passwordSet',
   HOST_PASSWORD_REMOVE: 'host:passwordRemove',
   HOST_PASSWORD_HAS: 'host:passwordHas',

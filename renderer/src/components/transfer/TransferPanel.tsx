@@ -47,6 +47,21 @@ export function TransferPanel() {
     }
   }, [refresh])
 
+  /**
+   * The old folder changes outside the panel — an import adds versions,
+   * a sync brings them from another device. The panel polls the state
+   * instead of waiting for an event that every writer would have to send.
+   */
+  useEffect(() => {
+    const timer = setInterval(() => {
+      void refresh()
+    }, 2000)
+
+    return () => {
+      clearInterval(timer)
+    }
+  }, [refresh])
+
   const runExport = useCallback(async () => {
     setBusy(true)
     setError(null)
@@ -84,6 +99,38 @@ export function TransferPanel() {
       setBusy(false)
     }
   }, [includeKeys, includeOld, masterPassword, withPasswords])
+
+  /** Brings a replaced version back — with its password when it can be read. */
+  const restore = useCallback(
+    async (id: string) => {
+      setBusy(true)
+      setError(null)
+      setMessage(null)
+      try {
+        const outcome = await api.transfer.restore({ id })
+        setMessage(outcome.summary)
+        await refresh()
+      } catch (err) {
+        setError(err instanceof Error ? err.message : String(err))
+      } finally {
+        setBusy(false)
+      }
+    },
+    [refresh]
+  )
+
+  /** Removes a version from the old folder for good. */
+  const forget = useCallback(
+    async (id: string) => {
+      try {
+        await api.transfer.forget({ id })
+        await refresh()
+      } catch (err) {
+        setError(err instanceof Error ? err.message : String(err))
+      }
+    },
+    [refresh]
+  )
 
   const runImport = useCallback(async () => {
     setBusy(true)
@@ -296,6 +343,24 @@ export function TransferPanel() {
                 {new Date(item.replacedAt).toLocaleString()}
                 {item.hasPassword ? ' · with a password' : ''}
               </span>
+              <div className="transfer-panel__old-actions">
+                <button
+                  type="button"
+                  className="button button--ghost transfer-panel__restore"
+                  disabled={busy}
+                  onClick={() => void restore(item.id)}
+                >
+                  Restore
+                </button>
+                <button
+                  type="button"
+                  className="button button--ghost transfer-panel__forget"
+                  disabled={busy}
+                  onClick={() => void forget(item.id)}
+                >
+                  Forget
+                </button>
+              </div>
             </div>
           ))
         )}

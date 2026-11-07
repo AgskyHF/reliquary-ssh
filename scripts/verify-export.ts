@@ -299,6 +299,42 @@ async function main(): Promise<void> {
       old[0]?.hasPassword === true
     )
 
+    // 7. the old version comes back through the UI.
+    await openSection(cdpA, 'Export')
+    checks.check(
+      'the old folder lists the version with a restore button',
+      await waitFor(cdpA, exists('.transfer-panel__restore'), 15)
+    )
+
+    await cdpA.evaluate(`document.querySelector('.transfer-panel__restore')?.click(), true`)
+
+    checks.check(
+      'the restore brings the old version back',
+      await waitFor(cdpA, `window.reliquary.transfer.superseded().then(l => l.length === 2)`, 25)
+    )
+
+    const restoredName = (await cdpA.evaluate(`(async () => {
+      const hosts = await window.reliquary.host.list()
+      return hosts.map(h => h.name).join(',')
+    })()`)) as string
+    checks.check('the host shows the old name again', restoredName.includes('prod'))
+
+    // The password of the restored version is readable again.
+    const restoredPassword = await cdpA.evaluate(`(async () => {
+      const hosts = await window.reliquary.host.list()
+      const status = await window.reliquary.master.status()
+      if (!status.unlocked || hosts.length === 0) return null
+      return 'unlocked'
+    })()`)
+    checks.check('the master password is still unlocked', restoredPassword === 'unlocked')
+
+    const passwordIsBack = await cdpA.evaluate(`(async () => {
+      const hosts = await window.reliquary.host.list()
+      if (hosts.length === 0) return false
+      return window.reliquary.hostPassword.has({ hostId: hosts[0].id })
+    })()`)
+    checks.check('the restored version keeps its password', passwordIsBack === true)
+
     exitCode = checks.allPassed ? 0 : 1
   } catch (error) {
     errored = true

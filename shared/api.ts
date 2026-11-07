@@ -90,6 +90,18 @@ export interface SupersededSummary {
   hasPassword: boolean
 }
 
+/** What a restore did. */
+export interface RestoreSummary {
+  hostId: string
+  /** The name of the restored version. */
+  version: string
+  /** True when the password of the old version came back too. */
+  passwordRestored: boolean
+  /** True when the version that was replaced went to the old folder. */
+  replacedSaved: boolean
+  summary: string
+}
+
 export interface ReliquaryApi {
   appInfo(): Promise<AppInfo>
 
@@ -200,6 +212,13 @@ export interface ReliquaryApi {
     import(payload?: { path?: string }): Promise<ImportResult>
     /** The versions that lost a merge — they are never deleted. */
     superseded(): Promise<SupersededSummary[]>
+    /**
+     * Restores a version that lost a merge. It becomes the current one,
+     * and the version it replaces goes to the old folder.
+     */
+    restore(payload: { id: string }): Promise<RestoreSummary>
+    /** Removes a version from the old folder — the user said it is not needed. */
+    forget(payload: { id: string }): Promise<void>
   }
 
   hostPassword: {
