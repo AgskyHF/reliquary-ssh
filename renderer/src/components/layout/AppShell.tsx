@@ -3,6 +3,7 @@ import { KeychainPanel } from '../keys/KeychainPanel'
 import { HostList } from '../hosts/HostList'
 import { LoginForm } from '../auth/LoginForm'
 import { SyncPanel } from '../sync/SyncPanel'
+import { SettingsPanel } from '../settings/SettingsPanel'
 
 interface AppShellProps {
   children?: ReactNode
@@ -122,9 +123,12 @@ function Sidebar({
         <div className="sidebar__section">
           <div className="sidebar__section-header">Settings</div>
           {signedInAs ? (
-            <div className="sidebar__empty">Signed in as {signedInAs}</div>
+            <SettingsPanel signedInAs={signedInAs} />
           ) : (
-            <LoginForm onSignedIn={onSignIn} />
+            <>
+              <LoginForm onSignedIn={onSignIn} />
+              <SettingsPanel />
+            </>
           )}
         </div>
       ) : section === 'sync' ? (

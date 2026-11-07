@@ -16,8 +16,8 @@ are reserved in the protocol interface but not implemented yet.
 | 5 | Keychain (key generation, import, export) | done |
 | 6 | Local storage (SQLite, repositories, outbox) | done |
 | 7 | Backend + auth (Google OAuth PKCE, email/password) | done |
-| 8 | E2EE + sync | planned |
-| 9 | Polish, packaging, roadmap | planned |
+| 8 | E2EE + sync | done |
+| 9 | Polish, packaging, roadmap | done |
 
 Per-stage reports live in the Obsidian vault, under `GitHubProjects/ReliquarySSH/`.
 
@@ -41,6 +41,19 @@ Rules that hold across the whole codebase:
 - No macOS-only APIs without an abstraction layer.
 - Secrets live in `.env` (see `.env.example`), never in the repository.
 - Private keys are stored encrypted at rest, never in plaintext.
+- The master password never leaves the device: hosts and keys are encrypted with
+  AES-256-GCM before they reach the backend.
+
+## Sync
+
+The backend stores opaque blobs — it never sees a host name, a user name or a key.
+The master password derives the AES key (PBKDF2-SHA256), and the PBKDF2 salt travels
+with the account, so a second device derives the same key from the same password and
+reads the data of the first one.
+
+Merging is last-write-wins on `(version, updated_at)`. A delete is a tombstone and
+takes part in the same comparison. The sync runs on demand, from the Sync section of
+the sidebar.
 
 ## Development
 
@@ -52,11 +65,39 @@ npm run lint       # eslint
 npm test           # vitest
 npm run build      # production build into out/
 npm run package:mac # electron-builder dmg + zip for arm64 and x64
+python3 scripts/make-icon.py  # regenerate build/icon.png and build/icon.icns
+```
+
+The backend runs separately:
+
+```sh
+JWT_SECRET=dev-secret npm run server   # http://127.0.0.1:8790
+```
+
+The address of the backend can also be changed in the Settings section of the app.
+
+### Verification harnesses
+
+Every stage has a GUI harness that drives the real app over the Chrome DevTools
+Protocol, against a real backend and a real SSH server:
+
+```sh
+node --experimental-strip-types scripts/verify-stage2.ts
+node --experimental-strip-types scripts/verify-stage3.ts
+node --experimental-strip-types scripts/verify-stage4.ts
+node --experimental-strip-types scripts/verify-stage5.ts
+node --experimental-strip-types scripts/verify-key-auth.ts
+node --experimental-strip-types scripts/verify-stage7.ts
+node --experimental-strip-types scripts/verify-stage8.ts
+node --experimental-strip-types scripts/verify-stage9.ts
 ```
 
 ## Roadmap
 
 - Windows and Linux builds (electron-builder targets are already prepared, commented out).
 - FTP, Telnet and Serial protocol support.
-- Google OAuth and email authentication with the sync backend.
-- End-to-end encrypted sync of hosts, keys and settings.
+- Google OAuth with a real client id (the flow is written, but untested live).
+- Automatic sync on a timer and on local changes.
+- A form to create and edit hosts.
+- The device secret moved into the OS keychain (`safeStorage`).
+- Schema migrations for the local database.

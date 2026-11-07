@@ -26,6 +26,7 @@ import {
 import type { MasterPasswordManager } from './master-password'
 import type { MasterKeyMaterial } from './crypto'
 import type { Storage } from './storage'
+import { logger } from './logger'
 import {
   createKdfEntry,
   decryptSyncPayload,
@@ -147,6 +148,7 @@ export class SyncService {
     // Only after the backend accepted them — a failed push leaves the
     // journal intact so the next run retries.
     this.storage.changes.markSynced(pending.map((change) => change.id))
+    logger.info(`Sync pushed ${accepted} entries`, { pending: pending.length })
     return accepted
   }
 
@@ -212,6 +214,14 @@ export class SyncService {
         'Some entries could not be decrypted. Use the master password of the account.'
     }
 
+    logger.info('Sync pull finished', {
+      pulled: result.pulled,
+      applied: result.applied,
+      skipped: result.skipped,
+      conflicts: result.conflicts,
+      undecryptable: result.undecryptable
+    })
+
     return result
   }
 
@@ -240,6 +250,7 @@ export class SyncService {
       }
     } catch (error) {
       this.lastError = error instanceof Error ? error.message : String(error)
+      logger.error('Sync failed', error instanceof Error ? error.stack : String(error))
       throw error
     } finally {
       this.running = false

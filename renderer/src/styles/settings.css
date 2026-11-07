@@ -1,0 +1,40 @@
+/*
+ * Settings panel styles.
+ * Only theme variables — no hardcoded colors, spacing or fonts.
+ */
+
+.settings-panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  padding: var(--space-sm);
+}
+
+.settings-panel__title {
+  font-size: var(--font-size-md);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text);
+}
+
+.settings-panel__account {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.settings-panel__hint {
+  font-family: var(--font-mono);
+  font-size: var(--font-size-xs);
+  color: var(--color-text-faint);
+}
+
+.settings-panel__saved {
+  font-size: var(--font-size-sm);
+  color: var(--color-success);
+}
+
+.settings-panel__save {
+  align-self: flex-start;
+}

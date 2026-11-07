@@ -18,6 +18,7 @@ import { KeychainService } from '../services/keychain'
 import { MasterPasswordManager } from '../services/master-password'
 import { SyncService } from '../services/sync'
 import { getDeviceId, getDeviceSecret } from '../services/device-id'
+import { logger } from '../services/logger'
 import { broadcast } from './broadcast'
 
 const sessionManager = new SessionManager()
@@ -45,21 +46,19 @@ function getTabStore(): TabRepository {
 /**
  * The backend client.
  *
- * The requests run in the main process: the renderer is loaded from a
- * file:// origin and Chromium blocks such pages from reaching the local
- * network.
+ * @param serverUrl The address of the backend. The environment variable
+ * wins over the stored setting, so a developer can point the app at a
+ * local server without touching the database.
  */
 function getBackend(): BackendClient {
   if (!backend) {
-    backend = new BackendClient({
-      serverUrl: process.env.RELIQUARY_SERVER_URL ?? DEFAULT_SERVER_URL
-    })
+    const stored = getStorage().settings.get('serverUrl')
+    const serverUrl = process.env.RELIQUARY_SERVER_URL ?? stored
+
+    backend = new BackendClient({ serverUrl })
   }
   return backend
 }
-
-/** The default address of the sync backend. */
-const DEFAULT_SERVER_URL = 'http://127.0.0.1:8790'
 
 /** Lazily created — app.getPath('userData') is only valid after ready. */
 function getMasterPassword(): MasterPasswordManager {
@@ -148,17 +147,39 @@ sessionManager.on('state', ({ sessionId, state }) => {
 })
 
 sessionManager.on('sessionError', ({ sessionId, message }) => {
+  logger.warn(`Session ${sessionId} failed: ${message}`)
   broadcast(IPC.SESSION_ERROR, { sessionId, message })
 })
 
+/**
+ * Registers an IPC handler that logs its failures.
+ *
+ * The handler keeps the usual (event, payload) signature — the wrapper
+ * only adds the logging around it.
+ */
+function handle(
+  channel: string,
+  handler: (...args: never[]) => unknown
+): void {
+  ipcMain.handle(channel, async (event: unknown, ...args: unknown[]) => {
+    try {
+      return await (handler as (...values: unknown[]) => unknown)(event, ...args)
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error)
+      logger.error(`IPC ${channel} failed: ${message}`, error instanceof Error ? error.stack : '')
+      throw error instanceof Error ? error : new Error(message)
+    }
+  })
+}
+
 export function registerIpcHandlers(): void {
-  ipcMain.handle(IPC.APP_INFO, () => ({
+  handle(IPC.APP_INFO, () => ({
     name: app.getName(),
     version: app.getVersion(),
     platform: process.platform
   }))
 
-  ipcMain.handle(
+  handle(
     IPC.SESSION_CONNECT,
     async (_event, request: ConnectRequest): Promise<void> => {
       const options: ConnectionOptions = {
@@ -184,36 +205,36 @@ export function registerIpcHandlers(): void {
     }
   )
 
-  ipcMain.handle(
+  handle(
     IPC.SESSION_WRITE,
     (_event, payload: { sessionId: string; data: string }): void => {
       sessionManager.write(payload.sessionId, payload.data)
     }
   )
 
-  ipcMain.handle(
+  handle(
     IPC.SESSION_RESIZE,
     (_event, payload: { sessionId: string; cols: number; rows: number }): void => {
       sessionManager.resize(payload.sessionId, payload.cols, payload.rows)
     }
   )
 
-  ipcMain.handle(IPC.SESSION_DISCONNECT, async (_event, sessionId: string): Promise<void> => {
+  handle(IPC.SESSION_DISCONNECT, async (_event, sessionId: string): Promise<void> => {
     await sessionManager.disconnect(sessionId)
   })
 
-  ipcMain.handle(IPC.TAB_SNAPSHOT_LOAD, async () => getTabStore().load())
-  ipcMain.handle(IPC.TAB_SNAPSHOT_SAVE, async (_event, input: TabLayoutInput) =>
+  handle(IPC.TAB_SNAPSHOT_LOAD, async () => getTabStore().load())
+  handle(IPC.TAB_SNAPSHOT_SAVE, async (_event, input: TabLayoutInput) =>
     getTabStore().save(input)
   )
 
-  ipcMain.handle(
+  handle(
     IPC.FILE_LIST,
     async (_event, payload: { sessionId: string; path: string }) =>
       sessionManager.listFiles(payload.sessionId, payload.path)
   )
 
-  ipcMain.handle(
+  handle(
     IPC.FILE_DOWNLOAD,
     async (
       _event,
@@ -221,7 +242,7 @@ export function registerIpcHandlers(): void {
     ) => sessionManager.download(payload.sessionId, payload)
   )
 
-  ipcMain.handle(
+  handle(
     IPC.FILE_UPLOAD,
     async (
       _event,
@@ -229,13 +250,13 @@ export function registerIpcHandlers(): void {
     ) => sessionManager.upload(payload.sessionId, payload)
   )
 
-  ipcMain.handle(IPC.FILE_CWD, async (_event, sessionId: string) =>
+  handle(IPC.FILE_CWD, async (_event, sessionId: string) =>
     sessionManager.cwd(sessionId)
   )
 
   // Native file picker — the only place the app touches the OS dialog.
   // dialog.showOpenDialog/showSaveDialog are cross-platform Electron APIs.
-  ipcMain.handle(
+  handle(
     IPC.FILE_PICK_LOCAL,
     async (
       _event,
@@ -262,7 +283,7 @@ export function registerIpcHandlers(): void {
   )
 
   // ---- master password ----
-  ipcMain.handle(IPC.MASTER_SET, async (_event, password: string) => {
+  handle(IPC.MASTER_SET, async (_event, password: string) => {
     const manager = getMasterPassword()
     await manager.set(password)
     // The keychain must be rebuilt with the new material.
@@ -275,7 +296,7 @@ export function registerIpcHandlers(): void {
    * server. The PBKDF2 salt travels with the account, so this device
    * derives exactly the key the other devices use.
    */
-  ipcMain.handle(IPC.MASTER_SET_FROM_ACCOUNT, async (_event, password: string) => {
+  handle(IPC.MASTER_SET_FROM_ACCOUNT, async (_event, password: string) => {
     if (!getBackend().isSignedIn()) throw new Error('Sign in to the account first')
 
     const params = await getSync().fetchKdfParams()
@@ -289,13 +310,13 @@ export function registerIpcHandlers(): void {
     return manager.status()
   })
 
-  ipcMain.handle(IPC.MASTER_HAS, async () => getMasterPassword().has())
+  handle(IPC.MASTER_HAS, async () => getMasterPassword().has())
 
-  ipcMain.handle(IPC.MASTER_VERIFY, async (_event, password: string) =>
+  handle(IPC.MASTER_VERIFY, async (_event, password: string) =>
     getMasterPassword().verify(password)
   )
 
-  ipcMain.handle(IPC.MASTER_UNLOCK, async (_event, password: string) => {
+  handle(IPC.MASTER_UNLOCK, async (_event, password: string) => {
     const manager = getMasterPassword()
     if (!manager.unlock(password)) {
       throw new Error('Wrong master password')
@@ -305,17 +326,17 @@ export function registerIpcHandlers(): void {
     return manager.status()
   })
 
-  ipcMain.handle(IPC.MASTER_CLEAR, async () => {
+  handle(IPC.MASTER_CLEAR, async () => {
     getMasterPassword().lock()
     keychain = null
   })
 
-  ipcMain.handle(IPC.MASTER_STATUS, async () => getMasterPassword().status())
+  handle(IPC.MASTER_STATUS, async () => getMasterPassword().status())
 
   // ---- hosts ----
-  ipcMain.handle(IPC.HOST_LIST, async () => getStorage().hosts.list())
+  handle(IPC.HOST_LIST, async () => getStorage().hosts.list())
 
-  ipcMain.handle(IPC.HOST_SAVE, async (_event, host: Partial<Host>) => {
+  handle(IPC.HOST_SAVE, async (_event, host: Partial<Host>) => {
     const storage = getStorage()
     const now = new Date().toISOString()
     const deviceId = getDeviceId(app.getPath('userData'))
@@ -353,7 +374,7 @@ export function registerIpcHandlers(): void {
     return saved
   })
 
-  ipcMain.handle(IPC.HOST_DELETE, async (_event, id: string) => {
+  handle(IPC.HOST_DELETE, async (_event, id: string) => {
     const storage = getStorage()
     storage.hosts.remove(id)
 
@@ -373,32 +394,32 @@ export function registerIpcHandlers(): void {
   })
 
   // ---- auth ----
-  ipcMain.handle(
+  handle(
     IPC.AUTH_REGISTER,
     async (_event, payload: { email: string; password: string }) =>
       getBackend().register(payload.email, payload.password)
   )
 
-  ipcMain.handle(
+  handle(
     IPC.AUTH_LOGIN,
     async (_event, payload: { email: string; password: string }) =>
       getBackend().login(payload.email, payload.password)
   )
 
-  ipcMain.handle(
+  handle(
     IPC.AUTH_LOGIN_GOOGLE,
     async (_event, payload: { code: string; codeVerifier?: string }) =>
       getBackend().loginWithGoogle(payload.code, payload.codeVerifier)
   )
 
-  ipcMain.handle(IPC.AUTH_ME, async () => getBackend().me())
+  handle(IPC.AUTH_ME, async () => getBackend().me())
 
-  ipcMain.handle(IPC.AUTH_SIGN_OUT, async () => {
+  handle(IPC.AUTH_SIGN_OUT, async () => {
     getBackend().signOut()
     getSync().reset()
   })
 
-  ipcMain.handle(IPC.AUTH_STATUS, async () => {
+  handle(IPC.AUTH_STATUS, async () => {
     const client = getBackend()
     return {
       signedIn: client.isSignedIn(),
@@ -407,22 +428,24 @@ export function registerIpcHandlers(): void {
     }
   })
 
-  ipcMain.handle(IPC.AUTH_SERVER_URL, async (_event, url: string) => {
+  handle(IPC.AUTH_SERVER_URL, async (_event, url: string) => {
     const client = getBackend()
     client.setServerUrl(url)
     getSync().reset()
+    // The address is stored, so it survives a restart.
+    getStorage().settings.set('serverUrl', url)
     return { serverUrl: client.serverUrl }
   })
 
   // ---- sync ----
-  ipcMain.handle(
+  handle(
     IPC.SYNC_PUSH_ENTRIES,
     async (_event, payload: { entries: SyncEntry[] }) => ({
       accepted: await getBackend().pushEntries(payload.entries)
     })
   )
 
-  ipcMain.handle(
+  handle(
     IPC.SYNC_PULL_ENTRIES,
     async (_event, payload?: { entity?: string }) => ({
       entries: await getBackend().pullEntries(payload?.entity)
@@ -430,7 +453,7 @@ export function registerIpcHandlers(): void {
   )
 
   /** State of the engine plus what the sync screen needs to decide its form. */
-  ipcMain.handle(IPC.SYNC_STATUS, async () => {
+  handle(IPC.SYNC_STATUS, async () => {
     const engine = getSync()
     return {
       ...engine.status(),
@@ -439,20 +462,43 @@ export function registerIpcHandlers(): void {
     }
   })
 
-  ipcMain.handle(IPC.SYNC_NOW, async () => getSync().syncNow())
+  handle(IPC.SYNC_NOW, async () => getSync().syncNow())
+
+  // ---- settings ----
+  handle(IPC.SETTINGS_GET, async () => getStorage().settings.all())
+
+  handle(
+    IPC.SETTINGS_SET,
+    async (_event, payload: { key: 'serverUrl' | 'logLevel' | 'logPath'; value: string }) => {
+      const value = payload.value.trim()
+      if (!value) throw new Error('The setting must not be empty')
+
+      const settings = getStorage().settings
+
+      if (payload.key === 'serverUrl') {
+        // The client is the one that talks to the backend — it has to be
+        // pointed at the new address as well.
+        getBackend().setServerUrl(value)
+        getSync().reset()
+      }
+
+      settings.set(payload.key, value)
+      return settings.all()
+    }
+  )
 
   // ---- sync outbox ----
-  ipcMain.handle(IPC.CHANGES_PENDING_COUNT, async () => getStorage().changes.count())
+  handle(IPC.CHANGES_PENDING_COUNT, async () => getStorage().changes.count())
 
   // ---- keychain ----
-  ipcMain.handle(IPC.KEY_LIST, async () => {
+  handle(IPC.KEY_LIST, async () => {
     // A locked keychain has no keys to show — the renderer shows the
     // unlock screen instead.
     if (!getMasterPassword().unlocked) return []
     return getKeychain().list()
   })
 
-  ipcMain.handle(
+  handle(
     IPC.KEY_GENERATE,
     async (
       _event,
@@ -464,7 +510,7 @@ export function registerIpcHandlers(): void {
     }
   )
 
-  ipcMain.handle(
+  handle(
     IPC.KEY_IMPORT,
     async (
       _event,
@@ -476,13 +522,13 @@ export function registerIpcHandlers(): void {
     }
   )
 
-  ipcMain.handle(IPC.KEY_DELETE, async (_event, id: string) => {
+  handle(IPC.KEY_DELETE, async (_event, id: string) => {
     await getKeychain().remove(id)
     // The row is soft-deleted; the tombstone has to reach the other devices.
     await recordKeyChange(id)
   })
 
-  ipcMain.handle(IPC.KEY_EXPORT_PUBLIC, async (_event, id: string) =>
+  handle(IPC.KEY_EXPORT_PUBLIC, async (_event, id: string) =>
     getKeychain().exportPublic(id)
   )
 

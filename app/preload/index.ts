@@ -31,6 +31,11 @@ const api: ReliquaryApi = {
     status: () => ipcRenderer.invoke(IPC.MASTER_STATUS)
   },
 
+  settings: {
+    get: () => ipcRenderer.invoke(IPC.SETTINGS_GET),
+    set: (payload) => ipcRenderer.invoke(IPC.SETTINGS_SET, payload)
+  },
+
   session: {
     connect: (request) => ipcRenderer.invoke(IPC.SESSION_CONNECT, request),
     write: (payload) => ipcRenderer.invoke(IPC.SESSION_WRITE, payload),

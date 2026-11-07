@@ -326,6 +326,8 @@ export const IPC = {
   MASTER_UNLOCK: 'master:unlock',
   MASTER_CLEAR: 'master:clear',
   MASTER_STATUS: 'master:status',
+  SETTINGS_GET: 'settings:get',
+  SETTINGS_SET: 'settings:set',
   SESSION_CONNECT: 'session:connect',
   SESSION_WRITE: 'session:write',
   SESSION_RESIZE: 'session:resize',

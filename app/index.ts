@@ -2,6 +2,7 @@
 import { app, BrowserWindow, shell } from 'electron'
 import { join } from 'node:path'
 import { registerIpcHandlers, sessionManager } from './ipc/register'
+import { logger } from './services/logger'
 
 const isDev = !app.isPackaged
 
@@ -55,6 +56,15 @@ function createWindow(): BrowserWindow {
 }
 
 app.whenReady().then(() => {
+  // The log file lives next to the database in userData.
+  logger.setFile(join(app.getPath('userData'), 'reliquary.log'))
+  logger.info('ReliquarySSH is starting', {
+    version: app.getVersion(),
+    platform: process.platform,
+    electron: process.versions.electron,
+    packaged: app.isPackaged
+  })
+
   if (offscreen && process.platform === 'darwin') {
     // No Dock icon, no app activation — the harness stays invisible.
     app.dock?.hide()
@@ -71,12 +81,22 @@ app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') app.quit()
 })
 
+// Every uncaught error goes into the log — a crash must not be silent.
+process.on('uncaughtException', (error) => {
+  logger.error('Uncaught exception', error.stack ?? error.message)
+})
+
+process.on('unhandledRejection', (reason) => {
+  logger.error('Unhandled rejection', reason instanceof Error ? reason.stack : String(reason))
+})
+
 // Close every live session exactly once before the process exits.
 let quitting = false
 app.on('before-quit', (event) => {
   if (quitting) return
   event.preventDefault()
   quitting = true
+  logger.info('ReliquarySSH is quitting')
   void sessionManager.disconnectAll().finally(() => app.quit())
 })
 

@@ -4,9 +4,11 @@
  * Usage: npm run server
  */
 import express, { type NextFunction, type Request, type Response } from 'express'
+import { dirname, resolve } from 'node:path'
 import { AuthError, AuthService } from './auth.ts'
 import { loadConfig } from './config.ts'
 import { SyncRepository, UserRepository, openServerDatabase } from './database.ts'
+import { ServerLogger } from './logger.ts'
 import { createRoutes } from './routes.ts'
 
 // Started only when the file is executed directly, so the tests can import
@@ -27,6 +29,12 @@ export function createServerApp(overrides?: { jwtSecret?: string; databasePath?:
   if (!jwtSecret) {
     throw new Error('JWT_SECRET is not set — the server refuses to start')
   }
+
+  // The log lives next to the database unless the path is set explicitly.
+  const log = new ServerLogger({
+    filePath: config.logPath || resolve(dirname(databasePath), 'reliquary-server.log'),
+    level: config.logLevel
+  })
 
   const db = openServerDatabase(databasePath)
   const users = new UserRepository(db)
@@ -62,6 +70,7 @@ export function createServerApp(overrides?: { jwtSecret?: string; databasePath?:
     }
 
     const message = error instanceof Error ? error.message : 'Internal server error'
+    log.error(`Request failed: ${message}`, error instanceof Error ? error.stack : '')
     response.status(500).json({ error: message })
   })
 
@@ -76,11 +85,13 @@ export function startServer(): void {
   const config = loadConfig()
   const { app, close } = createServerApp()
 
-  const server = app.listen(config.port, () => {
-    console.log(`ReliquarySSH sync server listening on http://localhost:${config.port}`)
-  })
+  const log = new ServerLogger({ filePath: config.logPath, level: config.logLevel })
 
+  const server = app.listen(config.port, () => {
+    log.info(`ReliquarySSH sync server listening on http://localhost:${config.port}`)
+  })
   const shutdown = (): void => {
+    log.info('The sync server is shutting down')
     server.close(() => {
       close()
       process.exit(0)

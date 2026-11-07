@@ -9,6 +9,9 @@ dist/
 release/
 *.tsbuildinfo
 
+# The icon sources are committed; the iconset is a build intermediate.
+build/icon.iconset/
+
 # electron-builder
 electron-builder.yml.bak
 *.dmg

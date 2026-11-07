@@ -11,15 +11,9 @@
  */
 import { join } from 'node:path'
 import type { TabLayoutInput, TabLayoutSnapshot, TabState } from '@shared/types'
-import {
-  ChangeRepository,
-  HostRepository,
-  SqliteKeyRepository,
-  TabRepository as SqliteTabRepository,
-  openDatabase,
-  type SqliteDatabase
-} from './database'
+import { ChangeRepository, HostRepository, SqliteKeyRepository, TabRepository as SqliteTabRepository, openDatabase, type SqliteDatabase } from './database'
 import { getDeviceId } from './device-id'
+import { SettingsService } from './settings'
 
 /** The tab repository contract the main process uses. */
 export interface TabRepository {
@@ -88,6 +82,7 @@ export class Storage {
   readonly keys: SqliteKeyRepository
   readonly tabs: TabRepository
   readonly changes: ChangeRepository
+  readonly settings: SettingsService
 
   constructor(
     filePath: string,
@@ -98,6 +93,7 @@ export class Storage {
     this.keys = new SqliteKeyRepository(this.db)
     this.tabs = new SqliteTabStore(this.db, deviceId)
     this.changes = new ChangeRepository(this.db)
+    this.settings = new SettingsService(this.db)
   }
 
   /** Creates the storage in the app's userData directory. */

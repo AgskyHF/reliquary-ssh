@@ -59,6 +59,16 @@ export interface SessionErrorEvent {
   message: string
 }
 
+/** The device settings of the app. */
+export interface AppSettings {
+  /** The address of the sync backend. */
+  serverUrl: string
+  /** The log level: debug | info | warn | error. */
+  logLevel: string
+  /** The path of the log file, relative to userData. */
+  logPath: string
+}
+
 export interface ReliquaryApi {
   appInfo(): Promise<AppInfo>
 
@@ -143,6 +153,13 @@ export interface ReliquaryApi {
     clear(): Promise<void>
     /** Current state of the master key in the main process. */
     status(): Promise<MasterStatus>
+  }
+
+  settings: {
+    /** All device settings. */
+    get(): Promise<AppSettings>
+    /** Writes one setting. */
+    set(payload: { key: keyof AppSettings; value: string }): Promise<AppSettings>
   }
 
   session: {

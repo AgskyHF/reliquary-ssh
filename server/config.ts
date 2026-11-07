@@ -16,6 +16,10 @@ export interface ServerConfig {
   googleServerClientId: string
   googleClientSecret: string
   googleRedirectUri: string
+  /** Where the server writes its log; empty disables the file. */
+  logPath: string
+  /** The log level: debug | info | warn | error. */
+  logLevel: string
 }
 
 /** Reads a .env file into a plain object. Missing files are ignored. */
@@ -44,12 +48,15 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): ServerConfig {
     env[key] ?? fileEnv[key] ?? fallback
 
   return {
-    port: Number(value('PORT', '8788')),
+    port: Number(value('PORT', '8790')),
     databasePath: value('DATABASE_PATH', './data/reliquary.db'),
     jwtSecret: value('JWT_SECRET', ''),
     jwtExpiresIn: value('JWT_EXPIRES_IN', '7d'),
     googleServerClientId: value('GOOGLE_SERVER_CLIENT_ID', ''),
     googleClientSecret: value('GOOGLE_CLIENT_SECRET', ''),
-    googleRedirectUri: value('GOOGLE_REDIRECT_URI', 'http://localhost:8788/auth/google/callback')
+    googleRedirectUri: value('GOOGLE_REDIRECT_URI', 'http://localhost:8790/auth/google/callback'),
+    // Empty means "next to the database file".
+    logPath: value('LOG_PATH', ''),
+    logLevel: value('LOG_LEVEL', 'info')
   }
 }
