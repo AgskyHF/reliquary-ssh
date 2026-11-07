@@ -6,6 +6,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { ProtocolType, type Host } from '@shared/types'
 import { api } from '../../services/api'
+import { HostForm } from './HostForm'
 
 export interface HostListProps {
   /** Called when the list changed, so other panels can refresh. */
@@ -27,6 +28,8 @@ export function HostList({ onChanged, onConnect }: HostListProps) {
   const [hosts, setHosts] = useState<Host[]>([])
   const [error, setError] = useState<string | null>(null)
   const [expanded, setExpanded] = useState<string | null>(null)
+  // The form is open when it creates a new host, or when it edits one.
+  const [formHost, setFormHost] = useState<Host | null | undefined>(undefined)
 
   const refresh = useCallback(async () => {
     try {
@@ -60,13 +63,34 @@ export function HostList({ onChanged, onConnect }: HostListProps) {
     [refresh]
   )
 
-  if (hosts.length === 0) {
-    return <div className="sidebar__empty">No hosts yet</div>
+  if (formHost !== undefined) {
+    return (
+      <HostForm
+        host={formHost}
+        onSaved={() => {
+          setFormHost(undefined)
+          void refresh()
+        }}
+        onCancel={() => setFormHost(undefined)}
+      />
+    )
   }
 
   return (
     <div className="host-list">
       {error ? <div className="keychain-panel__error">{error}</div> : null}
+
+      <button
+        type="button"
+        className="button button--ghost host-list__add"
+        onClick={() => setFormHost(null)}
+      >
+        Add a connection
+      </button>
+
+      {hosts.length === 0 ? (
+        <div className="sidebar__empty">No hosts yet</div>
+      ) : null}
 
       {hosts.map((host) => (
         <div key={host.id} className="host-list__item">
@@ -94,6 +118,13 @@ export function HostList({ onChanged, onConnect }: HostListProps) {
                   onClick={() => onConnect?.(host)}
                 >
                   Connect
+                </button>
+                <button
+                  type="button"
+                  className="button button--ghost host-list__edit"
+                  onClick={() => setFormHost(host)}
+                >
+                  Edit
                 </button>
                 <button
                   type="button"

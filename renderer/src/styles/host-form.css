@@ -1,0 +1,34 @@
+/*
+ * Host form styles.
+ * Only theme variables — no hardcoded colors, spacing or fonts.
+ */
+
+.host-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  padding: var(--space-sm);
+}
+
+.host-form__title {
+  font-size: var(--font-size-md);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text);
+}
+
+.host-form__hint {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-faint);
+  line-height: var(--line-height-normal);
+}
+
+.host-form__actions {
+  display: flex;
+  gap: var(--space-sm);
+  margin-top: var(--space-xs);
+}
+
+.host-list__add {
+  align-self: flex-start;
+  margin-bottom: var(--space-xs);
+}

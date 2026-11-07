@@ -6,7 +6,11 @@
  * (see app/services/keychain.ts), and the test helpers need the same
  * guard. Without it the suite fails at random.
  */
-import { utils } from 'ssh2'
+import ssh2 from 'ssh2'
+
+// ssh2 is a CommonJS module: the ESM build cannot use named imports for
+// it, so the namespace is imported as a default.
+const { utils } = ssh2
 
 /**
  * Generates an ed25519 key pair whose private part actually parses.

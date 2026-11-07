@@ -3,9 +3,13 @@
  * It speaks the real SSH protocol (via ssh2's server mode) so the adapter is
  * exercised end to end instead of against a mock.
  */
-import { Server, utils } from 'ssh2'
+import ssh2 from 'ssh2'
 import { createServer, type Socket } from 'node:net'
 import { generateUsableKeyPair } from './test-keys.ts'
+
+// ssh2 is a CommonJS module: the ESM build cannot use named imports for
+// it, so the namespace is imported as a default.
+const { Server, utils } = ssh2
 
 export interface TestSshServer {
   port: number
