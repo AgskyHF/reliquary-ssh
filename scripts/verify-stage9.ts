@@ -1,12 +1,10 @@
-import { spawn, type ChildProcess } from 'node:child_process'
 import { mkdtempSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { setTimeout as delay } from 'node:timers/promises'
+import type { ChildProcess } from 'node:child_process'
 import type { WebSocket } from 'ws'
 import { Checks, attach, cleanupApp, exists, portIsFree, startElectron, waitFor } from './lib/cdp.ts'
 
-const APP_DIR = process.env.RELIQUARY_APP_DIR ?? `${process.env.HOME}/Projects/reliquary-ssh`
 const CDP_PORT = 9232
 const checks = new Checks()
 

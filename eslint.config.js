@@ -21,6 +21,19 @@ export default tseslint.config(
     }
   },
   {
+    // Plain Node scripts — they are not TypeScript, but they run in the
+    // main process and use the Node globals.
+    files: ['scripts/**/*.mjs', 'scripts/**/*.js'],
+    languageOptions: {
+      globals: {
+        console: 'readonly',
+        process: 'readonly',
+        Buffer: 'readonly',
+        URL: 'readonly'
+      }
+    }
+  },
+  {
     files: ['renderer/src/**/*.{ts,tsx}'],
     languageOptions: {
       parserOptions: {
