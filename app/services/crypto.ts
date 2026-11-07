@@ -51,13 +51,13 @@ export function deriveKey(
 }
 
 /** Creates the master key material for a new master password. */
-export function createMasterKey(password: string): MasterKeyMaterial {
-  const salt = randomBytes(SALT_BYTES)
-  const key = deriveKey(password, salt)
+export function createMasterKey(password: string, salt?: Buffer, iterations = KDF_ITERATIONS): MasterKeyMaterial {
+  const value = salt ?? randomBytes(SALT_BYTES)
+  const key = deriveKey(password, value, iterations)
   return {
     key: key.toString('base64'),
-    salt: salt.toString('base64'),
-    iterations: KDF_ITERATIONS
+    salt: value.toString('base64'),
+    iterations
   }
 }
 
@@ -109,7 +109,11 @@ export function decryptWithMasterKey(payload: string, material: MasterKeyMateria
  * returning garbage. The comparison of the resulting marker is
  * constant-time.
  */
-export function verifyMasterPassword(payload: string, password: string): boolean {
+export function verifyMasterPassword(
+  payload: string,
+  password: string,
+  iterations: number = KDF_ITERATIONS
+): boolean {
   let envelope: EncryptedEnvelope
   try {
     envelope = JSON.parse(payload) as EncryptedEnvelope
@@ -118,7 +122,6 @@ export function verifyMasterPassword(payload: string, password: string): boolean
   }
 
   const salt = Buffer.from(envelope.salt, 'base64')
-  const iterations = KDF_ITERATIONS
   const material: MasterKeyMaterial = {
     key: deriveKey(password, salt, iterations).toString('base64'),
     salt: salt.toString('base64'),

@@ -12,6 +12,7 @@ import type {
   TabLayoutInput,
   TabLayoutSnapshot
 } from './types'
+import type { SyncEntry, SyncResult, SyncStatusView } from './sync'
 
 /** The session the backend returns after a successful sign-in. */
 export interface AuthSession {
@@ -91,9 +92,13 @@ export interface ReliquaryApi {
 
   sync: {
     /** Pushes the encrypted entries to the backend. */
-    push(payload: { entries: unknown[] }): Promise<{ accepted: number }>
+    push(payload: { entries: SyncEntry[] }): Promise<{ accepted: number }>
     /** Reads the encrypted entries of the account. */
-    pull(payload?: { entity?: string }): Promise<{ entries: unknown[] }>
+    pull(payload?: { entity?: string }): Promise<{ entries: SyncEntry[] }>
+    /** The state of the sync engine, including whether the account has KDF params. */
+    status(): Promise<SyncStatusView>
+    /** Encrypts the pending changes, pushes them, then pulls and applies the remote ones. */
+    now(): Promise<SyncResult>
   }
 
   key: {
@@ -122,6 +127,12 @@ export interface ReliquaryApi {
   master: {
     /** Sets the master password and stores the derived key material. */
     set(password: string): Promise<MasterStatus>
+    /**
+     * Sets the master password of an account that already has one on the
+     * server: the PBKDF2 salt is taken from the account, so this device
+     * derives the same key and can read the synced data.
+     */
+    setFromAccount(password: string): Promise<MasterStatus>
     /** True when a master password has been configured. */
     has(): Promise<boolean>
     /** Checks a password against the stored material. */

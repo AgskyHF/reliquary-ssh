@@ -23,6 +23,7 @@ const api: ReliquaryApi = {
 
   master: {
     set: (password) => ipcRenderer.invoke(IPC.MASTER_SET, password),
+    setFromAccount: (password) => ipcRenderer.invoke(IPC.MASTER_SET_FROM_ACCOUNT, password),
     has: () => ipcRenderer.invoke(IPC.MASTER_HAS),
     verify: (password) => ipcRenderer.invoke(IPC.MASTER_VERIFY, password),
     unlock: (password) => ipcRenderer.invoke(IPC.MASTER_UNLOCK, password),
@@ -79,7 +80,9 @@ const api: ReliquaryApi = {
 
   sync: {
     push: (payload) => ipcRenderer.invoke(IPC.SYNC_PUSH_ENTRIES, payload),
-    pull: (payload) => ipcRenderer.invoke(IPC.SYNC_PULL_ENTRIES, payload)
+    pull: (payload) => ipcRenderer.invoke(IPC.SYNC_PULL_ENTRIES, payload),
+    status: () => ipcRenderer.invoke(IPC.SYNC_STATUS),
+    now: () => ipcRenderer.invoke(IPC.SYNC_NOW)
   },
 
   tab: {

@@ -9,6 +9,7 @@ import './styles/files.css'
 import './styles/keychain.css'
 import './styles/hosts.css'
 import './styles/auth.css'
+import './styles/sync.css'
 
 const container = document.getElementById('root')
 if (!container) throw new Error('Root container #root not found')

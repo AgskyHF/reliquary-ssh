@@ -2,6 +2,7 @@ import { useCallback, useState, type ReactNode } from 'react'
 import { KeychainPanel } from '../keys/KeychainPanel'
 import { HostList } from '../hosts/HostList'
 import { LoginForm } from '../auth/LoginForm'
+import { SyncPanel } from '../sync/SyncPanel'
 
 interface AppShellProps {
   children?: ReactNode
@@ -13,7 +14,7 @@ interface AppShellProps {
   onSignOut?: () => void
 }
 
-type SidebarSection = 'hosts' | 'keychain' | 'settings'
+type SidebarSection = 'hosts' | 'keychain' | 'sync' | 'settings'
 
 /**
  * Root layout: TopBar + Sidebar + MainArea.
@@ -103,6 +104,13 @@ function Sidebar({
         </button>
         <button
           type="button"
+          className={`sidebar__item${section === 'sync' ? ' sidebar__item--active' : ''}`}
+          onClick={() => onSelect('sync')}
+        >
+          Sync
+        </button>
+        <button
+          type="button"
           className={`sidebar__item${section === 'settings' ? ' sidebar__item--active' : ''}`}
           onClick={() => onSelect('settings')}
         >
@@ -118,6 +126,11 @@ function Sidebar({
           ) : (
             <LoginForm onSignedIn={onSignIn} />
           )}
+        </div>
+      ) : section === 'sync' ? (
+        <div className="sidebar__section">
+          <div className="sidebar__section-header">Sync</div>
+          <SyncPanel />
         </div>
       ) : section === 'keychain' ? (
         <div className="sidebar__section">

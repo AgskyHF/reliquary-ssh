@@ -320,6 +320,7 @@ export const IPC = {
   KEY_DELETE: 'key:delete',
   KEY_EXPORT_PUBLIC: 'key:exportPublic',
   MASTER_SET: 'master:set',
+  MASTER_SET_FROM_ACCOUNT: 'master:setFromAccount',
   MASTER_HAS: 'master:has',
   MASTER_VERIFY: 'master:verify',
   MASTER_UNLOCK: 'master:unlock',
@@ -343,7 +344,9 @@ export const IPC = {
   SFTP_DOWNLOAD: 'sftp:download',
   SFTP_UPLOAD: 'sftp:upload',
   SYNC_PULL: 'sync:pull',
-  SYNC_PUSH: 'sync:push'
+  SYNC_PUSH: 'sync:push',
+  SYNC_STATUS: 'sync:status',
+  SYNC_NOW: 'sync:now'
 } as const
 
 export type IpcChannel = (typeof IPC)[keyof typeof IPC]

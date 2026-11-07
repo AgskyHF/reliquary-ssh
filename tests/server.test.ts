@@ -217,6 +217,27 @@ describe('sync backend', () => {
       expect(body.entries).toHaveLength(1)
     })
 
+    it('keeps the client timestamp — the devices merge on it', async () => {
+      const auth = await token()
+      const updatedAt = '2026-11-07T09:00:00.000Z'
+      await post('/sync', { entries: [{ ...entry, updatedAt }] }, auth)
+
+      const response = await get('/sync', auth)
+      const body = (await response.json()) as { entries: { updatedAt: string }[] }
+
+      expect(body.entries[0]?.updatedAt).toBe(updatedAt)
+    })
+
+    it('stamps an entry that carries no timestamp', async () => {
+      const auth = await token()
+      await post('/sync', { entries: [entry] }, auth)
+
+      const response = await get('/sync', auth)
+      const body = (await response.json()) as { entries: { updatedAt: string }[] }
+
+      expect(Number.isNaN(Date.parse(body.entries[0]?.updatedAt ?? ''))).toBe(false)
+    })
+
     it('keeps the users apart', async () => {
       const first = await token()
       await post('/sync', { entries: [entry] }, first)

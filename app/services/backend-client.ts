@@ -12,6 +12,7 @@
  */
 import { randomUUID } from 'node:crypto'
 import type { AuthSession } from '@shared/api'
+import type { SyncEntry } from '@shared/sync'
 
 export interface AuthClientOptions {
   /** The address of the sync backend. */
@@ -96,7 +97,7 @@ export class BackendClient {
   }
 
   /** Pushes the encrypted entries to the backend. */
-  async pushEntries(entries: unknown[]): Promise<number> {
+  async pushEntries(entries: SyncEntry[]): Promise<number> {
     if (!this.token) throw new Error('Not signed in')
 
     const response = await fetch(`${this.serverUrl}/sync`, {
@@ -114,7 +115,7 @@ export class BackendClient {
   }
 
   /** Reads the encrypted entries of the account. */
-  async pullEntries(entity?: string): Promise<unknown[]> {
+  async pullEntries(entity?: string): Promise<SyncEntry[]> {
     if (!this.token) throw new Error('Not signed in')
 
     const query = entity ? `?entity=${encodeURIComponent(entity)}` : ''
@@ -122,7 +123,7 @@ export class BackendClient {
       headers: { Authorization: `Bearer ${this.token}` }
     })
 
-    const body = (await response.json()) as { entries?: unknown[]; error?: string }
+    const body = (await response.json()) as { entries?: SyncEntry[]; error?: string }
     if (!response.ok) throw new Error(body.error ?? 'Could not read the changes')
     return body.entries ?? []
   }

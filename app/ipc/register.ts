@@ -10,11 +10,13 @@ import {
   type TabLayoutInput
 } from '@shared/types'
 import type { ConnectRequest } from '@shared/api'
+import type { SyncEntry } from '@shared/sync'
 import { SessionManager } from '../services/session-manager'
 import { Storage, type TabRepository } from '../services/storage'
 import { BackendClient } from '../services/backend-client'
 import { KeychainService } from '../services/keychain'
 import { MasterPasswordManager } from '../services/master-password'
+import { SyncService } from '../services/sync'
 import { getDeviceId, getDeviceSecret } from '../services/device-id'
 import { broadcast } from './broadcast'
 
@@ -24,6 +26,7 @@ let storage: Storage | null = null
 let backend: BackendClient | null = null
 let masterPassword: MasterPasswordManager | null = null
 let keychain: KeychainService | null = null
+let sync: SyncService | null = null
 
 /** Lazily created — app.getPath('userData') is only valid after ready. */
 function getStorage(): Storage {
@@ -87,6 +90,53 @@ function getKeychain(): KeychainService {
     keychain = new KeychainService(getStorage().keys, material)
   }
   return keychain
+}
+
+/**
+ * The sync engine — encryption, push and pull of the local changes.
+ * It is built once and keeps its last-run state for the UI.
+ */
+function getSync(): SyncService {
+  if (!sync) {
+    sync = new SyncService(
+      getStorage(),
+      getMasterPassword(),
+      getBackend(),
+      () => getDeviceId(app.getPath('userData'))
+    )
+  }
+  return sync
+}
+
+/**
+ * Journals a key change for the sync backend.
+ *
+ * The keychain writes the row; the sync engine needs a trigger and the
+ * device id of the row, which is why the change is recorded here and not
+ * inside the keychain service.
+ */
+async function recordKeyChange(id: string): Promise<void> {
+  const store = getStorage()
+  const key = await store.keys.get(id)
+  if (!key) return
+
+  const deviceId = getDeviceId(app.getPath('userData'))
+  const saved = { ...key, deviceId: key.deviceId || deviceId }
+  await store.keys.save(saved)
+
+  const now = new Date().toISOString()
+  store.changes.record({
+    id: crypto.randomUUID(),
+    entity: 'keys',
+    entityId: saved.id,
+    operation: saved.deletedAt ? 'delete' : 'upsert',
+    payload: JSON.stringify(saved),
+    synced: false,
+    createdAt: now,
+    updatedAt: now,
+    version: saved.version,
+    deviceId
+  })
 }
 
 sessionManager.on('data', ({ sessionId, chunk }) => {
@@ -220,6 +270,25 @@ export function registerIpcHandlers(): void {
     return manager.status()
   })
 
+  /**
+   * Sets the master password of an account that already has one on the
+   * server. The PBKDF2 salt travels with the account, so this device
+   * derives exactly the key the other devices use.
+   */
+  ipcMain.handle(IPC.MASTER_SET_FROM_ACCOUNT, async (_event, password: string) => {
+    if (!getBackend().isSignedIn()) throw new Error('Sign in to the account first')
+
+    const params = await getSync().fetchKdfParams()
+    if (!params) {
+      throw new Error('The account has no master password yet — set a new one instead')
+    }
+
+    const manager = getMasterPassword()
+    await manager.set(password, params)
+    keychain = null
+    return manager.status()
+  })
+
   ipcMain.handle(IPC.MASTER_HAS, async () => getMasterPassword().has())
 
   ipcMain.handle(IPC.MASTER_VERIFY, async (_event, password: string) =>
@@ -251,13 +320,20 @@ export function registerIpcHandlers(): void {
     const now = new Date().toISOString()
     const deviceId = getDeviceId(app.getPath('userData'))
 
+    // A partial update keeps the stored fields: a form only sends what it
+    // changed, and the version has to grow from the row, not from the
+    // payload — otherwise an edit would look older than the replica it
+    // was made from.
+    const existing = host.id ? storage.hosts.get(host.id) : null
+
     const saved = storage.hosts.save({
+      ...existing,
       ...host,
       id: host.id ?? crypto.randomUUID(),
-      createdAt: host.createdAt ?? now,
+      createdAt: existing?.createdAt ?? host.createdAt ?? now,
       updatedAt: now,
-      version: (host.version ?? 0) + 1,
-      deviceId: host.deviceId ?? deviceId
+      version: (existing?.version ?? 0) + 1,
+      deviceId
     })
 
     // Every local change is journalled for the sync backend.
@@ -319,6 +395,7 @@ export function registerIpcHandlers(): void {
 
   ipcMain.handle(IPC.AUTH_SIGN_OUT, async () => {
     getBackend().signOut()
+    getSync().reset()
   })
 
   ipcMain.handle(IPC.AUTH_STATUS, async () => {
@@ -333,13 +410,14 @@ export function registerIpcHandlers(): void {
   ipcMain.handle(IPC.AUTH_SERVER_URL, async (_event, url: string) => {
     const client = getBackend()
     client.setServerUrl(url)
+    getSync().reset()
     return { serverUrl: client.serverUrl }
   })
 
   // ---- sync ----
   ipcMain.handle(
     IPC.SYNC_PUSH_ENTRIES,
-    async (_event, payload: { entries: unknown[] }) => ({
+    async (_event, payload: { entries: SyncEntry[] }) => ({
       accepted: await getBackend().pushEntries(payload.entries)
     })
   )
@@ -350,6 +428,18 @@ export function registerIpcHandlers(): void {
       entries: await getBackend().pullEntries(payload?.entity)
     })
   )
+
+  /** State of the engine plus what the sync screen needs to decide its form. */
+  ipcMain.handle(IPC.SYNC_STATUS, async () => {
+    const engine = getSync()
+    return {
+      ...engine.status(),
+      serverUrl: getBackend().serverUrl,
+      remoteKdf: await engine.hasRemoteKdf()
+    }
+  })
+
+  ipcMain.handle(IPC.SYNC_NOW, async () => getSync().syncNow())
 
   // ---- sync outbox ----
   ipcMain.handle(IPC.CHANGES_PENDING_COUNT, async () => getStorage().changes.count())
@@ -367,7 +457,11 @@ export function registerIpcHandlers(): void {
     async (
       _event,
       payload: { name: string; type: string; passphrase?: string; comment?: string; bits?: number }
-    ) => getKeychain().generate(payload)
+    ) => {
+      const summary = await getKeychain().generate(payload)
+      await recordKeyChange(summary.id)
+      return summary
+    }
   )
 
   ipcMain.handle(
@@ -375,11 +469,17 @@ export function registerIpcHandlers(): void {
     async (
       _event,
       payload: { name: string; privateKey: string; passphrase?: string; comment?: string }
-    ) => getKeychain().import(payload)
+    ) => {
+      const summary = await getKeychain().import(payload)
+      await recordKeyChange(summary.id)
+      return summary
+    }
   )
 
   ipcMain.handle(IPC.KEY_DELETE, async (_event, id: string) => {
     await getKeychain().remove(id)
+    // The row is soft-deleted; the tombstone has to reach the other devices.
+    await recordKeyChange(id)
   })
 
   ipcMain.handle(IPC.KEY_EXPORT_PUBLIC, async (_event, id: string) =>

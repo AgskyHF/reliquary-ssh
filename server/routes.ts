@@ -15,6 +15,8 @@ export interface SyncEntryInput {
   ciphertext: string
   tag: string
   deviceId?: string
+  /** Client timestamp of the change — the merge key on the other devices. */
+  updatedAt?: string
   deletedAt?: string | null
 }
 
@@ -190,7 +192,9 @@ export function createRoutes(options: RoutesOptions): Router {
           iv: entry.iv,
           ciphertext: entry.ciphertext,
           tag: entry.tag,
-          updatedAt: new Date().toISOString(),
+          // The client timestamp is preserved: the other devices merge on
+          // it, and the server cannot know when the change was made.
+          updatedAt: entry.updatedAt ?? new Date().toISOString(),
           deletedAt: entry.deletedAt ?? null
         })
       )

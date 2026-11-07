@@ -13,6 +13,8 @@
 import { existsSync, mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs'
 import { dirname } from 'node:path'
 import type { MasterStatus } from '@shared/types'
+import { KDF_ITERATIONS } from '@shared/crypto'
+import type { SyncMasterParams } from '@shared/sync'
 import {
   MASTER_MARKER,
   createMasterKey,
@@ -28,6 +30,8 @@ interface MasterStoreFile {
   material: string
   /** Encrypted marker used to verify a password. */
   check: string
+  /** PBKDF2 iterations of the account; missing in files of older builds. */
+  iterations?: number
 }
 
 export class MasterPasswordManager {
@@ -79,15 +83,22 @@ export class MasterPasswordManager {
   /**
    * Sets the master password. The password itself is never stored — only
    * the derived key and a verification marker.
+   *
+   * `kdf` carries the PBKDF2 parameters of the account. A device that joins
+   * an existing account must reuse them, otherwise the same password would
+   * derive a different key and the synced data would be unreadable.
    */
-  async set(password: string): Promise<MasterStatus> {
+  async set(password: string, kdf?: SyncMasterParams): Promise<MasterStatus> {
     if (!password) throw new Error('The master password must not be empty')
 
-    const material = createMasterKey(password)
+    const salt = kdf ? Buffer.from(kdf.salt, 'base64') : undefined
+    const iterations = kdf?.iterations ?? KDF_ITERATIONS
+    const material = createMasterKey(password, salt, iterations)
     const stored: MasterStoreFile = {
       version: 1,
       material: encryptWithMasterKey(JSON.stringify(material), this.deviceMaterial()),
-      check: encryptWithMasterKey(MASTER_MARKER, material)
+      check: encryptWithMasterKey(MASTER_MARKER, material),
+      iterations
     }
 
     this.write(stored)
@@ -105,7 +116,7 @@ export class MasterPasswordManager {
   unlock(password: string): boolean {
     if (!this.configured || !this.stored) return false
 
-    if (!verifyMasterPassword(this.stored.check, password)) return false
+    if (!verifyMasterPassword(this.stored.check, password, this.iterations())) return false
 
     try {
       const material = JSON.parse(
@@ -123,7 +134,18 @@ export class MasterPasswordManager {
   /** Checks a password without unlocking the keychain. */
   verify(password: string): boolean {
     if (!this.configured || !this.stored) return false
-    return verifyMasterPassword(this.stored.check, password)
+    return verifyMasterPassword(this.stored.check, password, this.iterations())
+  }
+
+  /** The PBKDF2 parameters of this device's material, or null when locked. */
+  getParams(): SyncMasterParams | null {
+    if (!this.material) return null
+    return { salt: this.material.salt, iterations: this.material.iterations }
+  }
+
+  /** PBKDF2 iterations of the stored file; older files predate the field. */
+  private iterations(): number {
+    return this.stored?.iterations ?? KDF_ITERATIONS
   }
 
   /** Drops the key material from memory. */
