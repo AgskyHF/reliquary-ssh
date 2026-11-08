@@ -6,6 +6,7 @@
  */
 import { useCallback, useState } from 'react'
 import { auth } from '../../services/auth'
+import { useI18n } from '../../i18n/I18nProvider'
 
 export interface LoginFormProps {
   /** Called after a successful sign-in. */
@@ -20,6 +21,7 @@ export function LoginForm({ onSignedIn }: LoginFormProps) {
   const [password, setPassword] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const { t } = useI18n()
 
   const submit = useCallback(async () => {
     setBusy(true)
@@ -55,7 +57,7 @@ export function LoginForm({ onSignedIn }: LoginFormProps) {
   return (
     <div className="login-form">
       <div className="login-form__title">
-        {mode === 'login' ? 'Sign in to ReliquarySSH' : 'Create an account'}
+        {mode === 'login' ? t('login.signInTitle') : t('login.registerTitle')}
       </div>
 
       <button
@@ -64,13 +66,13 @@ export function LoginForm({ onSignedIn }: LoginFormProps) {
         disabled={busy}
         onClick={() => void signInWithGoogle()}
       >
-        Continue with Google
+        {t('login.google')}
       </button>
 
-      <div className="login-form__separator">or</div>
+      <div className="login-form__separator">{t('login.or')}</div>
 
       <label className="field">
-        <span className="field__label">Email</span>
+        <span className="field__label">{t('login.email')}</span>
         <input
           className="field__input"
           name="email"
@@ -84,14 +86,14 @@ export function LoginForm({ onSignedIn }: LoginFormProps) {
       </label>
 
       <label className="field">
-        <span className="field__label">Password</span>
+        <span className="field__label">{t('login.password')}</span>
         <input
           className="field__input"
           name="password"
           type="password"
           value={password}
           onChange={(event) => setPassword(event.target.value)}
-          placeholder={mode === 'register' ? 'at least 8 characters' : ''}
+          placeholder={mode === 'register' ? t('login.passwordHint') : ''}
           autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
         />
       </label>
@@ -107,7 +109,7 @@ export function LoginForm({ onSignedIn }: LoginFormProps) {
             setError(null)
           }}
         >
-          {mode === 'login' ? 'Create an account' : 'I have an account'}
+          {mode === 'login' ? t('login.createAccount') : t('login.haveAccount')}
         </button>
         <button
           type="button"
@@ -115,7 +117,7 @@ export function LoginForm({ onSignedIn }: LoginFormProps) {
           disabled={busy || !email || !password}
           onClick={() => void submit()}
         >
-          {busy ? 'Please wait…' : mode === 'login' ? 'Sign in' : 'Create account'}
+          {busy ? t('login.wait') : mode === 'login' ? t('login.signIn') : t('login.create')}
         </button>
       </div>
     </div>

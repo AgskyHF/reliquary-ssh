@@ -1,4 +1,6 @@
 import { useCallback, useState, type ReactNode } from 'react'
+import { useI18n } from '../../i18n/I18nProvider'
+import { Logo } from './Logo'
 import { KeychainPanel } from '../keys/KeychainPanel'
 import { HostList } from '../hosts/HostList'
 import { LoginForm } from '../auth/LoginForm'
@@ -47,25 +49,29 @@ function TopBar({
   signedInAs: string | null
   onSignOut?: () => void
 }) {
+  const { t } = useI18n()
+
   return (
     <header className="app-shell__topbar topbar">
       <div className="topbar__brand">
-        <span className="topbar__title">ReliquarySSH</span>
-        <span className="topbar__subtitle">terminal client</span>
+        <Logo size={26} variant="emblem" />
+        <span className="topbar__title">{t('app.title')}</span>
+        <span className="topbar__divider" />
+        <span className="topbar__subtitle">{t('app.subtitle')}</span>
       </div>
       <div className="topbar__actions">
         <button type="button" className="topbar__button" disabled>
-          Connect
+          {t('app.connect')}
         </button>
-        <div className="topbar__status" title="Sync status">
+        <div className="topbar__status" title={t('app.syncStatus')}>
           <span className={`status-dot status-dot--${signedInAs ? 'ok' : 'idle'}`} />
           <span className="topbar__status-label">
-            {signedInAs ? signedInAs : 'Offline'}
+            {signedInAs ? signedInAs : t('app.offline')}
           </span>
         </div>
         {signedInAs && onSignOut ? (
           <button type="button" className="topbar__button" onClick={onSignOut}>
-            Sign out
+            {t('app.signOut')}
           </button>
         ) : null}
       </div>
@@ -84,6 +90,8 @@ function Sidebar({
   signedInAs: string | null
   onSignIn?: (email: string) => void
 }) {
+  const { t } = useI18n()
+
   // The key list is refreshed by the panel itself when it mounts.
   const handleKeysChanged = useCallback(() => undefined, [])
 
@@ -95,41 +103,41 @@ function Sidebar({
           className={`sidebar__item${section === 'hosts' ? ' sidebar__item--active' : ''}`}
           onClick={() => onSelect('hosts')}
         >
-          Hosts
+          {t('nav.hosts')}
         </button>
         <button
           type="button"
           className={`sidebar__item${section === 'keychain' ? ' sidebar__item--active' : ''}`}
           onClick={() => onSelect('keychain')}
         >
-          Keychain
+          {t('nav.keychain')}
         </button>
         <button
           type="button"
           className={`sidebar__item${section === 'sync' ? ' sidebar__item--active' : ''}`}
           onClick={() => onSelect('sync')}
         >
-          Sync
+          {t('nav.sync')}
         </button>
         <button
           type="button"
           className={`sidebar__item${section === 'transfer' ? ' sidebar__item--active' : ''}`}
           onClick={() => onSelect('transfer')}
         >
-          Export
+          {t('nav.export')}
         </button>
         <button
           type="button"
           className={`sidebar__item${section === 'settings' ? ' sidebar__item--active' : ''}`}
           onClick={() => onSelect('settings')}
         >
-          Settings
+          {t('nav.settings')}
         </button>
       </nav>
 
       {section === 'settings' ? (
         <div className="sidebar__section">
-          <div className="sidebar__section-header">Settings</div>
+          <div className="sidebar__section-header">{t('settings.title')}</div>
           {signedInAs ? (
             <SettingsPanel signedInAs={signedInAs} />
           ) : (
@@ -141,22 +149,22 @@ function Sidebar({
         </div>
       ) : section === 'sync' ? (
         <div className="sidebar__section">
-          <div className="sidebar__section-header">Sync</div>
+          <div className="sidebar__section-header">{t('nav.sync')}</div>
           <SyncPanel />
         </div>
       ) : section === 'transfer' ? (
         <div className="sidebar__section">
-          <div className="sidebar__section-header">Export</div>
+          <div className="sidebar__section-header">{t('nav.export')}</div>
           <TransferPanel />
         </div>
       ) : section === 'keychain' ? (
         <div className="sidebar__section">
-          <div className="sidebar__section-header">Keychain</div>
+          <div className="sidebar__section-header">{t('nav.keychain')}</div>
           <KeychainPanel onKeysChanged={handleKeysChanged} />
         </div>
       ) : section === 'hosts' ? (
         <div className="sidebar__section">
-          <div className="sidebar__section-header">Hosts</div>
+          <div className="sidebar__section-header">{t('nav.hosts')}</div>
           <HostList />
         </div>
       ) : null}

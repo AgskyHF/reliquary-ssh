@@ -59,4 +59,25 @@ describe('device settings', () => {
     expect(reopened.settings.get('serverUrl')).toBe('http://sync.example.com')
     reopened.close()
   })
+
+  it('stores the interface language and reads it back', () => {
+    storage.settings.set('language', 'ru')
+
+    expect(storage.settings.get('language')).toBe('ru')
+    expect(storage.settings.all().language).toBe('ru')
+  })
+
+  it('keeps the language across a restart', () => {
+    storage.settings.set('language', 'ru')
+    storage.close()
+
+    const reopened = new Storage(join(dir, 'reliquary.db'), () => 'test-device')
+    expect(reopened.settings.get('language')).toBe('ru')
+    reopened.close()
+  })
+
+  it('defaults the language to English', () => {
+    expect(storage.settings.get('language')).toBe('en')
+    expect(DEFAULT_SETTINGS.language).toBe('en')
+  })
 })

@@ -37,6 +37,8 @@ export interface AppSettings {
    * The sync also runs when the app starts and when the user asks for it.
    */
   autoSyncSeconds: number
+  /** The language of the interface: 'en' or 'ru'. */
+  language: string
 }
 
 export const DEFAULT_SETTINGS: AppSettings = {
@@ -46,7 +48,8 @@ export const DEFAULT_SETTINGS: AppSettings = {
   syncTransport: 'server',
   syncFolder: '',
   importedKdf: '',
-  autoSyncSeconds: 300
+  autoSyncSeconds: 300,
+  language: 'en'
 }
 
 /** The keys of the settings table. */
@@ -57,7 +60,8 @@ const KEYS = {
   syncTransport: 'sync.transport',
   syncFolder: 'sync.folder',
   importedKdf: 'imported.kdf',
-  autoSyncSeconds: 'sync.autoSeconds'
+  autoSyncSeconds: 'sync.autoSeconds',
+  language: 'ui.language'
 } as const
 
 /** Reads a numeric setting, falling back to the default. */
@@ -92,7 +96,8 @@ export class SettingsService {
       autoSyncSeconds: readNumber(
         stored.get(KEYS.autoSyncSeconds),
         DEFAULT_SETTINGS.autoSyncSeconds
-      )
+      ),
+      language: stored.get(KEYS.language) ?? DEFAULT_SETTINGS.language
     }
   }
 

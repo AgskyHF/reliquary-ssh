@@ -86,6 +86,8 @@ export interface AppSettings {
    * The sync also runs when the app starts and when the user asks for it.
    */
   autoSyncSeconds: number
+  /** The language of the interface: 'en' or 'ru'. */
+  language: string
 }
 
 /** One version that lost a merge, as the renderer sees it. */

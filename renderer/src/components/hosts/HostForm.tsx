@@ -8,6 +8,7 @@
 import { useCallback, useEffect, useState, type FormEvent } from 'react'
 import { AuthMethod, ProtocolType, type Host, type KeySummary } from '@shared/types'
 import { api } from '../../services/api'
+import { useI18n } from '../../i18n/I18nProvider'
 
 export interface HostFormValues {
   name: string
@@ -67,6 +68,7 @@ export function HostForm({ host, onSaved, onCancel }: HostFormProps) {
   const [keys, setKeys] = useState<KeySummary[]>([])
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const { t } = useI18n()
 
   // The key list is only needed for key authentication.
   useEffect(() => {
@@ -99,11 +101,11 @@ export function HostForm({ host, onSaved, onCancel }: HostFormProps) {
     async (event: FormEvent<HTMLFormElement>) => {
       event.preventDefault()
       if (!values.name.trim() || !values.host.trim() || !values.username.trim()) {
-        setError('The name, the address and the user are required')
+        setError(t('hostform.errRequired'))
         return
       }
       if (values.authMethod === AuthMethod.KEY && !values.keyId) {
-        setError('Pick a key from the keychain')
+        setError(t('hostform.errNoKey'))
         return
       }
 
@@ -136,15 +138,17 @@ export function HostForm({ host, onSaved, onCancel }: HostFormProps) {
         setBusy(false)
       }
     },
-    [host, onSaved, values]
+    [host, onSaved, t, values]
   )
 
   return (
     <form className="host-form" onSubmit={submit}>
-      <div className="host-form__title">{host ? 'Edit the connection' : 'New connection'}</div>
+      <div className="host-form__title">
+        {host ? t('hostform.editTitle') : t('hostform.newTitle')}
+      </div>
 
       <label className="field">
-        <span className="field__label">Name</span>
+        <span className="field__label">{t('hostform.name')}</span>
         <input
           className="field__input"
           name="hostName"
@@ -157,7 +161,7 @@ export function HostForm({ host, onSaved, onCancel }: HostFormProps) {
       </label>
 
       <label className="field">
-        <span className="field__label">Protocol</span>
+        <span className="field__label">{t('hostform.protocol')}</span>
         <select
           className="field__input"
           name="hostProtocol"
@@ -181,7 +185,7 @@ export function HostForm({ host, onSaved, onCancel }: HostFormProps) {
       </label>
 
       <label className="field">
-        <span className="field__label">Address</span>
+        <span className="field__label">{t('hostform.address')}</span>
         <input
           className="field__input"
           name="hostAddress"
@@ -195,7 +199,7 @@ export function HostForm({ host, onSaved, onCancel }: HostFormProps) {
       </label>
 
       <label className="field">
-        <span className="field__label">Port</span>
+        <span className="field__label">{t('hostform.port')}</span>
         <input
           className="field__input"
           name="hostPort"
@@ -206,7 +210,7 @@ export function HostForm({ host, onSaved, onCancel }: HostFormProps) {
       </label>
 
       <label className="field">
-        <span className="field__label">User</span>
+        <span className="field__label">{t('hostform.user')}</span>
         <input
           className="field__input"
           name="hostUsername"
@@ -220,7 +224,7 @@ export function HostForm({ host, onSaved, onCancel }: HostFormProps) {
       </label>
 
       <label className="field">
-        <span className="field__label">Authentication</span>
+        <span className="field__label">{t('hostform.authentication')}</span>
         <select
           className="field__input"
           name="hostAuthMethod"
@@ -229,21 +233,21 @@ export function HostForm({ host, onSaved, onCancel }: HostFormProps) {
             update('authMethod', event.target.value as unknown as string)
           }
         >
-          <option value={AuthMethod.PASSWORD}>Password</option>
-          <option value={AuthMethod.KEY}>Key from the keychain</option>
+          <option value={AuthMethod.PASSWORD}>{t('hostform.authPassword')}</option>
+          <option value={AuthMethod.KEY}>{t('hostform.authKey')}</option>
         </select>
       </label>
 
       {values.authMethod === AuthMethod.KEY ? (
         <label className="field">
-          <span className="field__label">Key</span>
+          <span className="field__label">{t('hostform.key')}</span>
           <select
             className="field__input"
             name="hostKeyId"
             value={values.keyId ?? ''}
             onChange={(event) => update('keyId', event.target.value)}
           >
-            <option value="">Pick a key…</option>
+            <option value="">{t('hostform.pickKey')}</option>
             {keys.map((key) => (
               <option key={key.id} value={key.id}>
                 {key.name} ({key.fingerprint})
@@ -254,7 +258,7 @@ export function HostForm({ host, onSaved, onCancel }: HostFormProps) {
       ) : (
         <label className="field">
           <span className="field__label">
-            Password {host ? '(leave empty to keep it)' : '(optional)'}
+            {host ? t('hostform.passwordKeep') : t('hostform.passwordOptional')}
           </span>
           <input
             className="field__input"
@@ -265,13 +269,13 @@ export function HostForm({ host, onSaved, onCancel }: HostFormProps) {
             autoComplete="new-password"
           />
           <span className="host-form__hint">
-            The password is encrypted with the master password and never leaves this device.
+            {t('hostform.passwordHint')}
           </span>
         </label>
       )}
 
       <label className="field">
-        <span className="field__label">Notes</span>
+        <span className="field__label">{t('hostform.notes')}</span>
         <textarea
           className="field__input"
           name="hostNotes"
@@ -286,7 +290,7 @@ export function HostForm({ host, onSaved, onCancel }: HostFormProps) {
       <div className="host-form__actions">
         {onCancel ? (
           <button type="button" className="button button--ghost" onClick={onCancel}>
-            Cancel
+            {t('hostform.cancel')}
           </button>
         ) : null}
         <button
@@ -294,7 +298,7 @@ export function HostForm({ host, onSaved, onCancel }: HostFormProps) {
           className="button button--primary host-form__save"
           disabled={busy}
         >
-          {busy ? 'Saving…' : host ? 'Save' : 'Add the connection'}
+          {busy ? t('hostform.saving') : host ? t('hostform.save') : t('hostform.add')}
         </button>
       </div>
     </form>

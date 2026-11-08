@@ -1,8 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { Terminal } from '@xterm/xterm'
 import type { TabPatch } from '@shared/tabs-model'
+import { NEW_TAB_TITLE } from '@shared/tabs-model'
 import { TabKind, type TabState } from '@shared/types'
 import { api } from '../../services/api'
+import { useI18n } from '../../i18n/I18nProvider'
 import { useSession, type SessionStatus } from '../../hooks/useSession'
 import { TerminalView } from '../TerminalView'
 import { ConnectForm, type ConnectFormValues } from '../ConnectForm'
@@ -63,6 +65,11 @@ export function SessionTab({
   const [protocol, setProtocol] = useState<'ssh' | 'sftp'>(
     isFileManager ? 'sftp' : 'ssh'
   )
+  const { t } = useI18n()
+
+  /** The title of a fresh tab is stored in English — it is translated here. */
+  const labelOf = (item: TabState): string =>
+    item.title === NEW_TAB_TITLE ? t('tab.newConnection') : item.title
 
   const handleData = useCallback(
     (chunk: string) => {
@@ -195,12 +202,12 @@ export function SessionTab({
     return (
       <div className="terminal-panel">
         <div className="terminal-panel__header">
-          <span className="terminal-panel__title">{tab.title}</span>
+          <span className="terminal-panel__title">{labelOf(tab)}</span>
           <span
             className={`status-dot status-dot--${status.state === 'connected' ? 'ok' : 'idle'}`}
           />
           <button type="button" className="button button--ghost" onClick={closeSession}>
-            Disconnect
+            {t('session.disconnect')}
           </button>
         </div>
         <FileManager sessionId={sessionId} onError={setError} />
@@ -212,23 +219,23 @@ export function SessionTab({
     <div className="terminal-panel">
       {connected ? (
         <div className="terminal-panel__header">
-          <span className="terminal-panel__title">{tab.title}</span>
+          <span className="terminal-panel__title">{labelOf(tab)}</span>
           <span
             className={`status-dot status-dot--${status.state === 'connected' ? 'ok' : 'idle'}`}
           />
           <button type="button" className="button button--ghost" onClick={closeSession}>
-            Disconnect
+            {t('session.disconnect')}
           </button>
         </div>
       ) : (
         <div className="reconnect-banner">
-          <span>Session is not connected — reconnect to continue.</span>
+          <span>{t('session.notConnected')}</span>
           <button
             type="button"
             className="button button--ghost"
             onClick={() => setHideRestored(true)}
           >
-            Clear screen
+            {t('session.clearScreen')}
           </button>
         </div>
       )}

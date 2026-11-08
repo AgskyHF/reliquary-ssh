@@ -13,8 +13,20 @@
 
 .topbar__brand {
   display: flex;
-  align-items: baseline;
+  align-items: center;
   gap: var(--space-sm);
+}
+
+.logo {
+  display: block;
+  flex: none;
+}
+
+.topbar__divider {
+  width: 1px;
+  height: 16px;
+  margin: 0 var(--space-xs);
+  background: var(--color-border-strong);
 }
 
 .topbar__title {

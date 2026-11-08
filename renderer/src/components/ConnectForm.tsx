@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react'
 import type { KeySummary } from '@shared/types'
 import { api } from '../services/api'
+import { useI18n } from '../i18n/I18nProvider'
 
 export interface ConnectFormValues {
   host: string
@@ -69,6 +70,7 @@ export function ConnectForm({
   const [keys, setKeys] = useState<KeySummary[]>([])
   const [keyId, setKeyId] = useState<string | null>(initialValues?.keyId ?? null)
   const formRef = useRef<HTMLFormElement | null>(null)
+  const { t } = useI18n()
 
   useEffect(() => {
     formRef.current?.querySelector<HTMLInputElement>('input[name="host"]')?.focus()
@@ -124,10 +126,10 @@ export function ConnectForm({
 
   return (
     <form className="connect-form" ref={formRef} onSubmit={submit}>
-      <div className="connect-form__title">New connection</div>
+      <div className="connect-form__title">{t('connect.title')}</div>
 
       {allowProtocolSwitch ? (
-        <div className="protocol-switch" role="radiogroup" aria-label="Protocol">
+        <div className="protocol-switch" role="radiogroup" aria-label={t('connect.protocol')}>
           {(['ssh', 'sftp'] as const).map((item) => (
             <button
               key={item}
@@ -146,7 +148,7 @@ export function ConnectForm({
       ) : null}
 
       {allowAuthSwitch ? (
-        <div className="protocol-switch" role="radiogroup" aria-label="Authentication">
+        <div className="protocol-switch" role="radiogroup" aria-label={t('connect.authentication')}>
           <button
             type="button"
             role="radio"
@@ -156,7 +158,7 @@ export function ConnectForm({
             }`}
             onClick={() => setAuthMethod('password')}
           >
-            Password
+            {t('connect.methodPassword')}
           </button>
           <button
             type="button"
@@ -167,13 +169,13 @@ export function ConnectForm({
             }`}
             onClick={() => setAuthMethod('key')}
           >
-            Key
+            {t('connect.methodKey')}
           </button>
         </div>
       ) : null}
 
       <label className="field">
-        <span className="field__label">Host</span>
+        <span className="field__label">{t('connect.host')}</span>
         <input
           className="field__input"
           name="host"
@@ -186,7 +188,7 @@ export function ConnectForm({
       </label>
 
       <label className="field">
-        <span className="field__label">Port</span>
+        <span className="field__label">{t('connect.port')}</span>
         <input
           className="field__input"
           name="port"
@@ -199,7 +201,7 @@ export function ConnectForm({
       </label>
 
       <label className="field">
-        <span className="field__label">Username</span>
+        <span className="field__label">{t('connect.username')}</span>
         <input
           className="field__input"
           name="username"
@@ -212,7 +214,7 @@ export function ConnectForm({
 
       {authMethod === 'key' ? (
         <label className="field">
-          <span className="field__label">Key</span>
+          <span className="field__label">{t('connect.key')}</span>
           <select
             className="field__input"
             name="key"
@@ -220,7 +222,7 @@ export function ConnectForm({
             onChange={(event) => setKeyId(event.target.value || null)}
           >
             <option value="">
-              {keys.length === 0 ? 'No keys in the Keychain' : 'Select a key…'}
+              {keys.length === 0 ? t('connect.noKeys') : t('connect.selectKey')}
             </option>
             {keys.map((key) => (
               <option key={key.id} value={key.id}>
@@ -231,7 +233,7 @@ export function ConnectForm({
         </label>
       ) : (
         <label className="field">
-          <span className="field__label">Password</span>
+          <span className="field__label">{t('connect.password')}</span>
           <span className="field__row">
             <input
               className="field__input"
@@ -246,7 +248,7 @@ export function ConnectForm({
               className="field__toggle"
               onClick={() => setShowPassword((prev) => !prev)}
             >
-              {showPassword ? 'Hide' : 'Show'}
+              {showPassword ? t('connect.hide') : t('connect.show')}
             </button>
           </span>
         </label>
@@ -257,7 +259,7 @@ export function ConnectForm({
       <div className="connect-form__actions">
         {onCancel ? (
           <button type="button" className="button button--ghost" onClick={onCancel}>
-            Cancel
+            {t('connect.cancel')}
           </button>
         ) : null}
         <button
@@ -265,7 +267,7 @@ export function ConnectForm({
           className="button button--primary"
           disabled={busy || (authMethod === 'key' && !keyId)}
         >
-          {busy ? 'Connecting…' : 'Connect'}
+          {busy ? t('connect.connecting') : t('connect.connect')}
         </button>
       </div>
     </form>

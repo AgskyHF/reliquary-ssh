@@ -12,6 +12,7 @@ import { useCallback, useEffect, useState } from 'react'
 import type { SupersededSummary } from '@shared/api'
 import type { ImportResult } from '@shared/export'
 import { api } from '../../services/api'
+import { useI18n } from '../../i18n/I18nProvider'
 
 export function TransferPanel() {
   const [withPasswords, setWithPasswords] = useState(false)
@@ -27,6 +28,7 @@ export function TransferPanel() {
   const [needsMaster, setNeedsMaster] = useState(false)
   const [masterPassword, setMasterPassword] = useState('')
   const [masterConfirmation, setMasterConfirmation] = useState('')
+  const { t } = useI18n()
 
   const refresh = useCallback(async () => {
     try {
@@ -79,7 +81,7 @@ export function TransferPanel() {
         if (!status.unlocked) {
           const ok = await api.master.verify(masterPassword)
           if (!ok) {
-            setError('Wrong master password')
+            setError(t('transfer.errWrongMaster'))
             return
           }
         }
@@ -92,13 +94,13 @@ export function TransferPanel() {
           includeOld
         }
       })
-      if (outcome.path) setMessage(`Exported to ${outcome.path}`)
+      if (outcome.path) setMessage(t('transfer.exported', { path: outcome.path }))
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err))
     } finally {
       setBusy(false)
     }
-  }, [includeKeys, includeOld, masterPassword, withPasswords])
+  }, [includeKeys, includeOld, masterPassword, t, withPasswords])
 
   /** Brings a replaced version back — with its password when it can be read. */
   const restore = useCallback(
@@ -177,11 +179,11 @@ export function TransferPanel() {
   /** Creates the master password, then the export can continue. */
   const createMaster = useCallback(async () => {
     if (masterPassword !== masterConfirmation) {
-      setError('The passwords do not match')
+      setError(t('master.errMismatch'))
       return
     }
     if (masterPassword.length < 8) {
-      setError('The master password must be at least 8 characters long')
+      setError(t('master.errShort'))
       return
     }
 
@@ -192,28 +194,25 @@ export function TransferPanel() {
       setMasterPassword('')
       setMasterConfirmation('')
       setNeedsMaster(false)
-      setMessage('The master password is set — now pick the export mode and export')
+      setMessage(t('transfer.masterReady'))
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err))
     } finally {
       setBusy(false)
     }
-  }, [masterConfirmation, masterPassword])
+  }, [masterConfirmation, masterPassword, t])
 
   return (
     <div className="transfer-panel">
-      <div className="transfer-panel__title">Export and import</div>
+      <div className="transfer-panel__title">{t('transfer.title')}</div>
 
       {needsMaster ? (
         <div className="transfer-panel__master">
-          <div className="master-setup__title">Master password</div>
-          <p className="master-setup__text">
-            The passwords are sealed with the master password. It never leaves this device and
-            cannot be recovered.
-          </p>
+          <div className="master-setup__title">{t('master.setupTitle')}</div>
+          <p className="master-setup__text">{t('transfer.sealedText')}</p>
 
           <label className="field">
-            <span className="field__label">Master password</span>
+            <span className="field__label">{t('master.password')}</span>
             <input
               className="field__input"
               name="exportMasterPassword"
@@ -225,7 +224,7 @@ export function TransferPanel() {
           </label>
 
           <label className="field">
-            <span className="field__label">Repeat the password</span>
+            <span className="field__label">{t('master.repeat')}</span>
             <input
               className="field__input"
               name="exportMasterPasswordConfirm"
@@ -247,7 +246,7 @@ export function TransferPanel() {
                 setError(null)
               }}
             >
-              Cancel
+              {t('master.cancel')}
             </button>
             <button
               type="button"
@@ -255,7 +254,7 @@ export function TransferPanel() {
               disabled={busy || !masterPassword || !masterConfirmation}
               onClick={() => void createMaster()}
             >
-              {busy ? 'Working…' : 'Set the master password'}
+              {busy ? t('transfer.working') : t('transfer.masterSet')}
             </button>
           </div>
         </div>
@@ -271,13 +270,9 @@ export function TransferPanel() {
             if (!event.target.checked) setNeedsMaster(false)
           }}
         />
-        <span>With the passwords</span>
+        <span>{t('transfer.withPasswords')}</span>
       </label>
-      <p className="transfer-panel__hint">
-        Without the passwords the file carries only the connections and the public keys.
-        With them the passwords are sealed with the master password — the file is unreadable
-        without it.
-      </p>
+      <p className="transfer-panel__hint">{t('transfer.withPasswordsHint')}</p>
 
       <label className="transfer-panel__check">
         <input
@@ -286,7 +281,7 @@ export function TransferPanel() {
           checked={includeKeys}
           onChange={(event) => setIncludeKeys(event.target.checked)}
         />
-        <span>Include the SSH keys</span>
+        <span>{t('transfer.includeKeys')}</span>
       </label>
 
       <label className="transfer-panel__check">
@@ -296,7 +291,7 @@ export function TransferPanel() {
           checked={includeOld}
           onChange={(event) => setIncludeOld(event.target.checked)}
         />
-        <span>Include the replaced versions</span>
+        <span>{t('transfer.includeOld')}</span>
       </label>
 
       {error ? <div className="connect-form__error">{error}</div> : null}
@@ -309,7 +304,7 @@ export function TransferPanel() {
           disabled={busy}
           onClick={() => void runExport()}
         >
-          {busy ? 'Working…' : 'Export…'}
+          {busy ? t('transfer.working') : t('transfer.export')}
         </button>
         <button
           type="button"
@@ -317,23 +312,28 @@ export function TransferPanel() {
           disabled={busy}
           onClick={() => void runImport()}
         >
-          Import…
+          {t('transfer.import')}
         </button>
       </div>
 
       {result ? (
         <div className="transfer-panel__result">
-          Added {result.added}, updated {result.updated}, unchanged {result.unchanged}, moved to
-          old {result.superseded}, keys {result.keysAdded}
+          {t('transfer.result', {
+            added: result.added,
+            updated: result.updated,
+            unchanged: result.unchanged,
+            superseded: result.superseded,
+            keys: result.keysAdded
+          })}
         </div>
       ) : null}
 
       <div className="transfer-panel__old">
         <div className="transfer-panel__old-title">
-          Replaced versions ({superseded.length})
+          {t('transfer.oldTitle', { count: superseded.length })}
         </div>
         {superseded.length === 0 ? (
-          <div className="sidebar__empty">Nothing yet</div>
+          <div className="sidebar__empty">{t('transfer.oldEmpty')}</div>
         ) : (
           superseded.map((item) => (
             <div key={item.id} className="transfer-panel__old-item">
@@ -341,7 +341,7 @@ export function TransferPanel() {
               <span className="transfer-panel__old-target">{item.target}</span>
               <span className="transfer-panel__old-time">
                 {new Date(item.replacedAt).toLocaleString()}
-                {item.hasPassword ? ' · with a password' : ''}
+                {item.hasPassword ? t('transfer.withPasswordTag') : ''}
               </span>
               <div className="transfer-panel__old-actions">
                 <button
@@ -350,7 +350,7 @@ export function TransferPanel() {
                   disabled={busy}
                   onClick={() => void restore(item.id)}
                 >
-                  Restore
+                  {t('transfer.restore')}
                 </button>
                 <button
                   type="button"
@@ -358,7 +358,7 @@ export function TransferPanel() {
                   disabled={busy}
                   onClick={() => void forget(item.id)}
                 >
-                  Forget
+                  {t('transfer.forget')}
                 </button>
               </div>
             </div>

@@ -3,11 +3,12 @@
  *
  * The panel owns the sign-in form and the settings that belong to this
  * device: the sync transport (an HTTP backend or a shared folder), the
- * address of the backend and the log options.
+ * address of the backend, the interface language and the log options.
  */
 import { useCallback, useEffect, useState } from 'react'
 import type { AppSettings } from '@shared/api'
 import { api } from '../../services/api'
+import { useI18n } from '../../i18n/I18nProvider'
 
 export interface SettingsPanelProps {
   /** The email of the signed-in account, or null when signed out. */
@@ -17,6 +18,7 @@ export interface SettingsPanelProps {
 const LOG_LEVELS = ['debug', 'info', 'warn', 'error'] as const
 
 export function SettingsPanel({ signedInAs }: SettingsPanelProps) {
+  const { t, language, languages, labelOf, setLanguage } = useI18n()
   const [settings, setSettings] = useState<AppSettings | null>(null)
   const [serverUrl, setServerUrl] = useState('')
   const [logLevel, setLogLevel] = useState('info')
@@ -73,28 +75,48 @@ export function SettingsPanel({ signedInAs }: SettingsPanelProps) {
 
   return (
     <div className="settings-panel">
-      <div className="settings-panel__title">Settings</div>
+      <div className="settings-panel__title">{t('settings.title')}</div>
 
       {signedInAs ? (
-        <div className="settings-panel__account">Signed in as {signedInAs}</div>
+        <div className="settings-panel__account">
+          {t('settings.signedInAs', { email: signedInAs })}
+        </div>
       ) : null}
 
       <label className="field">
-        <span className="field__label">Sync transport</span>
+        <span className="field__label">{t('settings.language')}</span>
+        <select
+          className="field__input"
+          name="language"
+          value={language}
+          onChange={(event) => {
+            void setLanguage(event.target.value as typeof language)
+          }}
+        >
+          {languages.map((item) => (
+            <option key={item} value={item}>
+              {labelOf(item)}
+            </option>
+          ))}
+        </select>
+      </label>
+
+      <label className="field">
+        <span className="field__label">{t('settings.transport')}</span>
         <select
           className="field__input"
           name="syncTransport"
           value={transport}
           onChange={(event) => setTransport(event.target.value as 'server' | 'folder')}
         >
-          <option value="server">Server (account)</option>
-          <option value="folder">Shared folder (no server)</option>
+          <option value="server">{t('settings.transportServer')}</option>
+          <option value="folder">{t('settings.transportFolder')}</option>
         </select>
       </label>
 
       {transport === 'server' ? (
         <label className="field">
-          <span className="field__label">Sync server</span>
+          <span className="field__label">{t('settings.server')}</span>
           <input
             className="field__input"
             name="serverUrl"
@@ -107,7 +129,7 @@ export function SettingsPanel({ signedInAs }: SettingsPanelProps) {
         </label>
       ) : (
         <label className="field">
-          <span className="field__label">Shared folder</span>
+          <span className="field__label">{t('settings.folder')}</span>
           <input
             className="field__input"
             name="syncFolder"
@@ -117,15 +139,12 @@ export function SettingsPanel({ signedInAs }: SettingsPanelProps) {
             placeholder="~/Syncthing/ReliquarySSH"
             spellCheck={false}
           />
-          <span className="settings-panel__hint">
-            The folder is shared by every device — Syncthing, a NAS share or a cloud disk. It
-            holds encrypted entries only.
-          </span>
+          <span className="settings-panel__hint">{t('settings.folderHint')}</span>
         </label>
       )}
 
       <label className="field">
-        <span className="field__label">Log level</span>
+        <span className="field__label">{t('settings.logLevel')}</span>
         <select
           className="field__input"
           name="logLevel"
@@ -141,11 +160,13 @@ export function SettingsPanel({ signedInAs }: SettingsPanelProps) {
       </label>
 
       {settings?.logPath ? (
-        <div className="settings-panel__hint">Log file: {settings.logPath}</div>
+        <div className="settings-panel__hint">
+          {t('settings.logFile', { path: settings.logPath })}
+        </div>
       ) : null}
 
       {error ? <div className="connect-form__error">{error}</div> : null}
-      {saved ? <div className="settings-panel__saved">Saved</div> : null}
+      {saved ? <div className="settings-panel__saved">{t('settings.saved')}</div> : null}
 
       <button
         type="button"
@@ -153,7 +174,7 @@ export function SettingsPanel({ signedInAs }: SettingsPanelProps) {
         disabled={busy || !serverUrl || (transport === 'folder' && !syncFolder)}
         onClick={() => void save()}
       >
-        {busy ? 'Saving…' : 'Save settings'}
+        {busy ? t('settings.saving') : t('settings.save')}
       </button>
     </div>
   )

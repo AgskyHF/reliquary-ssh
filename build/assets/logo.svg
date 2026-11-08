@@ -1,0 +1,102 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512" shape-rendering="geometricPrecision">
+  <defs>
+    <radialGradient id="canvasFill" cx="50%" cy="40%" r="80%">
+      <stop offset="0" stop-color="#070B16"/>
+      <stop offset="1" stop-color="#02040B"/>
+    </radialGradient>
+    <linearGradient id="tileFill" gradientUnits="userSpaceOnUse" x1="247" y1="44" x2="247" y2="390">
+      <stop offset="0" stop-color="#090E1D"/>
+      <stop offset="0.52" stop-color="#070B18"/>
+      <stop offset="1" stop-color="#030711"/>
+    </linearGradient>
+    <radialGradient id="violetHaze">
+      <stop offset="0" stop-color="#4D168E" stop-opacity="0.26"/>
+      <stop offset="1" stop-color="#4D168E" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="blueHaze">
+      <stop offset="0" stop-color="#174BA1" stop-opacity="0.23"/>
+      <stop offset="1" stop-color="#174BA1" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="rim" gradientUnits="userSpaceOnUse" x1="70" y1="380" x2="420" y2="60">
+      <stop offset="0" stop-color="#7A2BC8"/>
+      <stop offset="0.48" stop-color="#4A45B8"/>
+      <stop offset="1" stop-color="#173653"/>
+    </linearGradient>
+    <filter id="tileShadow" x="-15%" y="-15%" width="130%" height="140%" color-interpolation-filters="sRGB">
+      <feDropShadow dx="0" dy="8" stdDeviation="11" flood-color="#000000" flood-opacity="0.55"/>
+    </filter>
+    <filter id="rimGlow" x="-10%" y="-10%" width="120%" height="120%" color-interpolation-filters="sRGB">
+      <feGaussianBlur in="SourceGraphic" stdDeviation="3" result="rimBlur"/>
+      <feMerge>
+        <feMergeNode in="rimBlur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    <clipPath id="tileClip">
+      <rect x="64" y="44" width="365" height="346" rx="78"/>
+    </clipPath>
+    <linearGradient id="upperMark" gradientUnits="userSpaceOnUse" x1="135" y1="0" x2="366" y2="0">
+      <stop offset="0" stop-color="#8241D7"/>
+      <stop offset="0.38" stop-color="#A04CF0"/>
+      <stop offset="0.66" stop-color="#6860E6"/>
+      <stop offset="1" stop-color="#2052C5"/>
+    </linearGradient>
+    <linearGradient id="upperShade" gradientUnits="userSpaceOnUse" x1="0" y1="145" x2="0" y2="313">
+      <stop offset="0" stop-color="#12031D" stop-opacity="0"/>
+      <stop offset="0.45" stop-color="#160525" stop-opacity="0.04"/>
+      <stop offset="1" stop-color="#12031D" stop-opacity="0.38"/>
+    </linearGradient>
+    <path id="upperRibbon" d="
+      M 143 151 L 244 96
+      C 250 92.8, 256 92.4, 262 96
+      L 359 153
+      C 363 155.5, 366 160, 365.5 165
+      L 364 220 L 335 202 L 324 181 L 261 142
+      C 256 139.3, 251 139.8, 246 142.7
+      L 183 181
+      C 179 183.6, 177 188, 177 193
+      L 178 313 L 136 291 L 135 167
+      C 135 160.5, 137.2 154.6, 143 151 Z"/>
+    <linearGradient id="lowerMark" gradientUnits="userSpaceOnUse" x1="202" y1="0" x2="367" y2="0">
+      <stop offset="0" stop-color="#5336B8"/>
+      <stop offset="0.42" stop-color="#4050D2"/>
+      <stop offset="0.7" stop-color="#3470E4"/>
+      <stop offset="1" stop-color="#2586EB"/>
+    </linearGradient>
+    <linearGradient id="promptFill" gradientUnits="userSpaceOnUse" x1="214" y1="196" x2="289" y2="254">
+      <stop offset="0" stop-color="#FFFFFF"/>
+      <stop offset="0.52" stop-color="#FFFFF8"/>
+      <stop offset="1" stop-color="#EFF2C6"/>
+    </linearGradient>
+    <filter id="promptShadow" x="-30%" y="-30%" width="160%" height="170%" color-interpolation-filters="sRGB">
+      <feDropShadow dx="0" dy="3.2" stdDeviation="2.4" flood-color="#000000" flood-opacity="0.62"/>
+    </filter>
+  </defs>
+
+  <rect width="512" height="512" fill="url(#canvasFill)"/>
+  <rect x="64" y="44" width="365" height="346" rx="78" fill="url(#tileFill)" filter="url(#tileShadow)"/>
+  <g clip-path="url(#tileClip)">
+    <ellipse cx="76" cy="360" rx="225" ry="145" fill="url(#violetHaze)"/>
+    <ellipse cx="414" cy="340" rx="220" ry="150" fill="url(#blueHaze)"/>
+  </g>
+  <rect x="64" y="44" width="365" height="346" rx="78" fill="none" stroke="url(#rim)" stroke-width="2" filter="url(#rimGlow)"/>
+
+  <use href="#upperRibbon" fill="url(#upperMark)"/>
+  <use href="#upperRibbon" fill="url(#upperShade)"/>
+
+  <path d="
+    M 203 278 L 244 301
+    C 250 304.5, 255 304.7, 261 301
+    L 326 263 L 365 286
+    C 368 287.7, 367 291, 363.5 292.5
+    L 260 351
+    C 256 353.4, 250 354, 245.5 351
+    L 205 327
+    C 202.8 325.6, 202 323.5, 202 320.5 Z"
+    fill="url(#lowerMark)"/>
+
+  <g filter="url(#promptShadow)">
+    <path d="M 220 202 L 246.5 224.5 L 220 248" fill="none" stroke="url(#promptFill)" stroke-width="13.2" stroke-linecap="round" stroke-linejoin="round"/>
+    <rect x="259" y="244.5" width="38" height="10.5" rx="2.5" fill="url(#promptFill)"/>
+  </g>
+</svg>

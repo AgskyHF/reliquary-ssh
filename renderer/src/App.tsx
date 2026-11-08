@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { AppShell } from './components/layout/AppShell'
 import { TabsWorkspace } from './components/tabs/TabsWorkspace'
 import { auth } from './services/auth'
+import { I18nProvider } from './i18n/I18nProvider'
 
 /**
  * The application root.
@@ -47,12 +48,14 @@ export default function App() {
   }, [])
 
   return (
-    <AppShell
-      signedInAs={checked ? signedInAs : null}
-      onSignIn={setSignedInAs}
-      onSignOut={signOut}
-    >
-      <TabsWorkspace />
-    </AppShell>
+    <I18nProvider>
+      <AppShell
+        signedInAs={checked ? signedInAs : null}
+        onSignIn={setSignedInAs}
+        onSignOut={signOut}
+      >
+        <TabsWorkspace />
+      </AppShell>
+    </I18nProvider>
   )
 }

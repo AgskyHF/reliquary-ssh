@@ -6,6 +6,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { ProtocolType, type Host } from '@shared/types'
 import { api } from '../../services/api'
+import { useI18n } from '../../i18n/I18nProvider'
 import { HostForm } from './HostForm'
 
 export interface HostListProps {
@@ -30,6 +31,7 @@ export function HostList({ onChanged, onConnect }: HostListProps) {
   const [expanded, setExpanded] = useState<string | null>(null)
   // The form is open when it creates a new host, or when it edits one.
   const [formHost, setFormHost] = useState<Host | null | undefined>(undefined)
+  const { t } = useI18n()
 
   const refresh = useCallback(async () => {
     try {
@@ -85,11 +87,11 @@ export function HostList({ onChanged, onConnect }: HostListProps) {
         className="button button--ghost host-list__add"
         onClick={() => setFormHost(null)}
       >
-        Add a connection
+        {t('hosts.add')}
       </button>
 
       {hosts.length === 0 ? (
-        <div className="sidebar__empty">No hosts yet</div>
+        <div className="sidebar__empty">{t('hosts.empty')}</div>
       ) : null}
 
       {hosts.map((host) => (
@@ -117,21 +119,21 @@ export function HostList({ onChanged, onConnect }: HostListProps) {
                   className="button button--ghost"
                   onClick={() => onConnect?.(host)}
                 >
-                  Connect
+                  {t('hosts.connect')}
                 </button>
                 <button
                   type="button"
                   className="button button--ghost host-list__edit"
                   onClick={() => setFormHost(host)}
                 >
-                  Edit
+                  {t('hosts.edit')}
                 </button>
                 <button
                   type="button"
                   className="button button--ghost"
                   onClick={() => void remove(host.id)}
                 >
-                  Delete
+                  {t('hosts.delete')}
                 </button>
               </div>
             </div>

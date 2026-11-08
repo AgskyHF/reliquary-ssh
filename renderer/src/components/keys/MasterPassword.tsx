@@ -8,6 +8,7 @@
 import { useCallback, useState } from 'react'
 import type { MasterStatus } from '@shared/types'
 import { api } from '../../services/api'
+import { useI18n } from '../../i18n/I18nProvider'
 
 export interface MasterPasswordSetupProps {
   /** Called when the master password was set or the app was unlocked. */
@@ -21,14 +22,15 @@ export function MasterPasswordSetup({ onUnlocked, onCancel }: MasterPasswordSetu
   const [confirmation, setConfirmation] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const { t } = useI18n()
 
   const submit = useCallback(async () => {
     if (password !== confirmation) {
-      setError('The passwords do not match')
+      setError(t('master.errMismatch'))
       return
     }
     if (password.length < 8) {
-      setError('The master password must be at least 8 characters long')
+      setError(t('master.errShort'))
       return
     }
 
@@ -44,18 +46,15 @@ export function MasterPasswordSetup({ onUnlocked, onCancel }: MasterPasswordSetu
     } finally {
       setBusy(false)
     }
-  }, [confirmation, onUnlocked, password])
+  }, [confirmation, onUnlocked, password, t])
 
   return (
     <div className="master-setup">
-      <div className="master-setup__title">Master password</div>
-      <p className="master-setup__text">
-        The master password encrypts your private keys and the data you sync. It never leaves
-        this device and cannot be recovered.
-      </p>
+      <div className="master-setup__title">{t('master.setupTitle')}</div>
+      <p className="master-setup__text">{t('master.setupText')}</p>
 
       <label className="field">
-        <span className="field__label">Master password</span>
+        <span className="field__label">{t('master.password')}</span>
         <input
           className="field__input"
           name="masterPassword"
@@ -67,7 +66,7 @@ export function MasterPasswordSetup({ onUnlocked, onCancel }: MasterPasswordSetu
       </label>
 
       <label className="field">
-        <span className="field__label">Repeat the password</span>
+        <span className="field__label">{t('master.repeat')}</span>
         <input
           className="field__input"
           name="masterPasswordConfirm"
@@ -83,7 +82,7 @@ export function MasterPasswordSetup({ onUnlocked, onCancel }: MasterPasswordSetu
       <div className="master-setup__actions">
         {onCancel ? (
           <button type="button" className="button button--ghost" onClick={onCancel}>
-            Cancel
+            {t('master.cancel')}
           </button>
         ) : null}
         <button
@@ -92,7 +91,7 @@ export function MasterPasswordSetup({ onUnlocked, onCancel }: MasterPasswordSetu
           disabled={busy || !password || !confirmation}
           onClick={() => void submit()}
         >
-          {busy ? 'Setting…' : 'Set master password'}
+          {busy ? t('master.setting') : t('master.set')}
         </button>
       </div>
     </div>
@@ -112,6 +111,7 @@ export function MasterPasswordUnlock({
   const [password, setPassword] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const { t } = useI18n()
 
   const submit = useCallback(async () => {
     setBusy(true)
@@ -129,11 +129,11 @@ export function MasterPasswordUnlock({
 
   return (
     <div className="master-setup">
-      <div className="master-setup__title">Unlock the keychain</div>
-      <p className="master-setup__text">Enter your master password to use the stored keys.</p>
+      <div className="master-setup__title">{t('master.unlockTitle')}</div>
+      <p className="master-setup__text">{t('master.unlockText')}</p>
 
       <label className="field">
-        <span className="field__label">Master password</span>
+        <span className="field__label">{t('master.password')}</span>
         <input
           className="field__input"
           name="masterPassword"
@@ -149,7 +149,7 @@ export function MasterPasswordUnlock({
       <div className="master-setup__actions">
         {onCancel ? (
           <button type="button" className="button button--ghost" onClick={onCancel}>
-            Cancel
+            {t('master.cancel')}
           </button>
         ) : null}
         <button
@@ -158,7 +158,7 @@ export function MasterPasswordUnlock({
           disabled={busy || !password}
           onClick={() => void submit()}
         >
-          {busy ? 'Checking…' : 'Unlock'}
+          {busy ? t('master.checking') : t('master.unlock')}
         </button>
       </div>
     </div>

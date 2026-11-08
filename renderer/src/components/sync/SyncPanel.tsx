@@ -12,15 +12,17 @@ import { useCallback, useEffect, useState } from 'react'
 import type { SyncResult, SyncStatusView } from '@shared/sync'
 import type { MasterStatus } from '@shared/types'
 import { api } from '../../services/api'
+import { useI18n } from '../../i18n/I18nProvider'
+import type { TranslationKey } from '../../i18n/dictionaries'
 import { MasterPasswordSetup, MasterPasswordUnlock } from '../keys/MasterPassword'
 
 /** The auto-sync intervals the panel offers, in seconds. */
-const AUTO_SYNC_OPTIONS = [
-  { value: 0, label: 'Off — sync only on demand' },
-  { value: 60, label: 'Every minute' },
-  { value: 300, label: 'Every 5 minutes' },
-  { value: 900, label: 'Every 15 minutes' },
-  { value: 3600, label: 'Every hour' }
+const AUTO_SYNC_OPTIONS: { value: number; labelKey: TranslationKey }[] = [
+  { value: 0, labelKey: 'sync.autoOff' },
+  { value: 60, labelKey: 'sync.autoMinute' },
+  { value: 300, labelKey: 'sync.auto5' },
+  { value: 900, labelKey: 'sync.auto15' },
+  { value: 3600, labelKey: 'sync.autoHour' }
 ]
 
 export function SyncPanel() {
@@ -29,6 +31,7 @@ export function SyncPanel() {
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [autoSyncSeconds, setAutoSyncSeconds] = useState(300)
+  const { t } = useI18n()
 
   const refresh = useCallback(async () => {
     try {
@@ -118,16 +121,14 @@ export function SyncPanel() {
   )
 
   if (!status) {
-    return <div className="sidebar__empty">Loading…</div>
+    return <div className="sidebar__empty">{t('sync.loading')}</div>
   }
 
   if (!status.signedIn) {
     return (
       <div className="sync-panel">
-        <div className="sync-panel__title">Sync</div>
-        <div className="sidebar__empty">
-          Sign in on the Settings tab to sync your hosts and keys.
-        </div>
+        <div className="sync-panel__title">{t('nav.sync')}</div>
+        <div className="sidebar__empty">{t('sync.signInHint')}</div>
       </div>
     )
   }
@@ -156,21 +157,21 @@ export function SyncPanel() {
 
   return (
     <div className="sync-panel">
-      <div className="sync-panel__title">Sync</div>
+      <div className="sync-panel__title">{t('nav.sync')}</div>
 
       <div className="sync-panel__row">
-        <span className="sync-panel__label">Pending changes</span>
+        <span className="sync-panel__label">{t('sync.pending')}</span>
         <span className="sync-panel__value sync-panel__pending">{status.pending}</span>
       </div>
       <div className="sync-panel__row">
-        <span className="sync-panel__label">Last sync</span>
+        <span className="sync-panel__label">{t('sync.lastSync')}</span>
         <span className="sync-panel__value">
-          {status.lastSyncAt ? new Date(status.lastSyncAt).toLocaleTimeString() : 'Never'}
+          {status.lastSyncAt ? new Date(status.lastSyncAt).toLocaleTimeString() : t('sync.never')}
         </span>
       </div>
 
       <label className="field">
-        <span className="field__label">Auto sync</span>
+        <span className="field__label">{t('sync.auto')}</span>
         <select
           className="field__input"
           name="autoSyncSeconds"
@@ -183,19 +184,17 @@ export function SyncPanel() {
         >
           {AUTO_SYNC_OPTIONS.map((option) => (
             <option key={option.value} value={option.value}>
-              {option.label}
+              {t(option.labelKey)}
             </option>
           ))}
         </select>
-        <span className="settings-panel__hint">
-          The sync also runs when the app starts and when you unlock the master password.
-        </span>
+        <span className="settings-panel__hint">{t('sync.autoHint')}</span>
       </label>
 
       {result ? (
         <div className="sync-panel__result" data-synced-at={result.syncedAt}>
-          Pushed {result.pushed}, applied {result.applied}
-          {result.conflicts > 0 ? `, conflicts ${result.conflicts}` : ''}
+          {t('sync.result', { pushed: result.pushed, applied: result.applied })}
+          {result.conflicts > 0 ? t('sync.conflicts', { conflicts: result.conflicts }) : ''}
         </div>
       ) : null}
 
@@ -208,7 +207,7 @@ export function SyncPanel() {
         disabled={busy}
         onClick={() => void runSync()}
       >
-        {busy ? 'Syncing…' : 'Sync now'}
+        {busy ? t('sync.syncing') : t('sync.now')}
       </button>
 
       <div className="sync-panel__server">{status.serverUrl}</div>
@@ -226,6 +225,7 @@ function AccountMasterPassword({ onUnlocked }: { onUnlocked: (status: MasterStat
   const [password, setPassword] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const { t } = useI18n()
 
   const submit = useCallback(async () => {
     setBusy(true)
@@ -243,14 +243,11 @@ function AccountMasterPassword({ onUnlocked }: { onUnlocked: (status: MasterStat
 
   return (
     <div className="master-setup">
-      <div className="master-setup__title">Master password</div>
-      <p className="master-setup__text">
-        This account already has a master password. Enter it to read your synced hosts and keys
-        on this device.
-      </p>
+      <div className="master-setup__title">{t('master.accountTitle')}</div>
+      <p className="master-setup__text">{t('master.accountText')}</p>
 
       <label className="field">
-        <span className="field__label">Master password</span>
+        <span className="field__label">{t('master.password')}</span>
         <input
           className="field__input"
           name="accountMasterPassword"
@@ -270,7 +267,7 @@ function AccountMasterPassword({ onUnlocked }: { onUnlocked: (status: MasterStat
           disabled={busy || !password}
           onClick={() => void submit()}
         >
-          {busy ? 'Checking…' : 'Unlock this device'}
+          {busy ? t('master.checking') : t('master.unlockDevice')}
         </button>
       </div>
     </div>

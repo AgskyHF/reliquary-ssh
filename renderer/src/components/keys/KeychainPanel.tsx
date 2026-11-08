@@ -8,6 +8,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { KeyType, type KeySummary } from '@shared/types'
 import { api } from '../../services/api'
+import { useI18n } from '../../i18n/I18nProvider'
 import { MasterPasswordSetup, MasterPasswordUnlock } from './MasterPassword'
 
 export interface KeychainPanelProps {
@@ -39,6 +40,7 @@ export function KeychainPanel({ onKeysChanged }: KeychainPanelProps) {
   const [error, setError] = useState<string | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
   const [expanded, setExpanded] = useState<string | null>(null)
+  const { t } = useI18n()
 
   // Generation form state.
   const [name, setName] = useState('')
@@ -85,14 +87,14 @@ export function KeychainPanel({ onKeysChanged }: KeychainPanelProps) {
       setName('')
       setComment('')
       setPassphrase('')
-      setNotice(`Key "${key.name}" created`)
+      setNotice(t('key.created', { name: key.name }))
       await refresh()
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err))
     } finally {
       setBusy(false)
     }
-  }, [comment, name, passphrase, refresh, type])
+  }, [comment, name, passphrase, refresh, t, type])
 
   const importKey = useCallback(async () => {
     setBusy(true)
@@ -107,14 +109,14 @@ export function KeychainPanel({ onKeysChanged }: KeychainPanelProps) {
       setName('')
       setPrivateKey('')
       setImportPassphrase('')
-      setNotice(`Key "${key.name}" imported`)
+      setNotice(t('key.imported', { name: key.name }))
       await refresh()
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err))
     } finally {
       setBusy(false)
     }
-  }, [importPassphrase, name, privateKey, refresh])
+  }, [importPassphrase, name, privateKey, refresh, t])
 
   const remove = useCallback(
     async (id: string) => {
@@ -137,11 +139,11 @@ export function KeychainPanel({ onKeysChanged }: KeychainPanelProps) {
     try {
       const publicKey = await api.key.exportPublic(key.id)
       await navigator.clipboard.writeText(publicKey)
-      setNotice(`Public key of "${key.name}" copied to the clipboard`)
+      setNotice(t('key.copied', { name: key.name }))
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err))
     }
-  }, [])
+  }, [t])
 
   if (unlocked === false) {
     return (
@@ -167,7 +169,7 @@ export function KeychainPanel({ onKeysChanged }: KeychainPanelProps) {
             setNotice(null)
           }}
         >
-          New key
+          {t('key.new')}
         </button>
         <button
           type="button"
@@ -178,7 +180,7 @@ export function KeychainPanel({ onKeysChanged }: KeychainPanelProps) {
             setNotice(null)
           }}
         >
-          Import
+          {t('key.import')}
         </button>
       </div>
 
@@ -188,7 +190,7 @@ export function KeychainPanel({ onKeysChanged }: KeychainPanelProps) {
       {dialog === 'generate' ? (
         <div className="keychain-panel__dialog">
           <label className="field">
-            <span className="field__label">Name</span>
+            <span className="field__label">{t('key.name')}</span>
             <input
               className="field__input"
               value={name}
@@ -199,7 +201,7 @@ export function KeychainPanel({ onKeysChanged }: KeychainPanelProps) {
           </label>
 
           <label className="field">
-            <span className="field__label">Type</span>
+            <span className="field__label">{t('key.type')}</span>
             <select
               className="field__input"
               value={type}
@@ -212,24 +214,24 @@ export function KeychainPanel({ onKeysChanged }: KeychainPanelProps) {
           </label>
 
           <label className="field">
-            <span className="field__label">Comment</span>
+            <span className="field__label">{t('key.comment')}</span>
             <input
               className="field__input"
               value={comment}
               onChange={(event) => setComment(event.target.value)}
-              placeholder="optional"
+              placeholder={t('key.optional')}
               autoComplete="off"
             />
           </label>
 
           <label className="field">
-            <span className="field__label">Passphrase</span>
+            <span className="field__label">{t('key.passphrase')}</span>
             <input
               className="field__input"
               type="password"
               value={passphrase}
               onChange={(event) => setPassphrase(event.target.value)}
-              placeholder="optional"
+              placeholder={t('key.optional')}
               autoComplete="new-password"
             />
           </label>
@@ -240,7 +242,7 @@ export function KeychainPanel({ onKeysChanged }: KeychainPanelProps) {
               className="button button--ghost"
               onClick={() => setDialog('none')}
             >
-              Cancel
+              {t('key.cancel')}
             </button>
             <button
               type="button"
@@ -248,7 +250,7 @@ export function KeychainPanel({ onKeysChanged }: KeychainPanelProps) {
               disabled={busy || !name.trim()}
               onClick={() => void generate()}
             >
-              {busy ? 'Creating…' : 'Create'}
+              {busy ? t('key.creating') : t('key.create')}
             </button>
           </div>
         </div>
@@ -268,7 +270,7 @@ export function KeychainPanel({ onKeysChanged }: KeychainPanelProps) {
           </label>
 
           <label className="field">
-            <span className="field__label">Private key</span>
+            <span className="field__label">{t('key.privateKey')}</span>
             <textarea
               className="field__input field__input--area"
               value={privateKey}
@@ -286,7 +288,7 @@ export function KeychainPanel({ onKeysChanged }: KeychainPanelProps) {
               type="password"
               value={importPassphrase}
               onChange={(event) => setImportPassphrase(event.target.value)}
-              placeholder="if the key is encrypted"
+              placeholder={t('key.encryptedPassphrase')}
               autoComplete="off"
             />
           </label>
@@ -297,7 +299,7 @@ export function KeychainPanel({ onKeysChanged }: KeychainPanelProps) {
               className="button button--ghost"
               onClick={() => setDialog('none')}
             >
-              Cancel
+              {t('key.cancel')}
             </button>
             <button
               type="button"
@@ -305,14 +307,14 @@ export function KeychainPanel({ onKeysChanged }: KeychainPanelProps) {
               disabled={busy || !name.trim() || !privateKey.trim()}
               onClick={() => void importKey()}
             >
-              {busy ? 'Importing…' : 'Import'}
+              {busy ? t('key.importing') : t('key.import')}
             </button>
           </div>
         </div>
       ) : null}
 
       {keys.length === 0 && dialog === 'none' ? (
-        <div className="keychain-panel__empty">No keys yet</div>
+        <div className="keychain-panel__empty">{t('key.empty')}</div>
       ) : null}
 
       {keys.map((key) => (
@@ -332,10 +334,12 @@ export function KeychainPanel({ onKeysChanged }: KeychainPanelProps) {
             <div className="keychain-panel__detail">
               <code className="keychain-panel__public">{key.publicKey}</code>
               {key.comment ? (
-                <div className="keychain-panel__comment">Comment: {key.comment}</div>
+                <div className="keychain-panel__comment">
+                  {t('key.commentLabel', { comment: key.comment })}
+                </div>
               ) : null}
               {key.hasPassphrase ? (
-                <div className="keychain-panel__comment">Protected by a passphrase</div>
+                <div className="keychain-panel__comment">{t('key.protected')}</div>
               ) : null}
               <div className="keychain-panel__actions">
                 <button
@@ -343,7 +347,7 @@ export function KeychainPanel({ onKeysChanged }: KeychainPanelProps) {
                   className="button button--ghost"
                   onClick={() => void exportPublic(key)}
                 >
-                  Copy public key
+                  {t('key.copyPublic')}
                 </button>
                 <button
                   type="button"
@@ -351,7 +355,7 @@ export function KeychainPanel({ onKeysChanged }: KeychainPanelProps) {
                   disabled={busy}
                   onClick={() => void remove(key.id)}
                 >
-                  Delete
+                  {t('key.delete')}
                 </button>
               </div>
             </div>

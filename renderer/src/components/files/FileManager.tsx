@@ -8,6 +8,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import type { RemoteFileEntry, RemoteListing } from '@shared/types'
 import { api } from '../../services/api'
+import { useI18n } from '../../i18n/I18nProvider'
 
 export interface FileManagerProps {
   /** The session id the panel is bound to. */
@@ -45,10 +46,11 @@ export function FileManager({ sessionId, onError }: FileManagerProps) {
   const [listing, setListing] = useState<RemoteListing | null>(null)
   const [status, setStatus] = useState<Status>({ kind: 'idle' })
   const [selected, setSelected] = useState<string | null>(null)
+  const { t } = useI18n()
 
   const load = useCallback(
     async (path: string) => {
-      setStatus({ kind: 'busy', text: 'Loading…' })
+      setStatus({ kind: 'busy', text: t('files.loading') })
       try {
         const result = await api.file.list({ sessionId, path })
         setListing(result)
@@ -60,7 +62,7 @@ export function FileManager({ sessionId, onError }: FileManagerProps) {
         onError?.(message)
       }
     },
-    [sessionId, onError]
+    [sessionId, onError, t]
   )
 
   // Initial listing right after the session connects. The load is deferred
@@ -94,7 +96,7 @@ export function FileManager({ sessionId, onError }: FileManagerProps) {
       const localPath = await api.file.pickLocalPath({ mode: 'save', defaultPath: entry.name })
       if (!localPath) return
 
-      setStatus({ kind: 'busy', text: `Downloading ${entry.name}…` })
+      setStatus({ kind: 'busy', text: t('files.downloading', { name: entry.name }) })
       try {
         await api.file.download({ sessionId, remotePath: entry.path, localPath })
         setStatus({ kind: 'idle' })
@@ -105,7 +107,7 @@ export function FileManager({ sessionId, onError }: FileManagerProps) {
         })
       }
     },
-    [sessionId]
+    [sessionId, t]
   )
 
   const upload = useCallback(async () => {
@@ -115,7 +117,7 @@ export function FileManager({ sessionId, onError }: FileManagerProps) {
     const name = localPath.split(/[\\/]/).pop() ?? 'upload'
     const remotePath = listing ? `${listing.path}${PATH_SEPARATOR}${name}` : name
 
-    setStatus({ kind: 'busy', text: `Uploading ${name}…` })
+    setStatus({ kind: 'busy', text: t('files.uploading', { name }) })
     try {
       await api.file.upload({ sessionId, remotePath, localPath })
       await load(listing?.path ?? '')
@@ -126,7 +128,7 @@ export function FileManager({ sessionId, onError }: FileManagerProps) {
         text: error instanceof Error ? error.message : String(error)
       })
     }
-  }, [listing, load, sessionId])
+  }, [listing, load, sessionId, t])
 
   const entries = listing?.entries ?? []
 
@@ -139,13 +141,13 @@ export function FileManager({ sessionId, onError }: FileManagerProps) {
           onClick={() => void goUp()}
           disabled={!listing || listing.parentPath === listing.path}
         >
-          ↑ Up
+          {t('files.up')}
         </button>
         <span className="file-manager__path" title={listing?.path ?? '/'}>
           {listing?.path ?? '/'}
         </span>
         <button type="button" className="button button--ghost" onClick={() => void upload()}>
-          ↑ Upload
+          {t('files.upload')}
         </button>
       </div>
 
@@ -158,15 +160,15 @@ export function FileManager({ sessionId, onError }: FileManagerProps) {
 
       <div className="file-manager__list" role="table">
         <div className="file-manager__row file-manager__row--head" role="row">
-          <span className="file-manager__cell file-manager__cell--name">Name</span>
-          <span className="file-manager__cell file-manager__cell--size">Size</span>
-          <span className="file-manager__cell file-manager__cell--mode">Mode</span>
-          <span className="file-manager__cell file-manager__cell--date">Modified</span>
+          <span className="file-manager__cell file-manager__cell--name">{t('files.colName')}</span>
+          <span className="file-manager__cell file-manager__cell--size">{t('files.colSize')}</span>
+          <span className="file-manager__cell file-manager__cell--mode">{t('files.colMode')}</span>
+          <span className="file-manager__cell file-manager__cell--date">{t('files.colModified')}</span>
           <span className="file-manager__cell file-manager__cell--actions" />
         </div>
 
         {entries.length === 0 ? (
-          <div className="file-manager__empty">Directory is empty</div>
+          <div className="file-manager__empty">{t('files.empty')}</div>
         ) : null}
 
         {entries.map((entry) => (
@@ -205,7 +207,7 @@ export function FileManager({ sessionId, onError }: FileManagerProps) {
                     void openEntry(entry)
                   }}
                 >
-                  Open
+                  {t('files.open')}
                 </button>
               ) : (
                 <button
@@ -216,7 +218,7 @@ export function FileManager({ sessionId, onError }: FileManagerProps) {
                     void download(entry)
                   }}
                 >
-                  Download
+                  {t('files.download')}
                 </button>
               )}
             </span>

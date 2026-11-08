@@ -26,6 +26,7 @@
     "package:mac": "npm run build && npm run prepare:native && electron-builder --mac --publish never",
     "package": "npm run build && npm run prepare:native && electron-builder --publish never",
     "prepare:native": "node scripts/prepare-native.mjs",
+    "icon": "node_modules/electron/dist/Electron.app/Contents/MacOS/Electron scripts/make-icon.mjs",
     "server": "node --env-file-if-exists=.env --experimental-strip-types server/index.ts",
     "server:dev": "node --env-file-if-exists=.env --experimental-strip-types --watch server/index.ts"
   },
