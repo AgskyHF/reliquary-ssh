@@ -24,6 +24,7 @@ import { SyncService } from '../services/sync'
 import { SyncTransportRouter } from '../services/sync-transport'
 import { ExportService } from '../services/export'
 import { RestoreService } from '../services/restore'
+import { AutoSyncScheduler } from '../services/auto-sync'
 import { getDeviceId, getDeviceSecret } from '../services/device-id'
 import { logger } from '../services/logger'
 import { broadcast } from './broadcast'
@@ -38,6 +39,7 @@ let sync: SyncService | null = null
 let transport: SyncTransportRouter | null = null
 let exporter: ExportService | null = null
 let restorer: RestoreService | null = null
+let scheduler: AutoSyncScheduler | null = null
 
 /** The export/import service. */
 function getExport(): ExportService {
@@ -45,6 +47,28 @@ function getExport(): ExportService {
     exporter = new ExportService(getStorage(), getMasterPassword())
   }
   return exporter
+}
+
+/**
+ * The auto-sync scheduler.
+ *
+ * It only fires when the master password is unlocked and a transport is
+ * available — otherwise there is nothing to sync.
+ */
+function getScheduler(): AutoSyncScheduler {
+  if (!scheduler) {
+    const settings = getStorage().settings.all()
+
+    scheduler = new AutoSyncScheduler({
+      intervalMs: settings.autoSyncSeconds * 1000,
+      canSync: () => {
+        if (!getMasterPassword().unlocked) return false
+        return getTransport().isSignedIn()
+      },
+      run: () => getSync().syncNow()
+    })
+  }
+  return scheduler
 }
 
 /** The service that brings a replaced version back. */
@@ -342,6 +366,7 @@ export function registerIpcHandlers(): void {
     // An import may have brought sealed passwords — they open now.
     const material = manager.getMasterKey()
     if (material) await getExport().openSealedPasswords(material)
+    kickSync()
     return manager.status()
   })
 
@@ -365,6 +390,7 @@ export function registerIpcHandlers(): void {
     const manager = getMasterPassword()
     await manager.set(password, params)
     keychain = null
+    kickSync()
     return manager.status()
   })
 
@@ -381,6 +407,8 @@ export function registerIpcHandlers(): void {
     }
     // The keychain is rebuilt with the freshly loaded material.
     keychain = null
+    // The first scheduled sync may be a whole interval away.
+    kickSync()
     return manager.status()
   })
 
@@ -522,6 +550,13 @@ export function registerIpcHandlers(): void {
 
   handle(IPC.SYNC_NOW, async () => getSync().syncNow())
 
+  /** The state of the auto sync — the UI shows it in the sync panel. */
+  handle(IPC.SYNC_AUTO_STATUS, async () => ({
+    enabled: getStorage().settings.get('autoSyncSeconds') > 0,
+    intervalSeconds: getStorage().settings.get('autoSyncSeconds'),
+    running: getScheduler().running
+  }))
+
   // ---- settings ----
   handle(IPC.SETTINGS_GET, async () => getStorage().settings.all())
 
@@ -563,6 +598,11 @@ export function registerIpcHandlers(): void {
         folder: current.syncFolder
       })
       getSync().reset()
+
+      // The auto sync interval may have changed.
+      if (payload.key === 'autoSyncSeconds') {
+        getScheduler().setInterval(Number(value) * 1000)
+      }
 
       return settings.all()
     }
@@ -775,3 +815,21 @@ export function registerIpcHandlers(): void {
 }
 
 export { sessionManager }
+
+/** Arms the auto-sync scheduler. */
+export function startAutoSync(): void {
+  getScheduler().start()
+}
+
+/**
+ * Runs a sync in the background right after the master password became
+ * available — otherwise the first scheduled run would be a full interval
+ * away, and the app would sit on stale data after a restart.
+ *
+ * The result never reaches the caller: this runs outside any IPC call.
+ */
+function kickSync(): void {
+  void getScheduler()
+    .runNow()
+    .catch(() => undefined)
+}

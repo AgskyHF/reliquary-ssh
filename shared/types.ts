@@ -357,7 +357,8 @@ export const IPC = {
   SYNC_PULL: 'sync:pull',
   SYNC_PUSH: 'sync:push',
   SYNC_STATUS: 'sync:status',
-  SYNC_NOW: 'sync:now'
+  SYNC_NOW: 'sync:now',
+  SYNC_AUTO_STATUS: 'sync:autoStatus'
 } as const
 
 export type IpcChannel = (typeof IPC)[keyof typeof IPC]

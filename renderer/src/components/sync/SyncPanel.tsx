@@ -14,17 +14,57 @@ import type { MasterStatus } from '@shared/types'
 import { api } from '../../services/api'
 import { MasterPasswordSetup, MasterPasswordUnlock } from '../keys/MasterPassword'
 
+/** The auto-sync intervals the panel offers, in seconds. */
+const AUTO_SYNC_OPTIONS = [
+  { value: 0, label: 'Off — sync only on demand' },
+  { value: 60, label: 'Every minute' },
+  { value: 300, label: 'Every 5 minutes' },
+  { value: 900, label: 'Every 15 minutes' },
+  { value: 3600, label: 'Every hour' }
+]
+
 export function SyncPanel() {
   const [status, setStatus] = useState<SyncStatusView | null>(null)
   const [result, setResult] = useState<SyncResult | null>(null)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [autoSyncSeconds, setAutoSyncSeconds] = useState(300)
 
   const refresh = useCallback(async () => {
     try {
       setStatus(await api.sync.status())
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err))
+    }
+  }, [])
+
+  /** Writes the interval; the main process re-arms its timer. */
+  const saveAutoSync = useCallback(async (seconds: number): Promise<void> => {
+    try {
+      const settings = await api.settings.set({
+        key: 'autoSyncSeconds',
+        value: String(seconds)
+      })
+      setAutoSyncSeconds(settings.autoSyncSeconds)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err))
+    }
+  }, [])
+
+  // The interval is a device setting, so the panel reads it on open.
+  useEffect(() => {
+    let cancelled = false
+    void (async () => {
+      try {
+        const settings = await api.settings.get()
+        if (!cancelled) setAutoSyncSeconds(settings.autoSyncSeconds)
+      } catch {
+        // The panel still works with the default interval.
+      }
+    })()
+
+    return () => {
+      cancelled = true
     }
   }, [])
 
@@ -128,6 +168,29 @@ export function SyncPanel() {
           {status.lastSyncAt ? new Date(status.lastSyncAt).toLocaleTimeString() : 'Never'}
         </span>
       </div>
+
+      <label className="field">
+        <span className="field__label">Auto sync</span>
+        <select
+          className="field__input"
+          name="autoSyncSeconds"
+          value={autoSyncSeconds}
+          onChange={(event) => {
+            const value = Number(event.target.value)
+            setAutoSyncSeconds(value)
+            void saveAutoSync(value)
+          }}
+        >
+          {AUTO_SYNC_OPTIONS.map((option) => (
+            <option key={option.value} value={option.value}>
+              {option.label}
+            </option>
+          ))}
+        </select>
+        <span className="settings-panel__hint">
+          The sync also runs when the app starts and when you unlock the master password.
+        </span>
+      </label>
 
       {result ? (
         <div className="sync-panel__result" data-synced-at={result.syncedAt}>

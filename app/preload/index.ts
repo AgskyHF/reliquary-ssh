@@ -103,7 +103,8 @@ const api: ReliquaryApi = {
     push: (payload) => ipcRenderer.invoke(IPC.SYNC_PUSH_ENTRIES, payload),
     pull: (payload) => ipcRenderer.invoke(IPC.SYNC_PULL_ENTRIES, payload),
     status: () => ipcRenderer.invoke(IPC.SYNC_STATUS),
-    now: () => ipcRenderer.invoke(IPC.SYNC_NOW)
+    now: () => ipcRenderer.invoke(IPC.SYNC_NOW),
+    autoStatus: () => ipcRenderer.invoke(IPC.SYNC_AUTO_STATUS)
   },
 
   tab: {

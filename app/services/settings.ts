@@ -31,6 +31,12 @@ export interface AppSettings {
    * derives the same key as on the device that made the export.
    */
   importedKdf: string
+  /**
+   * The interval of the auto sync, in seconds. Zero turns it off.
+   *
+   * The sync also runs when the app starts and when the user asks for it.
+   */
+  autoSyncSeconds: number
 }
 
 export const DEFAULT_SETTINGS: AppSettings = {
@@ -39,7 +45,8 @@ export const DEFAULT_SETTINGS: AppSettings = {
   logPath: 'reliquary.log',
   syncTransport: 'server',
   syncFolder: '',
-  importedKdf: ''
+  importedKdf: '',
+  autoSyncSeconds: 300
 }
 
 /** The keys of the settings table. */
@@ -49,8 +56,18 @@ const KEYS = {
   logPath: 'log.path',
   syncTransport: 'sync.transport',
   syncFolder: 'sync.folder',
-  importedKdf: 'imported.kdf'
+  importedKdf: 'imported.kdf',
+  autoSyncSeconds: 'sync.autoSeconds'
 } as const
+
+/** Reads a numeric setting, falling back to the default. */
+function readNumber(raw: string | undefined, fallback: number): number {
+  if (raw === undefined) return fallback
+
+  const value = Number(raw)
+  if (!Number.isFinite(value) || value < 0) return fallback
+  return value
+}
 
 export class SettingsService {
   constructor(private readonly db: SqliteDatabase) {}
@@ -71,7 +88,11 @@ export class SettingsService {
       syncTransport:
         stored.get(KEYS.syncTransport) === 'folder' ? 'folder' : DEFAULT_SETTINGS.syncTransport,
       syncFolder: stored.get(KEYS.syncFolder) ?? DEFAULT_SETTINGS.syncFolder,
-      importedKdf: stored.get(KEYS.importedKdf) ?? DEFAULT_SETTINGS.importedKdf
+      importedKdf: stored.get(KEYS.importedKdf) ?? DEFAULT_SETTINGS.importedKdf,
+      autoSyncSeconds: readNumber(
+        stored.get(KEYS.autoSyncSeconds),
+        DEFAULT_SETTINGS.autoSyncSeconds
+      )
     }
   }
 

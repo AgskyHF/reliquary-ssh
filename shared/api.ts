@@ -72,6 +72,20 @@ export interface AppSettings {
   syncTransport: 'server' | 'folder'
   /** The shared folder used by the 'folder' transport. */
   syncFolder: string
+  /**
+   * The PBKDF2 parameters an import brought, as JSON.
+   *
+   * The salt belongs to the account, not to the device: a device that
+   * imported an archive stores it here, so the master password it gets
+   * derives the same key as on the device that made the export.
+   */
+  importedKdf: string
+  /**
+   * The interval of the auto sync, in seconds. Zero turns it off.
+   *
+   * The sync also runs when the app starts and when the user asks for it.
+   */
+  autoSyncSeconds: number
 }
 
 /** One version that lost a merge, as the renderer sees it. */
@@ -142,6 +156,12 @@ export interface ReliquaryApi {
     status(): Promise<SyncStatusView>
     /** Encrypts the pending changes, pushes them, then pulls and applies the remote ones. */
     now(): Promise<SyncResult>
+    /** The state of the auto sync: whether it is armed and how often it runs. */
+    autoStatus(): Promise<{
+      enabled: boolean
+      intervalSeconds: number
+      running: boolean
+    }>
   }
 
   key: {
