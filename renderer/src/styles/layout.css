@@ -15,6 +15,14 @@
   -webkit-app-region: drag;
 }
 
+/*
+ * The traffic lights of macOS are drawn over the top-left corner of the
+ * window. The brand starts after them, so they never overlap the logo.
+ */
+:root[data-platform='darwin'] .topbar {
+  padding-left: 82px;
+}
+
 .topbar__brand {
   display: flex;
   align-items: center;

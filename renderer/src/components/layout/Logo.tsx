@@ -99,17 +99,19 @@ export function Logo({ size = 22, variant = 'tile' }: LogoProps) {
         </linearGradient>
       </defs>
 
-      <rect x="64" y="44" width="365" height="346" rx="78" fill={`url(#${uid}-tile)`} />
-      <rect
-        x="64"
-        y="44"
-        width="365"
-        height="346"
-        rx="78"
-        fill="none"
-        stroke={`url(#${uid}-rim)`}
-        strokeWidth="4"
-      />
+      {/* The tile is shifted so it sits in the middle of the canvas. */}
+      <g transform="translate(9.5 39)">
+        <rect x="64" y="44" width="365" height="346" rx="78" fill={`url(#${uid}-tile)`} />
+        <rect
+          x="64"
+          y="44"
+          width="365"
+          height="346"
+          rx="78"
+          fill="none"
+          stroke={`url(#${uid}-rim)`}
+          strokeWidth="4"
+        />
 
       <path
         d="M 143 151 L 244 96 C 250 92.8, 256 92.4, 262 96 L 359 153
@@ -133,6 +135,7 @@ export function Logo({ size = 22, variant = 'tile' }: LogoProps) {
         strokeLinejoin="round"
       />
       <rect x="259" y="244.5" width="38" height="10.5" rx="2.5" fill="#EFF2C6" />
+      </g>
     </svg>
   )
 }

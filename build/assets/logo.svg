@@ -74,6 +74,14 @@
   </defs>
 
   <rect width="512" height="512" fill="url(#canvasFill)"/>
+
+  <!--
+    The artwork is shifted so the tile sits exactly in the middle of the
+    canvas: the tile spans 64..429 (centre 246.5) and 44..390 (centre 217),
+    so it has to move 9.5 px right and 39 px down. Without that the icon
+    sits off-centre in the Dock.
+  -->
+  <g transform="translate(9.5 39)">
   <rect x="64" y="44" width="365" height="346" rx="78" fill="url(#tileFill)" filter="url(#tileShadow)"/>
   <g clip-path="url(#tileClip)">
     <ellipse cx="76" cy="360" rx="225" ry="145" fill="url(#violetHaze)"/>
@@ -81,6 +89,8 @@
   </g>
   <rect x="64" y="44" width="365" height="346" rx="78" fill="none" stroke="url(#rim)" stroke-width="2" filter="url(#rimGlow)"/>
 
+  <!-- The emblem is pulled back so it sits in the middle of the tile. -->
+  <g transform="translate(-5 -6)">
   <use href="#upperRibbon" fill="url(#upperMark)"/>
   <use href="#upperRibbon" fill="url(#upperShade)"/>
 
@@ -97,6 +107,8 @@
 
   <g filter="url(#promptShadow)">
     <path d="M 220 202 L 246.5 224.5 L 220 248" fill="none" stroke="url(#promptFill)" stroke-width="13.2" stroke-linecap="round" stroke-linejoin="round"/>
-    <rect x="259" y="244.5" width="38" height="10.5" rx="2.5" fill="url(#promptFill)"/>
+    <rect x="259" y="244.5" width="38" height="10.5" rx="2.5" fill="url(#promptFill)" />
+  </g>
+  </g>
   </g>
 </svg>
