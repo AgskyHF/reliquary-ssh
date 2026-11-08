@@ -24,39 +24,39 @@ describe('device settings', () => {
   })
 
   it('stores a value and reads it back', () => {
-    storage.settings.set('serverUrl', 'http://sync.example.com:9000')
+    storage.settings.set('logLevel', 'debug')
 
-    expect(storage.settings.get('serverUrl')).toBe('http://sync.example.com:9000')
-    expect(storage.settings.all().serverUrl).toBe('http://sync.example.com:9000')
+    expect(storage.settings.get('logLevel')).toBe('debug')
+    expect(storage.settings.all().logLevel).toBe('debug')
   })
 
   it('keeps the other settings untouched', () => {
     storage.settings.set('logLevel', 'debug')
-    storage.settings.set('serverUrl', 'http://sync.example.com')
+    storage.settings.set('language', 'ru')
 
     const all = storage.settings.all()
     expect(all.logLevel).toBe('debug')
-    expect(all.serverUrl).toBe('http://sync.example.com')
+    expect(all.language).toBe('ru')
   })
 
   it('overwrites a value instead of adding a second row', () => {
-    storage.settings.set('serverUrl', 'http://first.example.com')
-    storage.settings.set('serverUrl', 'http://second.example.com')
+    storage.settings.set('logLevel', 'debug')
+    storage.settings.set('logLevel', 'warn')
 
     const rows = storage.db
-      .prepare("SELECT COUNT(*) AS total FROM settings WHERE key = 'server.url'")
+      .prepare("SELECT COUNT(*) AS total FROM settings WHERE key = 'log.level'")
       .get() as { total: number }
 
     expect(rows.total).toBe(1)
-    expect(storage.settings.get('serverUrl')).toBe('http://second.example.com')
+    expect(storage.settings.get('logLevel')).toBe('warn')
   })
 
   it('survives a restart of the storage', () => {
-    storage.settings.set('serverUrl', 'http://sync.example.com')
+    storage.settings.set('logLevel', 'debug')
     storage.close()
 
     const reopened = new Storage(join(dir, 'reliquary.db'), () => 'test-device')
-    expect(reopened.settings.get('serverUrl')).toBe('http://sync.example.com')
+    expect(reopened.settings.get('logLevel')).toBe('debug')
     reopened.close()
   })
 

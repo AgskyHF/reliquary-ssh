@@ -16,6 +16,7 @@ import { getDeviceId } from './device-id'
 import { SettingsService } from './settings'
 import { HostPasswordRepository } from './host-passwords'
 import { SupersededRepository } from './superseded'
+import { ReplicaRepository } from './sync-replicas'
 
 /** The tab repository contract the main process uses. */
 export interface TabRepository {
@@ -89,6 +90,8 @@ export class Storage {
   readonly passwords: HostPasswordRepository
   /** The versions that lost a merge — they are never deleted. */
   readonly superseded: SupersededRepository
+  /** The replicas this device knows — the payload of the sync file. */
+  readonly replicas: ReplicaRepository
 
   constructor(
     filePath: string,
@@ -102,6 +105,7 @@ export class Storage {
     this.settings = new SettingsService(this.db)
     this.passwords = new HostPasswordRepository(this.db)
     this.superseded = new SupersededRepository(this.db)
+    this.replicas = new ReplicaRepository(this.db)
   }
 
   /** Creates the storage in the app's userData directory. */

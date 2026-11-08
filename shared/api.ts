@@ -12,18 +12,8 @@ import type {
   TabLayoutInput,
   TabLayoutSnapshot
 } from './types'
-import type { SyncEntry, SyncResult, SyncStatusView } from './sync'
+import type { SyncResult, SyncStatus } from './sync'
 import type { ExportOptions, ImportResult } from './export'
-
-/** The session the backend returns after a successful sign-in. */
-export interface AuthSession {
-  token: string
-  user: {
-    id: string
-    email: string
-    provider: 'google' | 'email'
-  }
-}
 
 export interface AppInfo {
   name: string
@@ -62,16 +52,10 @@ export interface SessionErrorEvent {
 
 /** The device settings of the app. */
 export interface AppSettings {
-  /** The address of the sync backend. */
-  serverUrl: string
   /** The log level: debug | info | warn | error. */
   logLevel: string
   /** The path of the log file, relative to userData. */
   logPath: string
-  /** The transport: 'server' (HTTP backend) or 'folder' (shared folder). */
-  syncTransport: 'server' | 'folder'
-  /** The shared folder used by the 'folder' transport. */
-  syncFolder: string
   /**
    * The PBKDF2 parameters an import brought, as JSON.
    *
@@ -80,12 +64,6 @@ export interface AppSettings {
    * derives the same key as on the device that made the export.
    */
   importedKdf: string
-  /**
-   * The interval of the auto sync, in seconds. Zero turns it off.
-   *
-   * The sync also runs when the app starts and when the user asks for it.
-   */
-  autoSyncSeconds: number
   /** The language of the interface: 'en' or 'ru'. */
   language: string
 }
@@ -128,42 +106,23 @@ export interface ReliquaryApi {
   }
 
   changes: {
-    /** The number of local changes waiting to be pushed to the backend. */
+    /** The number of local changes waiting to be put into the next sync file. */
     pendingCount(): Promise<number>
   }
 
-  auth: {
-    /** Creates an account and signs in. */
-    register(payload: { email: string; password: string }): Promise<AuthSession>
-    /** Signs in with email and password. */
-    login(payload: { email: string; password: string }): Promise<AuthSession>
-    /** Signs in with a Google authorization code. */
-    loginWithGoogle(payload: { code: string; codeVerifier?: string }): Promise<AuthSession>
-    /** The current session. */
-    me(): Promise<AuthSession['user']>
-    /** Forgets the session. */
-    signOut(): Promise<void>
-    /** Whether a session exists and which account it belongs to. */
-    status(): Promise<{ signedIn: boolean; email: string | null; serverUrl: string }>
-    /** Changes the address of the backend. */
-    setServerUrl(url: string): Promise<{ serverUrl: string }>
-  }
-
   sync: {
-    /** Pushes the encrypted entries to the backend. */
-    push(payload: { entries: SyncEntry[] }): Promise<{ accepted: number }>
-    /** Reads the encrypted entries of the account. */
-    pull(payload?: { entity?: string }): Promise<{ entries: SyncEntry[] }>
-    /** The state of the sync engine, including whether the account has KDF params. */
-    status(): Promise<SyncStatusView>
-    /** Encrypts the pending changes, pushes them, then pulls and applies the remote ones. */
-    now(): Promise<SyncResult>
-    /** The state of the auto sync: whether it is armed and how often it runs. */
-    autoStatus(): Promise<{
-      enabled: boolean
-      intervalSeconds: number
-      running: boolean
-    }>
+    /**
+     * Writes the sync file the user carries to the other devices.
+     * Without a path the native save dialog is shown.
+     */
+    exportFile(payload?: { path?: string }): Promise<{ path: string; exported: number }>
+    /**
+     * Reads the sync file the user picked and merges it into the local
+     * database. Without a path the native open dialog is shown.
+     */
+    importFile(payload?: { path?: string }): Promise<SyncResult>
+    /** The state of the sync engine. */
+    status(): Promise<SyncStatus>
   }
 
   key: {

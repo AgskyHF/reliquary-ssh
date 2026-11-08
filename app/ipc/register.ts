@@ -1,6 +1,6 @@
 /** IPC handlers registered in the main process. */
 import { app, BrowserWindow, dialog, ipcMain } from 'electron'
-import { existsSync, readFileSync, writeFileSync } from 'node:fs'
+import { readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import {
   AuthMethod,
@@ -14,17 +14,14 @@ import type { ConnectRequest } from '@shared/api'
 import type { AppSettings, SupersededSummary } from '@shared/api'
 import type { ExportOptions } from '@shared/export'
 import { EXPORT_FILE_NAME } from '@shared/export'
-import type { SyncEntry } from '@shared/sync'
+import { SYNC_FILE_NAME } from '@shared/sync'
 import { SessionManager } from '../services/session-manager'
 import { Storage, type TabRepository } from '../services/storage'
-import { BackendClient } from '../services/backend-client'
 import { KeychainService } from '../services/keychain'
 import { MasterPasswordManager } from '../services/master-password'
-import { SyncService } from '../services/sync'
-import { SyncTransportRouter } from '../services/sync-transport'
+import { SyncService } from '../services/sync-file'
 import { ExportService } from '../services/export'
 import { RestoreService } from '../services/restore'
-import { AutoSyncScheduler } from '../services/auto-sync'
 import { getDeviceId, getDeviceSecret } from '../services/device-id'
 import { logger } from '../services/logger'
 import { broadcast } from './broadcast'
@@ -32,14 +29,11 @@ import { broadcast } from './broadcast'
 const sessionManager = new SessionManager()
 
 let storage: Storage | null = null
-let backend: BackendClient | null = null
 let masterPassword: MasterPasswordManager | null = null
 let keychain: KeychainService | null = null
 let sync: SyncService | null = null
-let transport: SyncTransportRouter | null = null
 let exporter: ExportService | null = null
 let restorer: RestoreService | null = null
-let scheduler: AutoSyncScheduler | null = null
 
 /** The export/import service. */
 function getExport(): ExportService {
@@ -47,28 +41,6 @@ function getExport(): ExportService {
     exporter = new ExportService(getStorage(), getMasterPassword())
   }
   return exporter
-}
-
-/**
- * The auto-sync scheduler.
- *
- * It only fires when the master password is unlocked and a transport is
- * available — otherwise there is nothing to sync.
- */
-function getScheduler(): AutoSyncScheduler {
-  if (!scheduler) {
-    const settings = getStorage().settings.all()
-
-    scheduler = new AutoSyncScheduler({
-      intervalMs: settings.autoSyncSeconds * 1000,
-      canSync: () => {
-        if (!getMasterPassword().unlocked) return false
-        return getTransport().isSignedIn()
-      },
-      run: () => getSync().syncNow()
-    })
-  }
-  return scheduler
 }
 
 /** The service that brings a replaced version back. */
@@ -91,23 +63,6 @@ function getStorage(): Storage {
 /** Lazily created — app.getPath('userData') is only valid after ready. */
 function getTabStore(): TabRepository {
   return getStorage().tabs
-}
-
-/**
- * The backend client.
- *
- * @param serverUrl The address of the backend. The environment variable
- * wins over the stored setting, so a developer can point the app at a
- * local server without touching the database.
- */
-function getBackend(): BackendClient {
-  if (!backend) {
-    const stored = getStorage().settings.get('serverUrl')
-    const serverUrl = process.env.RELIQUARY_SERVER_URL ?? stored
-
-    backend = new BackendClient({ serverUrl })
-  }
-  return backend
 }
 
 /** Lazily created — app.getPath('userData') is only valid after ready. */
@@ -149,24 +104,6 @@ function getKeychain(): KeychainService {
 }
 
 /**
- * The transport router — the HTTP backend or a shared folder.
- *
- * The transport is a device setting: it decides where the encrypted
- * entries travel, not how they are encrypted.
- */
-function getTransport(): SyncTransportRouter {
-  if (!transport) {
-    const settings = getStorage().settings.all()
-    transport = new SyncTransportRouter(getBackend(), {
-      transport: settings.syncTransport,
-      serverUrl: settings.serverUrl,
-      folder: settings.syncFolder
-    })
-  }
-  return transport
-}
-
-/**
  * The sync engine — encryption, push and pull of the local changes.
  * It is built once and keeps its last-run state for the UI.
  */
@@ -175,7 +112,7 @@ function getSync(): SyncService {
     sync = new SyncService(
       getStorage(),
       getMasterPassword(),
-      getTransport(),
+      getStorage().replicas,
       () => getDeviceId(app.getPath('userData'))
     )
   }
@@ -366,31 +303,29 @@ export function registerIpcHandlers(): void {
     // An import may have brought sealed passwords — they open now.
     const material = manager.getMasterKey()
     if (material) await getExport().openSealedPasswords(material)
-    kickSync()
+    // The records that came in with a sync file were waiting for the key.
+    await getSync().applyReplicas()
     return manager.status()
   })
 
   /**
-   * Sets the master password of an account that already has one on the
-   * server. The PBKDF2 salt travels with the account, so this device
-   * derives exactly the key the other devices use.
+   * Sets the master password of an account that already has one.
+   *
+   * The PBKDF2 salt travels with the sync file, so this device derives
+   * exactly the key the other devices use. The salt is only there after a
+   * file was imported — before that the user sets a new password.
    */
   handle(IPC.MASTER_SET_FROM_ACCOUNT, async (_event, password: string) => {
-    // The folder transport has no account — the salt comes from the shared
-    // folder instead of the backend.
-    if (getTransport().transport === 'server' && !getBackend().isSignedIn()) {
-      throw new Error('Sign in to the account first')
-    }
-
-    const params = await getSync().fetchKdfParams()
+    const params = getMasterPassword().getImportedParams()
     if (!params) {
-      throw new Error('The account has no master password yet — set a new one instead')
+      throw new Error('No sync file was imported yet — set a new master password instead')
     }
 
     const manager = getMasterPassword()
     await manager.set(password, params)
     keychain = null
-    kickSync()
+    // The records that came in with a sync file were waiting for the key.
+    await getSync().applyReplicas()
     return manager.status()
   })
 
@@ -407,8 +342,6 @@ export function registerIpcHandlers(): void {
     }
     // The keychain is rebuilt with the freshly loaded material.
     keychain = null
-    // The first scheduled sync may be a whole interval away.
-    kickSync()
     return manager.status()
   })
 
@@ -479,83 +412,62 @@ export function registerIpcHandlers(): void {
     })
   })
 
-  // ---- auth ----
-  handle(
-    IPC.AUTH_REGISTER,
-    async (_event, payload: { email: string; password: string }) =>
-      getBackend().register(payload.email, payload.password)
-  )
-
-  handle(
-    IPC.AUTH_LOGIN,
-    async (_event, payload: { email: string; password: string }) =>
-      getBackend().login(payload.email, payload.password)
-  )
-
-  handle(
-    IPC.AUTH_LOGIN_GOOGLE,
-    async (_event, payload: { code: string; codeVerifier?: string }) =>
-      getBackend().loginWithGoogle(payload.code, payload.codeVerifier)
-  )
-
-  handle(IPC.AUTH_ME, async () => getBackend().me())
-
-  handle(IPC.AUTH_SIGN_OUT, async () => {
-    getBackend().signOut()
-    getSync().reset()
-  })
-
-  handle(IPC.AUTH_STATUS, async () => {
-    const client = getBackend()
-    return {
-      signedIn: client.isSignedIn(),
-      email: client.signedInAs(),
-      serverUrl: client.serverUrl
-    }
-  })
-
-  handle(IPC.AUTH_SERVER_URL, async (_event, url: string) => {
-    const client = getBackend()
-    client.setServerUrl(url)
-    getSync().reset()
-    // The address is stored, so it survives a restart.
-    getStorage().settings.set('serverUrl', url)
-    return { serverUrl: client.serverUrl }
-  })
-
   // ---- sync ----
-  handle(
-    IPC.SYNC_PUSH_ENTRIES,
-    async (_event, payload: { entries: SyncEntry[] }) => ({
-      accepted: await getBackend().pushEntries(payload.entries)
-    })
-  )
+  /**
+   * Writes the sync file the user carries to the other devices.
+   * Without a path the native save dialog is shown.
+   */
+  handle(IPC.SYNC_EXPORT_FILE, async (_event, path?: string) => {
+    const bundle = await getSync().exportBundle()
+    const text = JSON.stringify(bundle, null, 2)
 
-  handle(
-    IPC.SYNC_PULL_ENTRIES,
-    async (_event, payload?: { entity?: string }) => ({
-      entries: await getBackend().pullEntries(payload?.entity)
-    })
-  )
+    let target = path
+    if (!target) {
+      const window = BrowserWindow.getFocusedWindow() ?? BrowserWindow.getAllWindows()[0]
+      if (!window) throw new Error('The app window is not available')
 
-  /** State of the engine plus what the sync screen needs to decide its form. */
-  handle(IPC.SYNC_STATUS, async () => {
-    const engine = getSync()
-    return {
-      ...engine.status(),
-      serverUrl: getBackend().serverUrl,
-      remoteKdf: await engine.hasRemoteKdf()
+      const result = await dialog.showSaveDialog(window, {
+        title: 'Save the sync file',
+        defaultPath: SYNC_FILE_NAME,
+        filters: [{ name: 'ReliquarySSH sync file', extensions: ['json'] }]
+      })
+      if (result.canceled || !result.filePath) return { path: '', exported: bundle.entries.length }
+      target = result.filePath
     }
+
+    writeFileSync(target, text, 'utf8')
+    logger.info('The sync file was written', { path: target, replicas: bundle.entries.length })
+    return { path: target, exported: bundle.entries.length }
   })
 
-  handle(IPC.SYNC_NOW, async () => getSync().syncNow())
+  /**
+   * Reads the sync file the user picked and merges it into the local
+   * database. Without a path the native open dialog is shown.
+   */
+  handle(IPC.SYNC_IMPORT_FILE, async (_event, path?: string) => {
+    let target = path
+    if (!target) {
+      const window = BrowserWindow.getFocusedWindow() ?? BrowserWindow.getAllWindows()[0]
+      if (!window) throw new Error('The app window is not available')
 
-  /** The state of the auto sync — the UI shows it in the sync panel. */
-  handle(IPC.SYNC_AUTO_STATUS, async () => ({
-    enabled: getStorage().settings.get('autoSyncSeconds') > 0,
-    intervalSeconds: getStorage().settings.get('autoSyncSeconds'),
-    running: getScheduler().running
-  }))
+      const result = await dialog.showOpenDialog(window, {
+        title: 'Open the sync file',
+        properties: ['openFile'],
+        filters: [{ name: 'ReliquarySSH sync file', extensions: ['json'] }]
+      })
+      if (result.canceled || result.filePaths.length === 0) {
+        return { imported: 0, applied: 0, skipped: 0, conflicts: 0, undecryptable: 0 }
+      }
+      target = result.filePaths[0]
+    }
+
+    const text = readFileSync(target, 'utf8')
+    const result = await getSync().importBundle(text)
+    return result
+  })
+
+  /** The state of the sync engine — the sync screen shows it. */
+  handle(IPC.SYNC_STATUS, async () => getSync().status())
 
   // ---- settings ----
   handle(IPC.SETTINGS_GET, async () => getStorage().settings.all())
@@ -568,42 +480,7 @@ export function registerIpcHandlers(): void {
 
       const settings = getStorage().settings
 
-      switch (payload.key) {
-        case 'serverUrl':
-          // The client is the one that talks to the backend — it has to be
-          // pointed at the new address as well.
-          getBackend().setServerUrl(value)
-          break
-        case 'syncFolder':
-          if (payload.value !== '' && !existsSync(value)) {
-            throw new Error(`The folder does not exist: ${value}`)
-          }
-          break
-        case 'syncTransport':
-          if (value !== 'server' && value !== 'folder') {
-            throw new Error(`Unknown transport: ${value}`)
-          }
-          break
-        default:
-          break
-      }
-
       settings.set(payload.key, value)
-
-      // The transport may have changed — the router has to follow it.
-      const current = settings.all()
-      getTransport().setSettings({
-        transport: current.syncTransport,
-        serverUrl: current.serverUrl,
-        folder: current.syncFolder
-      })
-      getSync().reset()
-
-      // The auto sync interval may have changed.
-      if (payload.key === 'autoSyncSeconds') {
-        getScheduler().setInterval(Number(value) * 1000)
-      }
-
       return settings.all()
     }
   )
@@ -815,21 +692,3 @@ export function registerIpcHandlers(): void {
 }
 
 export { sessionManager }
-
-/** Arms the auto-sync scheduler. */
-export function startAutoSync(): void {
-  getScheduler().start()
-}
-
-/**
- * Runs a sync in the background right after the master password became
- * available — otherwise the first scheduled run would be a full interval
- * away, and the app would sit on stale data after a restart.
- *
- * The result never reaches the caller: this runs outside any IPC call.
- */
-function kickSync(): void {
-  void getScheduler()
-    .runNow()
-    .catch(() => undefined)
-}

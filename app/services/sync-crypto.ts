@@ -8,11 +8,6 @@
  */
 import { createCipheriv, createDecipheriv, randomBytes } from 'node:crypto'
 import { ENVELOPE_ALGORITHM, IV_BYTES } from '@shared/crypto'
-import {
-  KDF_PAYLOAD_PREFIX,
-  type SyncEntry,
-  type SyncMasterParams
-} from '@shared/sync'
 import type { SyncBlob } from '@shared/types'
 import type { MasterKeyMaterial } from './crypto'
 
@@ -61,52 +56,3 @@ export function decryptSyncPayload(blob: SyncBlob, material: MasterKeyMaterial):
   return Buffer.concat([decipher.update(ciphertext), decipher.final()]).toString('utf8')
 }
 
-/**
- * Builds the settings entry that carries the PBKDF2 salt.
- *
- * The salt is public: it is only needed so the same master password derives
- * the same key on every device. It is stored base64-encoded with a marker
- * prefix, and the entry is never treated as an encrypted blob.
- */
-export function createKdfEntry(
-  params: SyncMasterParams,
-  deviceId: string,
-  updatedAt: string = new Date().toISOString()
-): SyncEntry {
-  const payload = `${KDF_PAYLOAD_PREFIX}${JSON.stringify(params)}`
-  return {
-    entity: 'settings',
-    entityId: 'sync.kdf',
-    version: 1,
-    iv: '',
-    ciphertext: Buffer.from(payload, 'utf8').toString('base64'),
-    tag: '',
-    deviceId,
-    updatedAt,
-    deletedAt: null
-  }
-}
-
-/** Reads the PBKDF2 parameters of the account out of a settings entry. */
-export function readKdfEntry(entry: SyncEntry): SyncMasterParams | null {
-  if (entry.entity !== 'settings' || entry.entityId !== 'sync.kdf') return null
-  if (entry.deletedAt) return null
-
-  try {
-    const payload = Buffer.from(entry.ciphertext, 'base64').toString('utf8')
-    if (!payload.startsWith(KDF_PAYLOAD_PREFIX)) return null
-
-    const parsed = JSON.parse(payload.slice(KDF_PAYLOAD_PREFIX.length)) as Partial<SyncMasterParams>
-    if (typeof parsed.salt !== 'string' || !parsed.salt) return null
-    if (typeof parsed.iterations !== 'number' || parsed.iterations <= 0) return null
-
-    return { salt: parsed.salt, iterations: parsed.iterations }
-  } catch {
-    return null
-  }
-}
-
-/** The payload of a KDF entry is not encrypted — compare without decoding. */
-export function isKdfEntry(entry: Pick<SyncEntry, 'entity' | 'entityId'>): boolean {
-  return entry.entity === 'settings' && entry.entityId === 'sync.kdf'
-}

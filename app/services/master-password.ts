@@ -125,8 +125,15 @@ export class MasterPasswordManager {
   /**
    * The PBKDF2 parameters an import brought, or null when there are none.
    *
-   * They are read from the settings table, which the import filled.
+   * They are read from the settings table, which the import filled. A
+   * device that imported a sync file adopts them, so the same master
+   * password derives the same key as on the other devices.
    */
+  getImportedParams(): SyncMasterParams | null {
+    return this.importedKdf()
+  }
+
+  /** The PBKDF2 parameters an import brought, or null when there are none. */
   private importedKdf(): SyncMasterParams | null {
     try {
       const raw = this.readImportedKdf?.()

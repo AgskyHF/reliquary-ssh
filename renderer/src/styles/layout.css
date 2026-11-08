@@ -1,11 +1,15 @@
-/* Layout component styles — only theme variables, no hardcoded colors/spacing. */
+/*
+ * Layout component styles — only theme variables, no hardcoded colors/spacing.
+ * The look follows the mockup: a tall sidebar with a search field on top,
+ * a menu of icon buttons and the panel below it.
+ */
 
 .topbar {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: var(--space-lg);
-  padding: 0 var(--space-lg);
+  padding: 0 var(--space-xl);
   background: var(--color-bg-sidebar);
   border-bottom: 1px solid var(--color-border);
   -webkit-app-region: drag;
@@ -14,7 +18,7 @@
 .topbar__brand {
   display: flex;
   align-items: center;
-  gap: var(--space-sm);
+  gap: var(--space-md);
 }
 
 .logo {
@@ -24,19 +28,19 @@
 
 .topbar__divider {
   width: 1px;
-  height: 16px;
-  margin: 0 var(--space-xs);
+  height: 20px;
   background: var(--color-border-strong);
 }
 
 .topbar__title {
-  font-size: var(--font-size-md);
+  font-size: var(--font-size-xl);
   font-weight: var(--font-weight-semibold);
   color: var(--color-text);
+  letter-spacing: -0.01em;
 }
 
 .topbar__subtitle {
-  font-size: var(--font-size-xs);
+  font-size: var(--font-size-md);
   color: var(--color-text-faint);
 }
 
@@ -96,27 +100,85 @@
   background: var(--color-danger);
 }
 
+/* ---- sidebar ---- */
+
 .sidebar {
   background: var(--color-bg-sidebar);
   border-right: 1px solid var(--color-border);
-  padding: var(--space-sm);
+  padding: var(--space-lg) var(--space-lg) var(--space-md);
+  gap: var(--space-md);
+  overflow-y: auto;
+}
+
+.sidebar__search {
+  position: relative;
+  display: flex;
+  align-items: center;
   gap: var(--space-sm);
+  padding: 0 var(--space-md);
+  height: 40px;
+  background: var(--color-bg-input);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  flex: none;
+}
+
+.sidebar__search-icon {
+  flex: none;
+  color: var(--color-text-faint);
+}
+
+.sidebar__search-input {
+  flex: 1;
+  min-width: 0;
+  padding: 0;
+  color: var(--color-text);
+  background: transparent;
+  border: none;
+  font-size: var(--font-size-md);
+}
+
+.sidebar__search-input:focus {
+  outline: none;
+}
+
+.sidebar__search-input::placeholder {
+  color: var(--color-text-faint);
+}
+
+.sidebar__search-input::-webkit-search-cancel-button {
+  display: none;
+}
+
+.sidebar__search-hint {
+  flex: none;
+  padding: 3px var(--space-sm);
+  color: var(--color-text-muted);
+  background: var(--color-bg-elevated);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-sm);
+  font-family: var(--font-mono);
+  font-size: var(--font-size-sm);
 }
 
 .sidebar__nav {
   display: flex;
   flex-direction: column;
   gap: var(--space-xs);
+  flex: none;
 }
 
 .sidebar__item {
-  padding: var(--space-sm) var(--space-md);
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  padding: var(--space-md);
   text-align: left;
   color: var(--color-text-muted);
   background: transparent;
   border: none;
   border-radius: var(--radius-md);
-  font-size: var(--font-size-md);
+  font-size: var(--font-size-lg);
   transition:
     background var(--transition-fast),
     color var(--transition-fast);
@@ -130,7 +192,26 @@
 .sidebar__item--active {
   background: var(--color-bg-active);
   color: var(--color-text);
-  font-weight: var(--font-weight-medium);
+}
+
+.sidebar__item-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  flex: none;
+  color: var(--color-text-muted);
+}
+
+.sidebar__item--active .sidebar__item-icon {
+  color: var(--color-text);
+}
+
+.sidebar__item-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .sidebar__section {
@@ -141,11 +222,11 @@
 }
 
 .sidebar__section-header {
-  font-size: var(--font-size-xs);
+  font-size: var(--font-size-sm);
   text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: var(--color-text-faint);
-  padding: var(--space-xs) var(--space-md);
+  letter-spacing: 0.08em;
+  color: var(--color-text-muted);
+  padding: var(--space-sm) var(--space-xs);
 }
 
 .sidebar__empty {
@@ -153,6 +234,8 @@
   font-size: var(--font-size-sm);
   color: var(--color-text-faint);
 }
+
+/* ---- main area ---- */
 
 .main-area {
   display: flex;

@@ -1,7 +1,7 @@
 /** Electron main process entry point. */
 import { app, BrowserWindow, shell } from 'electron'
 import { join } from 'node:path'
-import { registerIpcHandlers, sessionManager, startAutoSync } from './ipc/register'
+import { registerIpcHandlers, sessionManager } from './ipc/register'
 import { logger } from './services/logger'
 
 const isDev = !app.isPackaged
@@ -71,10 +71,6 @@ app.whenReady().then(() => {
   }
   registerIpcHandlers()
   createWindow()
-
-  // The auto sync starts with the app. It only fires when the master
-  // password is unlocked and a transport is available.
-  startAutoSync()
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow()

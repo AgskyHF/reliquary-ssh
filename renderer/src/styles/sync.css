@@ -12,9 +12,34 @@
 }
 
 .sync-panel__title {
-  font-size: var(--font-size-md);
+  font-size: var(--font-size-lg);
   font-weight: var(--font-weight-semibold);
   color: var(--color-text);
+}
+
+.sync-panel__lead {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-normal);
+  color: var(--color-text-muted);
+}
+
+.sync-panel__actions {
+  display: flex;
+  gap: var(--space-sm);
+}
+
+.sync-panel__actions .button {
+  flex: 1;
+  padding: var(--space-sm) var(--space-md);
+  font-size: var(--font-size-sm);
+}
+
+.sync-panel__hint {
+  margin: 0;
+  font-size: var(--font-size-xs);
+  line-height: var(--line-height-normal);
+  color: var(--color-text-faint);
 }
 
 .sync-panel__row {

@@ -14,6 +14,8 @@ export interface HostListProps {
   onChanged?: () => void
   /** Called when the user picks a host to connect to. */
   onConnect?: (host: Host) => void
+  /** The text of the search field — the list shows the matching hosts. */
+  query?: string
 }
 
 const PROTOCOL_LABELS: Record<ProtocolType, string> = {
@@ -25,13 +27,24 @@ const PROTOCOL_LABELS: Record<ProtocolType, string> = {
   [ProtocolType.LOCAL]: 'Local'
 }
 
-export function HostList({ onChanged, onConnect }: HostListProps) {
+export function HostList({ onChanged, onConnect, query = '' }: HostListProps) {
   const [hosts, setHosts] = useState<Host[]>([])
   const [error, setError] = useState<string | null>(null)
   const [expanded, setExpanded] = useState<string | null>(null)
   // The form is open when it creates a new host, or when it edits one.
   const [formHost, setFormHost] = useState<Host | null | undefined>(undefined)
   const { t } = useI18n()
+
+  // The search of the sidebar filters the list by name and address.
+  const needle = query.trim().toLowerCase()
+  const visible = needle
+    ? hosts.filter(
+        (host) =>
+          host.name.toLowerCase().includes(needle) ||
+          host.host.toLowerCase().includes(needle) ||
+          host.username.toLowerCase().includes(needle)
+      )
+    : hosts
 
   const refresh = useCallback(async () => {
     try {
@@ -92,9 +105,11 @@ export function HostList({ onChanged, onConnect }: HostListProps) {
 
       {hosts.length === 0 ? (
         <div className="sidebar__empty">{t('hosts.empty')}</div>
+      ) : visible.length === 0 ? (
+        <div className="sidebar__empty">{t('hosts.noMatch')}</div>
       ) : null}
 
-      {hosts.map((host) => (
+      {visible.map((host) => (
         <div key={host.id} className="host-list__item">
           <div
             className="host-list__item-head"

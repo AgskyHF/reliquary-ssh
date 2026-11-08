@@ -13,16 +13,10 @@ import type { SqliteDatabase } from './database'
 
 /** The settings the app knows. */
 export interface AppSettings {
-  /** The address of the sync backend. */
-  serverUrl: string
   /** The log level: debug | info | warn | error. */
   logLevel: string
   /** The path of the log file, relative to userData. */
   logPath: string
-  /** The transport: 'server' (HTTP backend) or 'folder' (shared folder). */
-  syncTransport: 'server' | 'folder'
-  /** The shared folder used by the 'folder' transport. */
-  syncFolder: string
   /**
    * The PBKDF2 parameters an import brought, as JSON.
    *
@@ -31,47 +25,24 @@ export interface AppSettings {
    * derives the same key as on the device that made the export.
    */
   importedKdf: string
-  /**
-   * The interval of the auto sync, in seconds. Zero turns it off.
-   *
-   * The sync also runs when the app starts and when the user asks for it.
-   */
-  autoSyncSeconds: number
   /** The language of the interface: 'en' or 'ru'. */
   language: string
 }
 
 export const DEFAULT_SETTINGS: AppSettings = {
-  serverUrl: 'http://127.0.0.1:8790',
   logLevel: 'info',
   logPath: 'reliquary.log',
-  syncTransport: 'server',
-  syncFolder: '',
   importedKdf: '',
-  autoSyncSeconds: 300,
   language: 'en'
 }
 
 /** The keys of the settings table. */
 const KEYS = {
-  serverUrl: 'server.url',
   logLevel: 'log.level',
   logPath: 'log.path',
-  syncTransport: 'sync.transport',
-  syncFolder: 'sync.folder',
   importedKdf: 'imported.kdf',
-  autoSyncSeconds: 'sync.autoSeconds',
   language: 'ui.language'
 } as const
-
-/** Reads a numeric setting, falling back to the default. */
-function readNumber(raw: string | undefined, fallback: number): number {
-  if (raw === undefined) return fallback
-
-  const value = Number(raw)
-  if (!Number.isFinite(value) || value < 0) return fallback
-  return value
-}
 
 export class SettingsService {
   constructor(private readonly db: SqliteDatabase) {}
@@ -86,17 +57,9 @@ export class SettingsService {
     const stored = new Map(values.map((row) => [row.key, row.value]))
 
     return {
-      serverUrl: stored.get(KEYS.serverUrl) ?? DEFAULT_SETTINGS.serverUrl,
       logLevel: stored.get(KEYS.logLevel) ?? DEFAULT_SETTINGS.logLevel,
       logPath: stored.get(KEYS.logPath) ?? DEFAULT_SETTINGS.logPath,
-      syncTransport:
-        stored.get(KEYS.syncTransport) === 'folder' ? 'folder' : DEFAULT_SETTINGS.syncTransport,
-      syncFolder: stored.get(KEYS.syncFolder) ?? DEFAULT_SETTINGS.syncFolder,
       importedKdf: stored.get(KEYS.importedKdf) ?? DEFAULT_SETTINGS.importedKdf,
-      autoSyncSeconds: readNumber(
-        stored.get(KEYS.autoSyncSeconds),
-        DEFAULT_SETTINGS.autoSyncSeconds
-      ),
       language: stored.get(KEYS.language) ?? DEFAULT_SETTINGS.language
     }
   }

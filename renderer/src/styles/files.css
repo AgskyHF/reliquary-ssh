@@ -113,23 +113,30 @@
 /* ---- protocol switch on the connect form ---- */
 .protocol-switch {
   display: inline-flex;
-  padding: var(--space-xs);
-  background: var(--color-bg-input);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
+  gap: var(--space-xs);
+  align-self: flex-start;
 }
 
 .protocol-switch__option {
-  padding: var(--space-xs) var(--space-md);
-  border-radius: var(--radius-sm);
-  font-size: var(--font-size-xs);
-  font-weight: var(--font-weight-semibold);
-  letter-spacing: 0.06em;
-  color: var(--color-text-faint);
+  min-width: 96px;
+  padding: var(--space-md) var(--space-lg);
+  text-align: center;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-bg-elevated);
+  font-size: var(--font-size-md);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-muted);
   transition: background var(--transition-fast), color var(--transition-fast);
+}
+
+.protocol-switch__option:hover {
+  color: var(--color-text);
 }
 
 .protocol-switch__option--active {
   color: var(--color-text-inverse);
   background: var(--color-accent);
+  border-color: var(--color-accent);
+  font-weight: var(--font-weight-semibold);
 }

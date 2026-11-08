@@ -28,6 +28,9 @@ const en = {
   'app.syncStatus': 'Sync status',
 
   // ---- sidebar ----
+  'search.hosts': 'Search hosts…',
+  'hosts.title': 'Hosts',
+
   'nav.hosts': 'Hosts',
   'nav.keychain': 'Keychain',
   'nav.sync': 'Sync',
@@ -43,6 +46,7 @@ const en = {
   // ---- host list ----
   'hosts.add': 'Add a connection',
   'hosts.empty': 'No hosts yet',
+  'hosts.noMatch': 'Nothing found',
   'hosts.connect': 'Connect',
   'hosts.edit': 'Edit',
   'hosts.delete': 'Delete',
@@ -157,22 +161,18 @@ const en = {
 
   // ---- sync ----
   'sync.loading': 'Loading…',
-  'sync.signInHint': 'Sign in on the Settings tab to sync your hosts and keys.',
+  'sync.lead':
+    'There is no server: the data travels in one file you carry between the devices yourself.',
   'sync.pending': 'Pending changes',
+  'sync.replicas': 'Records in the file',
   'sync.lastSync': 'Last sync',
   'sync.never': 'Never',
-  'sync.auto': 'Auto sync',
-  'sync.autoOff': 'Off — sync only on demand',
-  'sync.autoMinute': 'Every minute',
-  'sync.auto5': 'Every 5 minutes',
-  'sync.auto15': 'Every 15 minutes',
-  'sync.autoHour': 'Every hour',
-  'sync.autoHint':
-    'The sync also runs when the app starts and when you unlock the master password.',
-  'sync.result': 'Pushed {pushed}, applied {applied}',
-  'sync.conflicts': ', conflicts {conflicts}',
-  'sync.syncing': 'Syncing…',
-  'sync.now': 'Sync now',
+  'sync.result': 'Exported {exported}, imported {imported}, applied {applied}',
+  'sync.working': 'Working…',
+  'sync.export': 'Export the file',
+  'sync.import': 'Import the file',
+  'sync.hint':
+    'The file holds encrypted records — without the master password it says nothing. Copy it to the other device and import it there.',
 
   // ---- settings ----
   'settings.title': 'Settings',
@@ -240,6 +240,9 @@ const ru: Record<TranslationKey, string> = {
   'app.offline': 'Не в сети',
   'app.syncStatus': 'Состояние синхронизации',
 
+  'search.hosts': 'Поиск хостов…',
+  'hosts.title': 'Хосты',
+
   'nav.hosts': 'Хосты',
   'nav.keychain': 'Ключи',
   'nav.sync': 'Синхронизация',
@@ -253,6 +256,7 @@ const ru: Record<TranslationKey, string> = {
 
   'hosts.add': 'Добавить подключение',
   'hosts.empty': 'Хостов пока нет',
+  'hosts.noMatch': 'Ничего не найдено',
   'hosts.connect': 'Подключиться',
   'hosts.edit': 'Изменить',
   'hosts.delete': 'Удалить',
@@ -360,22 +364,18 @@ const ru: Record<TranslationKey, string> = {
   'master.unlockDevice': 'Разблокировать устройство',
 
   'sync.loading': 'Загрузка…',
-  'sync.signInHint': 'Войдите на вкладке «Настройки», чтобы синхронизировать хосты и ключи.',
+  'sync.lead':
+    'Сервера нет: данные переносятся одним файлом, который вы сами переносите между устройствами.',
   'sync.pending': 'Незавершённых изменений',
+  'sync.replicas': 'Записей в файле',
   'sync.lastSync': 'Последняя синхронизация',
   'sync.never': 'Никогда',
-  'sync.auto': 'Автосинхронизация',
-  'sync.autoOff': 'Выключена — только по запросу',
-  'sync.autoMinute': 'Каждую минуту',
-  'sync.auto5': 'Каждые 5 минут',
-  'sync.auto15': 'Каждые 15 минут',
-  'sync.autoHour': 'Каждый час',
-  'sync.autoHint':
-    'Синхронизация также запускается при старте приложения и при разблокировке мастер-пароля.',
-  'sync.result': 'Отправлено {pushed}, применено {applied}',
-  'sync.conflicts': ', конфликтов {conflicts}',
-  'sync.syncing': 'Синхронизация…',
-  'sync.now': 'Синхронизировать',
+  'sync.result': 'Экспортировано {exported}, импортировано {imported}, применено {applied}',
+  'sync.working': 'Обработка…',
+  'sync.export': 'Экспортировать файл',
+  'sync.import': 'Импортировать файл',
+  'sync.hint':
+    'В файле лежат зашифрованные записи — без мастер-пароля он ничего не значит. Скопируйте файл на другое устройство и импортируйте там.',
 
   'settings.title': 'Настройки',
   'settings.signedInAs': 'Вы вошли как {email}',

@@ -43,20 +43,33 @@
 .connect-form {
   display: flex;
   flex-direction: column;
-  gap: var(--space-md);
-  width: 360px;
+  gap: var(--space-lg);
+  width: 460px;
   max-width: 100%;
-  padding: var(--space-xl);
+  padding: var(--space-xl) var(--space-xxl);
   background: var(--color-bg-panel);
-  border: 1px solid var(--color-border);
+  border: 1px solid var(--color-border-strong);
   border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-md);
+  box-shadow: var(--shadow-lg);
 }
 
 .connect-form__title {
-  font-size: var(--font-size-lg);
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  font-size: var(--font-size-xl);
   font-weight: var(--font-weight-semibold);
   color: var(--color-text);
+}
+
+.connect-form__title::before {
+  content: '';
+  width: 20px;
+  height: 20px;
+  flex: none;
+  background: var(--color-text);
+  /* The lightning of the mockup, drawn with a clip path. */
+  clip-path: polygon(56% 0%, 20% 55%, 45% 55%, 38% 100%, 82% 42%, 55% 42%);
 }
 
 .connect-form__error {
@@ -79,14 +92,14 @@
 .field {
   display: flex;
   flex-direction: column;
-  gap: var(--space-xs);
+  gap: var(--space-sm);
 }
 
 .field__label {
-  font-size: var(--font-size-xs);
+  font-size: var(--font-size-sm);
   text-transform: uppercase;
   letter-spacing: 0.06em;
-  color: var(--color-text-faint);
+  color: var(--color-text-muted);
 }
 
 .field__row {
@@ -97,12 +110,12 @@
 .field__input {
   flex: 1;
   min-width: 0;
-  padding: var(--space-sm) var(--space-md);
+  padding: var(--space-md) var(--space-lg);
   color: var(--color-text);
   background: var(--color-bg-input);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-sm);
-  font-size: var(--font-size-md);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-md);
+  font-size: var(--font-size-lg);
   transition: border-color var(--transition-fast);
 }
 
@@ -128,10 +141,11 @@
 
 /* ---- buttons ---- */
 .button {
-  padding: var(--space-sm) var(--space-lg);
-  border-radius: var(--radius-sm);
+  padding: var(--space-md) var(--space-lg);
+  border-radius: var(--radius-md);
   border: 1px solid transparent;
   font-size: var(--font-size-md);
+  font-weight: var(--font-weight-medium);
   transition: background var(--transition-fast);
 }
 

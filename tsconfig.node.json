@@ -47,7 +47,6 @@
     "app/**/*.ts",
     "shared/**/*.ts",
     "protocols/**/*.ts",
-    "server/**/*.ts",
     "electron.vite.config.ts",
     "tests/**/*.ts"
   ],

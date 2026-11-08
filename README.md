@@ -1,6 +1,7 @@
 # ReliquarySSH
 
-Cross-platform terminal client with encrypted sync — an alternative to Termius/Terminus.
+Cross-platform terminal client with an encrypted, file-based sync — an alternative to
+Termius/Terminus.
 
 Electron + React + TypeScript. SSH and SFTP are the MVP protocols; FTP, Telnet and Serial
 are reserved in the protocol interface but not implemented yet.
@@ -15,9 +16,8 @@ are reserved in the protocol interface but not implemented yet.
 | 4 | SFTP file manager | done |
 | 5 | Keychain (key generation, import, export) | done |
 | 6 | Local storage (SQLite, repositories, outbox) | done |
-| 7 | Backend + auth (Google OAuth PKCE, email/password) | done |
-| 8 | E2EE + sync | done |
-| 9 | Polish, packaging, roadmap | done |
+| 7 | E2EE + sync | done — file based, no server |
+| 8 | Polish, packaging, roadmap | done |
 
 Per-stage reports live in the Obsidian vault, under `GitHubProjects/ReliquarySSH/`.
 
@@ -27,7 +27,6 @@ Per-stage reports live in the Obsidian vault, under `GitHubProjects/ReliquarySSH
 /app          Electron main process, preload bridge, IPC handlers
 /renderer     React UI — components, styles, hooks, services
 /protocols    Protocol adapters (ssh, sftp, ftp, telnet, serial) + shared adapter core
-/server       Express + SQLite sync backend
 /shared       Types shared by all layers (entities, enums, SyncBlob, IPC channels)
 ```
 
@@ -42,30 +41,32 @@ Rules that hold across the whole codebase:
 - Secrets live in `.env` (see `.env.example`), never in the repository.
 - Private keys are stored encrypted at rest, never in plaintext.
 - The master password never leaves the device: hosts and keys are encrypted with
-  AES-256-GCM before they reach the backend.
+  AES-256-GCM before they reach the sync file.
 
-## Sync
+## Sync — one file, carried by hand
 
-Two transports, chosen in the Settings section. The encryption is the same in both —
-only the way the encrypted entries travel differs.
+There is **no server and no account**. The data travels in one file that the user
+carries between the devices himself: a USB stick, a cloud disk, a messenger — whatever
+suits.
 
-| Transport | What it needs | What it is good for |
-| --- | --- | --- |
-| **Server** | the bundled backend (`server/`) on a reachable host, plus an account | many devices, no shared folder, a proper sign-in |
-| **Shared folder** | a folder every device can see — Syncthing, a NAS share, a cloud disk | no server at all: the folder *is* the server |
+| Step | What happens |
+| --- | --- |
+| Export | The app writes `reliquary-sync.json` — every record it knows, encrypted |
+| Carry | The user copies the file to the other device |
+| Import | The other device reads the file and merges the records it holds |
 
-With the folder transport there is no account and no backend process. The folder holds
-encrypted entries only — its content can be read by anyone and still tells them nothing.
-Every device writes its own files (one per device and entity), so two devices never
-overwrite each other.
+The file holds ciphertext only: without the master password it tells nobody anything.
+The master password derives the AES key (PBKDF2-SHA256, 210 000 iterations), and the
+PBKDF2 salt travels with the file, so the same password derives the same key on every
+device.
 
-The master password derives the AES key (PBKDF2-SHA256), and the PBKDF2 salt travels
-with the account (or with the folder), so a second device derives the same key from the
-same password and reads the data of the first one.
+Every device keeps its own replica of a record, so two devices never overwrite each
+other. The replicas that came in with a file keep travelling, so a file can be passed
+along a chain of devices without losing anything.
 
-Merging is last-write-wins on `(version, updated_at)`. A delete is a tombstone and
-takes part in the same comparison. The sync runs on demand, from the Sync section of
-the sidebar.
+Merging is last-write-wins on `(version, updated_at)`. A delete is a tombstone and takes
+part in the same comparison. The sync runs on demand, from the Sync section of the
+sidebar.
 
 ## Development
 
@@ -77,21 +78,13 @@ npm run lint       # eslint
 npm test           # vitest
 npm run build      # production build into out/
 npm run package:mac # electron-builder dmg + zip for arm64 and x64
-python3 scripts/make-icon.py  # regenerate build/icon.png and build/icon.icns
+npm run icon       # regenerate build/icon.png and build/icon.icns from build/assets/logo.svg
 ```
-
-The backend runs separately:
-
-```sh
-JWT_SECRET=dev-secret npm run server   # http://127.0.0.1:8790
-```
-
-The address of the backend can also be changed in the Settings section of the app.
 
 ### Verification harnesses
 
 Every stage has a GUI harness that drives the real app over the Chrome DevTools
-Protocol, against a real backend and a real SSH server:
+Protocol, against a real SSH server:
 
 ```sh
 node --experimental-strip-types scripts/verify-stage2.ts
@@ -99,18 +92,22 @@ node --experimental-strip-types scripts/verify-stage3.ts
 node --experimental-strip-types scripts/verify-stage4.ts
 node --experimental-strip-types scripts/verify-stage5.ts
 node --experimental-strip-types scripts/verify-key-auth.ts
-node --experimental-strip-types scripts/verify-stage7.ts
-node --experimental-strip-types scripts/verify-stage8.ts
-node --experimental-strip-types scripts/verify-stage9.ts
-node --experimental-strip-types scripts/verify-folder-sync.ts
+node --experimental-strip-types scripts/verify-host-form.ts
+node --experimental-strip-types scripts/verify-export.ts
+node --experimental-strip-types scripts/verify-sync-file.ts
+node --experimental-strip-types scripts/verify-i18n.ts
+```
+
+The icon and the interface can be looked at without a window on the desktop:
+
+```sh
+node --experimental-strip-types scripts/shoot-ui.ts russian /tmp/rel.png
 ```
 
 ## Roadmap
 
 - Windows and Linux builds (electron-builder targets are already prepared, commented out).
 - FTP, Telnet and Serial protocol support.
-- Google OAuth with a real client id (the flow is written, but untested live).
-- Automatic sync on a timer and on local changes.
-- A form to create and edit hosts.
+- Host key verification (the client does not check the key of the host yet).
 - The device secret moved into the OS keychain (`safeStorage`).
 - Schema migrations for the local database.

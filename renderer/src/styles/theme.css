@@ -2,31 +2,35 @@
  * ReliquarySSH design tokens.
  * All colors, spacing, radii, typography and z-index values live here.
  * Components must reference these variables only — no hardcoded values.
+ *
+ * The palette follows the mockup: a near-black window, a slightly warmer
+ * sidebar, a faint dot grid in the work area and a cold blue accent.
  */
 
 :root {
   /* ---- palette ---- */
-  --color-bg-app: #1c2128;
-  --color-bg-sidebar: #22272e;
-  --color-bg-main: #1c2128;
-  --color-bg-panel: #262c34;
-  --color-bg-elevated: #2c333c;
-  --color-bg-input: #171b21;
+  --color-bg-app: #0b0f14;
+  --color-bg-sidebar: #101116;
+  --color-bg-main: #0b0f14;
+  --color-bg-panel: #181c22;
+  --color-bg-elevated: #22272f;
+  --color-bg-input: #0e1217;
   --color-bg-hover: rgba(255, 255, 255, 0.06);
-  --color-bg-active: rgba(255, 255, 255, 0.1);
-  --color-bg-selected: rgba(56, 139, 253, 0.16);
+  --color-bg-active: #353b76;
+  --color-bg-selected: rgba(47, 124, 246, 0.16);
 
-  --color-border: #333b45;
-  --color-border-strong: #414b57;
+  --color-border: #292a33;
+  --color-border-strong: #353b45;
 
-  --color-text: #d7dde5;
-  --color-text-muted: #8b95a3;
-  --color-text-faint: #616c7a;
-  --color-text-inverse: #10151b;
+  --color-text: #eeeef3;
+  --color-text-muted: #9ea1ad;
+  --color-text-faint: #7a7c88;
+  --color-text-inverse: #ffffff;
 
-  --color-accent: #388bfd;
-  --color-accent-hover: #4b98ff;
-  --color-accent-muted: rgba(56, 139, 253, 0.14);
+  --color-accent: #2f7cf6;
+  --color-accent-hover: #4a8df8;
+  --color-accent-muted: rgba(47, 124, 246, 0.16);
+  --color-accent-badge: #285ed5;
 
   --color-success: #3fb950;
   --color-warning: #d29922;
@@ -42,14 +46,14 @@
   --space-xxl: 32px;
 
   /* ---- radii ---- */
-  --radius-sm: 4px;
-  --radius-md: 6px;
-  --radius-lg: 10px;
+  --radius-sm: 6px;
+  --radius-md: 9px;
+  --radius-lg: 14px;
   --radius-pill: 999px;
 
   /* ---- typography ---- */
   --font-sans:
-    -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
+    -apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
   --font-mono: 'SF Mono', 'JetBrains Mono', Menlo, Consolas, monospace;
   --font-size-xs: 11px;
   --font-size-sm: 12px;
@@ -62,10 +66,10 @@
   --line-height-normal: 1.5;
 
   /* ---- layout ---- */
-  --sidebar-width: 260px;
+  --sidebar-width: 320px;
   --sidebar-width-collapsed: 56px;
-  --topbar-height: 44px;
-  --tabbar-height: 38px;
+  --topbar-height: 64px;
+  --tabbar-height: 40px;
   --tab-max-width: 220px;
 
   /* ---- effects ---- */

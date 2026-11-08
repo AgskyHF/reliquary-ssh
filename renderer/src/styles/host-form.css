@@ -6,12 +6,12 @@
 .host-form {
   display: flex;
   flex-direction: column;
-  gap: var(--space-sm);
-  padding: var(--space-sm);
+  gap: var(--space-lg);
+  padding: var(--space-md) var(--space-xs);
 }
 
 .host-form__title {
-  font-size: var(--font-size-md);
+  font-size: var(--font-size-lg);
   font-weight: var(--font-weight-semibold);
   color: var(--color-text);
 }

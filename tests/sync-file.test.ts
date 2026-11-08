@@ -9,39 +9,10 @@ import {
   type Host,
   type SshKey
 } from '@shared/types'
-import { isRemoteNewer, pickWinner, type SyncEntry } from '@shared/sync'
+import { isRemoteNewer, parseSyncBundle, pickWinner, type SyncBundle } from '@shared/sync'
 import { Storage } from '@app/services/storage'
 import { MasterPasswordManager } from '@app/services/master-password'
-import { SyncService, type SyncBackend } from '@app/services/sync'
-
-/** The backend, in memory: it stores one replica per device and entity. */
-class MemoryBackend implements SyncBackend {
-  readonly serverUrl = 'http://memory'
-  signedIn = true
-  entries: SyncEntry[] = []
-
-  isSignedIn(): boolean {
-    return this.signedIn
-  }
-
-  async pushEntries(entries: SyncEntry[]): Promise<number> {
-    for (const entry of entries) {
-      const index = this.entries.findIndex(
-        (stored) =>
-          stored.deviceId === entry.deviceId &&
-          stored.entity === entry.entity &&
-          stored.entityId === entry.entityId
-      )
-      if (index >= 0) this.entries[index] = entry
-      else this.entries.push(entry)
-    }
-    return entries.length
-  }
-
-  async pullEntries(entity?: string): Promise<SyncEntry[]> {
-    return entity ? this.entries.filter((entry) => entry.entity === entity) : [...this.entries]
-  }
-}
+import { SyncService } from '@app/services/sync-file'
 
 interface Device {
   storage: Storage
@@ -52,6 +23,11 @@ interface Device {
 }
 
 const PASSWORD = 'correct horse battery'
+
+/** The bundle travels as a string — that is what the user carries. */
+function carry(bundle: SyncBundle): string {
+  return JSON.stringify(bundle, null, 2)
+}
 
 describe('last-write-wins merge', () => {
   it('takes a row that does not exist locally', () => {
@@ -94,9 +70,18 @@ describe('last-write-wins merge', () => {
   })
 })
 
-describe('sync service', () => {
+describe('the sync file', () => {
+  it('rejects a file of a foreign format', () => {
+    expect(() => parseSyncBundle('{"hello":"world"}')).toThrow(/not a ReliquarySSH sync file/u)
+  })
+
+  it('rejects a broken file', () => {
+    expect(() => parseSyncBundle('not json at all')).toThrow(/not a valid sync file/u)
+  })
+})
+
+describe('the sync service', () => {
   let dirs: string[] = []
-  let backend: MemoryBackend
   let a: Device
   let b: Device
 
@@ -108,18 +93,23 @@ describe('sync service', () => {
     const master = new MasterPasswordManager(join(dir, 'master.json'), Buffer.alloc(32, secretByte))
     master.init()
 
+    // The salt of the account comes from the settings, like in the app.
+    master.readImportedKdf = () => {
+      const raw = storage.settings.get('importedKdf')
+      return raw === '' ? null : raw
+    }
+
     return {
       dir,
       id: name,
       storage,
       master,
-      service: new SyncService(storage, master, backend, () => name)
+      service: new SyncService(storage, master, storage.replicas, () => name)
     }
   }
 
   beforeEach(() => {
     dirs = []
-    backend = new MemoryBackend()
     a = makeDevice('device-a', 1)
     b = makeDevice('device-b', 2)
   })
@@ -187,42 +177,56 @@ describe('sync service', () => {
     return updated
   }
 
-  async function joinSecondDevice(): Promise<void> {
-    const params = await b.service.fetchKdfParams()
-    expect(params).toBeTruthy()
-    await b.master.set(PASSWORD, params ?? undefined)
+  /**
+   * The second device reads the file first — the records wait for the
+   * master password — and adopts the salt the file carries.
+   */
+  async function joinSecondDevice(file: string): Promise<void> {
+    const bundle = parseSyncBundle(file)
+    expect(bundle.kdf).toBeTruthy()
+
+    await b.service.importBundle(file)
+    b.storage.settings.set('importedKdf', JSON.stringify(bundle.kdf))
+    await b.master.set(PASSWORD)
+    await b.service.applyReplicas()
   }
 
-  it('pushes an encrypted host and the account KDF parameters', async () => {
+  /** The result of the import the second device made. */
+  async function importOnSecondDevice(file: string) {
+    await b.service.importBundle(file)
+    b.storage.settings.set('importedKdf', JSON.stringify(parseSyncBundle(file).kdf))
+    await b.master.set(PASSWORD)
+    return b.service.applyReplicas()
+  }
+
+  it('writes an encrypted host into the file', async () => {
     await a.master.set(PASSWORD)
     const host = saveHost(a, { host: 'hidden.example.com', notes: 'top secret note' })
 
     expect(a.service.status().pending).toBe(1)
-    const pushed = await a.service.push()
-    expect(pushed).toBeGreaterThanOrEqual(2)
+    const bundle = await a.service.exportBundle()
+    expect(bundle.entries.length).toBeGreaterThanOrEqual(1)
     expect(a.service.status().pending).toBe(0)
 
-    const hostEntry = backend.entries.find((entry) => entry.entity === 'hosts')
+    const hostEntry = bundle.entries.find((entry) => entry.entity === 'hosts')
     expect(hostEntry?.entityId).toBe(host.id)
     expect(hostEntry?.iv).toBeTruthy()
     expect(hostEntry?.tag).toBeTruthy()
 
-    const wire = JSON.stringify(backend.entries)
+    const wire = carry(bundle)
     expect(wire).not.toContain('hidden.example.com')
     expect(wire).not.toContain('top secret note')
     expect(wire).not.toContain('root')
 
-    const kdf = await a.service.fetchKdfParams()
-    expect(kdf).toEqual(a.master.getParams())
+    expect(bundle.kdf).toEqual(a.master.getParams())
   })
 
   it('restores the data on a second device with the same master password', async () => {
     await a.master.set(PASSWORD)
     saveHost(a, { name: 'work' })
-    await a.service.syncNow()
+    const file = carry(await a.service.exportBundle())
 
-    await joinSecondDevice()
-    const applied = await b.service.syncNow()
+    const applied = await importOnSecondDevice(file)
 
     expect(applied.applied).toBe(1)
     expect(b.storage.hosts.list().map((host) => host.name)).toEqual(['work'])
@@ -232,37 +236,37 @@ describe('sync service', () => {
   it('propagates an update to the other device', async () => {
     await a.master.set(PASSWORD)
     saveHost(a, { name: 'before' })
-    await a.service.syncNow()
+    const first = carry(await a.service.exportBundle())
 
-    await joinSecondDevice()
-    await b.service.syncNow()
+    await joinSecondDevice(first)
+    await b.service.importBundle(first)
 
     const [remote] = b.storage.hosts.list()
     expect(remote).toBeTruthy()
     editHost(b, remote!, { name: 'after' })
-    await b.service.syncNow()
+    const second = carry(await b.service.exportBundle())
 
-    const result = await a.service.syncNow()
+    const result = await a.service.importBundle(second)
     expect(result.applied).toBe(1)
     expect(a.storage.hosts.list().map((host) => host.name)).toEqual(['after'])
   })
 
-  it('keeps the local row when it is newer than the remote replica', async () => {
+  it('keeps the local row when it is newer than the one in the file', async () => {
     await a.master.set(PASSWORD)
     const host = saveHost(a, { name: 'before' })
-    await a.service.syncNow()
+    const first = carry(await a.service.exportBundle())
 
-    await joinSecondDevice()
-    await b.service.syncNow()
+    await joinSecondDevice(first)
+    await b.service.importBundle(first)
 
-    // B edits and pushes version 2.
+    // B edits and exports version 2.
     const [remote] = b.storage.hosts.list()
     editHost(b, remote!, { name: 'from-b' })
-    await b.service.syncNow()
+    const second = carry(await b.service.exportBundle())
 
-    // A edits without pushing: version 2 as well, but a later timestamp.
+    // A edits without exporting: version 2 as well, but a later timestamp.
     editHost(a, host, { name: 'from-a' })
-    const result = await a.service.pull()
+    const result = await a.service.importBundle(second)
 
     expect(result.applied).toBe(0)
     expect(a.storage.hosts.list().map((row) => row.name)).toEqual(['from-a'])
@@ -271,10 +275,10 @@ describe('sync service', () => {
   it('propagates a deletion as a tombstone', async () => {
     await a.master.set(PASSWORD)
     const host = saveHost(a, { name: 'temporary' })
-    await a.service.syncNow()
+    const first = carry(await a.service.exportBundle())
 
-    await joinSecondDevice()
-    await b.service.syncNow()
+    await joinSecondDevice(first)
+    await b.service.importBundle(first)
     expect(b.storage.hosts.list()).toHaveLength(1)
 
     a.storage.hosts.remove(host.id)
@@ -291,8 +295,8 @@ describe('sync service', () => {
       deviceId: a.id
     })
 
-    await a.service.syncNow()
-    const result = await b.service.syncNow()
+    const second = carry(await a.service.exportBundle())
+    const result = await b.service.importBundle(second)
 
     expect(result.applied).toBe(1)
     expect(b.storage.hosts.list()).toEqual([])
@@ -333,55 +337,80 @@ describe('sync service', () => {
       deviceId: a.id
     })
 
-    await a.service.syncNow()
+    const file = carry(await a.service.exportBundle())
 
-    await joinSecondDevice()
-    await b.service.syncNow()
+    await joinSecondDevice(file)
+    await b.service.importBundle(file)
 
     const [synced] = await b.storage.keys.list()
     expect(synced?.name).toBe('laptop')
     expect(synced?.encryptedPrivateKey).toBe(key.encryptedPrivateKey)
-    expect(JSON.stringify(backend.entries)).not.toContain('ssh-ed25519 AAAA test')
+    expect(file).not.toContain('ssh-ed25519 AAAA test')
   })
 
-  it('does not apply entries it cannot decrypt', async () => {
+  it('does not apply the records it cannot decrypt', async () => {
     await a.master.set(PASSWORD)
     saveHost(a, { name: 'secret-host' })
-    await a.service.syncNow()
+    const file = carry(await a.service.exportBundle())
 
-    // B sets a different password with its own salt — a wrong account key.
+    // B sets a different password with its own salt — a wrong key.
     await b.master.set('another password entirely')
 
-    const result = await b.service.syncNow()
+    const result = await b.service.importBundle(file)
 
     expect(result.applied).toBe(0)
     expect(b.storage.hosts.list()).toEqual([])
     expect(b.service.status().lastError).toMatch(/decrypted/u)
   })
 
-  it('refuses to sync without a session or without the master password', async () => {
-    await expect(a.service.syncNow()).rejects.toThrow(/master password/u)
-
-    await a.master.set(PASSWORD)
-    backend.signedIn = false
-    await expect(a.service.syncNow()).rejects.toThrow(/Sign in/u)
+  it('refuses to export without the master password', async () => {
+    await expect(a.service.exportBundle()).rejects.toThrow(/master password/u)
   })
 
-  it('reports the pending journal until a push succeeds', async () => {
+  it('keeps the records of a file until the master password is set', async () => {
+    await a.master.set(PASSWORD)
+    saveHost(a, { name: 'waiting' })
+    const file = carry(await a.service.exportBundle())
+
+    // The second device has no master password yet.
+    const result = await b.service.importBundle(file)
+    expect(result.applied).toBe(0)
+    expect(b.storage.hosts.list()).toEqual([])
+    expect(b.storage.replicas.count()).toBeGreaterThanOrEqual(1)
+
+    // The salt of the file is adopted, and the password opens the records.
+    const bundle = parseSyncBundle(file)
+    b.storage.settings.set('importedKdf', JSON.stringify(bundle.kdf))
+    await b.master.set(PASSWORD)
+    await b.service.applyReplicas()
+
+    expect(b.storage.hosts.list().map((host) => host.name)).toEqual(['waiting'])
+  })
+
+  it('reports the pending journal until the file is written', async () => {
     await a.master.set(PASSWORD)
     saveHost(a)
     expect(a.service.status().pending).toBe(1)
 
-    const original = backend.pushEntries.bind(backend)
-    backend.pushEntries = async () => {
-      throw new Error('network down')
-    }
-
-    await expect(a.service.push()).rejects.toThrow(/network down/u)
-    expect(a.service.status().pending).toBe(1)
-
-    backend.pushEntries = original
-    await a.service.push()
+    await a.service.exportBundle()
     expect(a.service.status().pending).toBe(0)
+  })
+
+  it('carries the records of the other devices along', async () => {
+    await a.master.set(PASSWORD)
+    saveHost(a, { name: 'from-a' })
+    const first = carry(await a.service.exportBundle())
+
+    await joinSecondDevice(first)
+    await b.service.importBundle(first)
+
+    // B writes its own record and exports — A's record travels along.
+    const [remote] = b.storage.hosts.list()
+    editHost(b, remote!, { name: 'from-b' })
+    const second = await b.service.exportBundle()
+
+    expect(second.entries.length).toBeGreaterThanOrEqual(2)
+    expect(second.entries.filter((entry) => entry.deviceId === 'device-a')).toHaveLength(1)
+    expect(second.entries.filter((entry) => entry.deviceId === 'device-b')).toHaveLength(1)
   })
 })

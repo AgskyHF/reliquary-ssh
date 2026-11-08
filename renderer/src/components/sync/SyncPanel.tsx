@@ -1,73 +1,34 @@
 /**
- * Sync panel — the E2EE sync screen of the sidebar.
+ * Sync panel — the screen of the sidebar that carries the data between
+ * the devices.
  *
- * It walks the user through the three states of the engine:
- *  - signed out: sync needs an account;
- *  - signed in without a master password on this device: create one, or
- *    adopt the one the account already has (the salt comes from the server);
- *  - signed in with a locked master password: unlock it.
- * Once unlocked the panel shows the counters and runs a sync on demand.
+ * There is no server and no account: the user exports one file here and
+ * imports it on the other device. The file holds encrypted blobs only —
+ * without the master password it says nothing.
+ *
+ * The panel walks the user through the three states:
+ *  - no master password yet: create one;
+ *  - the master password is locked: unlock it;
+ *  - unlocked: the counters and the two buttons.
  */
 import { useCallback, useEffect, useState } from 'react'
-import type { SyncResult, SyncStatusView } from '@shared/sync'
-import type { MasterStatus } from '@shared/types'
+import type { SyncResult, SyncStatus } from '@shared/sync'
 import { api } from '../../services/api'
 import { useI18n } from '../../i18n/I18nProvider'
-import type { TranslationKey } from '../../i18n/dictionaries'
 import { MasterPasswordSetup, MasterPasswordUnlock } from '../keys/MasterPassword'
 
-/** The auto-sync intervals the panel offers, in seconds. */
-const AUTO_SYNC_OPTIONS: { value: number; labelKey: TranslationKey }[] = [
-  { value: 0, labelKey: 'sync.autoOff' },
-  { value: 60, labelKey: 'sync.autoMinute' },
-  { value: 300, labelKey: 'sync.auto5' },
-  { value: 900, labelKey: 'sync.auto15' },
-  { value: 3600, labelKey: 'sync.autoHour' }
-]
-
 export function SyncPanel() {
-  const [status, setStatus] = useState<SyncStatusView | null>(null)
+  const { t } = useI18n()
+  const [status, setStatus] = useState<SyncStatus | null>(null)
   const [result, setResult] = useState<SyncResult | null>(null)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [autoSyncSeconds, setAutoSyncSeconds] = useState(300)
-  const { t } = useI18n()
 
   const refresh = useCallback(async () => {
     try {
       setStatus(await api.sync.status())
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err))
-    }
-  }, [])
-
-  /** Writes the interval; the main process re-arms its timer. */
-  const saveAutoSync = useCallback(async (seconds: number): Promise<void> => {
-    try {
-      const settings = await api.settings.set({
-        key: 'autoSyncSeconds',
-        value: String(seconds)
-      })
-      setAutoSyncSeconds(settings.autoSyncSeconds)
-    } catch (err) {
-      setError(err instanceof Error ? err.message : String(err))
-    }
-  }, [])
-
-  // The interval is a device setting, so the panel reads it on open.
-  useEffect(() => {
-    let cancelled = false
-    void (async () => {
-      try {
-        const settings = await api.settings.get()
-        if (!cancelled) setAutoSyncSeconds(settings.autoSyncSeconds)
-      } catch {
-        // The panel still works with the default interval.
-      }
-    })()
-
-    return () => {
-      cancelled = true
     }
   }, [])
 
@@ -97,50 +58,58 @@ export function SyncPanel() {
     }
   }, [refresh])
 
-  const runSync = useCallback(async () => {
+  /** Writes the sync file — the native save dialog is shown. */
+  const exportFile = useCallback(async (): Promise<void> => {
     setBusy(true)
     setError(null)
     try {
-      setResult(await api.sync.now())
+      const outcome = await api.sync.exportFile()
+      if (outcome.path) {
+        setResult({
+          exported: outcome.exported,
+          imported: 0,
+          applied: 0,
+          skipped: 0,
+          conflicts: 0,
+          undecryptable: 0,
+          syncedAt: new Date().toISOString()
+        })
+      }
+      await refresh()
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err))
     } finally {
       setBusy(false)
-      await refresh()
     }
   }, [refresh])
 
-  const unlocked = useCallback(
-    (_status: MasterStatus) => {
-      void (async () => {
-        await refresh()
-        await runSync()
-      })()
-    },
-    [refresh, runSync]
-  )
+  /** Reads the sync file — the native open dialog is shown. */
+  const importFile = useCallback(async (): Promise<void> => {
+    setBusy(true)
+    setError(null)
+    try {
+      const outcome = await api.sync.importFile()
+      if (outcome.imported > 0) setResult(outcome)
+      await refresh()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err))
+    } finally {
+      setBusy(false)
+    }
+  }, [refresh])
+
+  const unlocked = useCallback(async (): Promise<void> => {
+    await refresh()
+  }, [refresh])
 
   if (!status) {
     return <div className="sidebar__empty">{t('sync.loading')}</div>
   }
 
-  if (!status.signedIn) {
-    return (
-      <div className="sync-panel">
-        <div className="sync-panel__title">{t('nav.sync')}</div>
-        <div className="sidebar__empty">{t('sync.signInHint')}</div>
-      </div>
-    )
-  }
-
   if (!status.configured) {
     return (
       <div className="sync-panel">
-        {status.remoteKdf ? (
-          <AccountMasterPassword onUnlocked={unlocked} />
-        ) : (
-          <MasterPasswordSetup onUnlocked={unlocked} />
-        )}
+        <MasterPasswordSetup onUnlocked={() => void unlocked()} />
         {error ? <div className="sync-panel__error">{error}</div> : null}
       </div>
     )
@@ -149,7 +118,7 @@ export function SyncPanel() {
   if (!status.unlocked) {
     return (
       <div className="sync-panel">
-        <MasterPasswordUnlock onUnlocked={unlocked} />
+        <MasterPasswordUnlock onUnlocked={() => void unlocked()} />
         {error ? <div className="sync-panel__error">{error}</div> : null}
       </div>
     )
@@ -159,9 +128,15 @@ export function SyncPanel() {
     <div className="sync-panel">
       <div className="sync-panel__title">{t('nav.sync')}</div>
 
+      <p className="sync-panel__lead">{t('sync.lead')}</p>
+
       <div className="sync-panel__row">
         <span className="sync-panel__label">{t('sync.pending')}</span>
         <span className="sync-panel__value sync-panel__pending">{status.pending}</span>
+      </div>
+      <div className="sync-panel__row">
+        <span className="sync-panel__label">{t('sync.replicas')}</span>
+        <span className="sync-panel__value">{status.replicas}</span>
       </div>
       <div className="sync-panel__row">
         <span className="sync-panel__label">{t('sync.lastSync')}</span>
@@ -170,106 +145,39 @@ export function SyncPanel() {
         </span>
       </div>
 
-      <label className="field">
-        <span className="field__label">{t('sync.auto')}</span>
-        <select
-          className="field__input"
-          name="autoSyncSeconds"
-          value={autoSyncSeconds}
-          onChange={(event) => {
-            const value = Number(event.target.value)
-            setAutoSyncSeconds(value)
-            void saveAutoSync(value)
-          }}
-        >
-          {AUTO_SYNC_OPTIONS.map((option) => (
-            <option key={option.value} value={option.value}>
-              {t(option.labelKey)}
-            </option>
-          ))}
-        </select>
-        <span className="settings-panel__hint">{t('sync.autoHint')}</span>
-      </label>
-
       {result ? (
         <div className="sync-panel__result" data-synced-at={result.syncedAt}>
-          {t('sync.result', { pushed: result.pushed, applied: result.applied })}
-          {result.conflicts > 0 ? t('sync.conflicts', { conflicts: result.conflicts }) : ''}
+          {t('sync.result', {
+            exported: result.exported,
+            imported: result.imported,
+            applied: result.applied
+          })}
         </div>
       ) : null}
 
       {status.lastError ? <div className="sync-panel__error">{status.lastError}</div> : null}
       {error ? <div className="sync-panel__error">{error}</div> : null}
 
-      <button
-        type="button"
-        className="button button--primary sync-panel__now"
-        disabled={busy}
-        onClick={() => void runSync()}
-      >
-        {busy ? t('sync.syncing') : t('sync.now')}
-      </button>
-
-      <div className="sync-panel__server">{status.serverUrl}</div>
-    </div>
-  )
-}
-
-/**
- * Sets the master password of an account that already has one.
- *
- * The salt lives with the account, so the same password derives the same
- * key here and the synced data becomes readable.
- */
-function AccountMasterPassword({ onUnlocked }: { onUnlocked: (status: MasterStatus) => void }) {
-  const [password, setPassword] = useState('')
-  const [busy, setBusy] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const { t } = useI18n()
-
-  const submit = useCallback(async () => {
-    setBusy(true)
-    setError(null)
-    try {
-      const status = await api.master.setFromAccount(password)
-      setPassword('')
-      onUnlocked(status)
-    } catch (err) {
-      setError(err instanceof Error ? err.message : String(err))
-    } finally {
-      setBusy(false)
-    }
-  }, [onUnlocked, password])
-
-  return (
-    <div className="master-setup">
-      <div className="master-setup__title">{t('master.accountTitle')}</div>
-      <p className="master-setup__text">{t('master.accountText')}</p>
-
-      <label className="field">
-        <span className="field__label">{t('master.password')}</span>
-        <input
-          className="field__input"
-          name="accountMasterPassword"
-          type="password"
-          value={password}
-          onChange={(event) => setPassword(event.target.value)}
-          autoComplete="current-password"
-        />
-      </label>
-
-      {error ? <div className="connect-form__error">{error}</div> : null}
-
-      <div className="master-setup__actions">
+      <div className="sync-panel__actions">
         <button
           type="button"
-          className="button button--primary"
-          disabled={busy || !password}
-          onClick={() => void submit()}
+          className="button button--primary sync-panel__export"
+          disabled={busy}
+          onClick={() => void exportFile()}
         >
-          {busy ? t('master.checking') : t('master.unlockDevice')}
+          {busy ? t('sync.working') : t('sync.export')}
+        </button>
+        <button
+          type="button"
+          className="button button--ghost sync-panel__import"
+          disabled={busy}
+          onClick={() => void importFile()}
+        >
+          {t('sync.import')}
         </button>
       </div>
+
+      <p className="sync-panel__hint">{t('sync.hint')}</p>
     </div>
   )
 }

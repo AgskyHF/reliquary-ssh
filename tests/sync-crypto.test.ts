@@ -1,7 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { isKdfEntry, readKdfEntry } from '@app/services/sync-crypto'
 import {
-  createKdfEntry,
   decryptSyncPayload,
   encryptSyncPayload
 } from '@app/services/sync-crypto'
@@ -53,39 +51,5 @@ describe('sync payload encryption', () => {
   it('refuses an unknown blob version', () => {
     const blob = encryptSyncPayload('secret', material)
     expect(() => decryptSyncPayload({ ...blob, version: 99 }, material)).toThrow(/version/u)
-  })
-})
-
-describe('KDF parameters entry', () => {
-  const params = { salt: Buffer.alloc(16, 3).toString('base64'), iterations: 210_000 }
-
-  it('round-trips the parameters', () => {
-    const entry = createKdfEntry(params, 'device-a', '2026-11-07T10:00:00.000Z')
-
-    expect(isKdfEntry(entry)).toBe(true)
-    expect(readKdfEntry(entry)).toEqual(params)
-  })
-
-  it('is not an encrypted blob — it only carries the salt', () => {
-    const entry = createKdfEntry(params, 'device-a')
-    expect(entry.tag).toBe('')
-    expect(entry.iv).toBe('')
-    expect(Buffer.from(entry.ciphertext, 'base64').toString('utf8')).toContain(params.salt)
-  })
-
-  it('ignores a tombstone and a foreign entity', () => {
-    const entry = createKdfEntry(params, 'device-a')
-    expect(readKdfEntry({ ...entry, deletedAt: '2026-11-07T11:00:00.000Z' })).toBeNull()
-    expect(readKdfEntry({ ...entry, entity: 'hosts' })).toBeNull()
-    expect(isKdfEntry({ entity: 'keys', entityId: 'sync.kdf' })).toBe(false)
-  })
-
-  it('ignores a garbage payload', () => {
-    const entry = createKdfEntry(params, 'device-a')
-    const broken = {
-      ...entry,
-      ciphertext: Buffer.from('not-a-kdf-payload', 'utf8').toString('base64')
-    }
-    expect(readKdfEntry(broken)).toBeNull()
   })
 })

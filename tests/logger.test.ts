@@ -3,7 +3,6 @@ import { mkdtempSync, readFileSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { Logger } from '@app/services/logger'
-import { ServerLogger } from '../server/logger'
 
 describe('app logger', () => {
   let dir: string
@@ -51,33 +50,5 @@ describe('app logger', () => {
   it('never throws on a broken path', () => {
     const log = new Logger({ filePath: '/proc/nonexistent/x.log', consoleMirror: false })
     expect(() => log.error('still fine')).not.toThrow()
-  })
-})
-
-describe('server logger', () => {
-  let dir: string
-
-  beforeEach(() => {
-    dir = mkdtempSync(join(tmpdir(), 'reliquary-server-log-'))
-  })
-
-  afterEach(() => {
-    rmSync(dir, { recursive: true, force: true })
-  })
-
-  it('writes the context as JSON', () => {
-    const path = join(dir, 'server.log')
-    const log = new ServerLogger({ filePath: path })
-
-    log.info('the server is listening', { port: 8790 })
-
-    const content = readFileSync(path, 'utf8')
-    expect(content).toContain('the server is listening')
-    expect(content).toContain('"port":8790')
-  })
-
-  it('works without a file', () => {
-    const log = new ServerLogger({ filePath: '' })
-    expect(() => log.info('stdout only')).not.toThrow()
   })
 })
