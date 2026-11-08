@@ -27,13 +27,16 @@ export interface AppSettings {
   importedKdf: string
   /** The language of the interface: 'en' or 'ru'. */
   language: string
+  /** The id of the terminal theme. */
+  terminalTheme: string
 }
 
 export const DEFAULT_SETTINGS: AppSettings = {
   logLevel: 'info',
   logPath: 'reliquary.log',
   importedKdf: '',
-  language: 'en'
+  language: 'en',
+  terminalTheme: 'termius-dark'
 }
 
 /** The keys of the settings table. */
@@ -41,7 +44,8 @@ const KEYS = {
   logLevel: 'log.level',
   logPath: 'log.path',
   importedKdf: 'imported.kdf',
-  language: 'ui.language'
+  language: 'ui.language',
+  terminalTheme: 'ui.terminalTheme'
 } as const
 
 export class SettingsService {
@@ -60,7 +64,8 @@ export class SettingsService {
       logLevel: stored.get(KEYS.logLevel) ?? DEFAULT_SETTINGS.logLevel,
       logPath: stored.get(KEYS.logPath) ?? DEFAULT_SETTINGS.logPath,
       importedKdf: stored.get(KEYS.importedKdf) ?? DEFAULT_SETTINGS.importedKdf,
-      language: stored.get(KEYS.language) ?? DEFAULT_SETTINGS.language
+      language: stored.get(KEYS.language) ?? DEFAULT_SETTINGS.language,
+      terminalTheme: stored.get(KEYS.terminalTheme) ?? DEFAULT_SETTINGS.terminalTheme
     }
   }
 

@@ -2,6 +2,7 @@ import { useEffect } from 'react'
 import { AppShell } from './components/layout/AppShell'
 import { TabsWorkspace } from './components/tabs/TabsWorkspace'
 import { I18nProvider } from './i18n/I18nProvider'
+import { ThemeProvider } from './theme/ThemeProvider'
 import { api } from './services/api'
 
 /**
@@ -26,9 +27,11 @@ export default function App() {
 
   return (
     <I18nProvider>
-      <AppShell>
-        <TabsWorkspace />
-      </AppShell>
+      <ThemeProvider>
+        <AppShell>
+          <TabsWorkspace />
+        </AppShell>
+      </ThemeProvider>
     </I18nProvider>
   )
 }

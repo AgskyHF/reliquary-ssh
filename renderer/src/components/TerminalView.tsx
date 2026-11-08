@@ -7,6 +7,7 @@ import { useEffect, useRef } from 'react'
 import { Terminal, type ITheme } from '@xterm/xterm'
 import { FitAddon } from '@xterm/addon-fit'
 import '@xterm/xterm/css/xterm.css'
+import { useTheme } from '../theme/ThemeProvider'
 
 export interface TerminalViewProps {
   sessionId: string
@@ -23,8 +24,11 @@ export interface TerminalViewProps {
 /**
  * xterm needs concrete color values, so the theme tokens are read from the
  * stylesheet at runtime. The component itself hardcodes no colors.
+ *
+ * The palette of the terminal comes from the theme the user picked — the
+ * tokens of the app only fill in what the theme does not define.
  */
-function readThemeTokens(element: HTMLElement): ITheme {
+function readThemeTokens(element: HTMLElement, palette: Partial<ITheme>): ITheme {
   const styles = getComputedStyle(element)
   const read = (name: string, fallback: string) =>
     styles.getPropertyValue(name).trim() || fallback
@@ -33,7 +37,8 @@ function readThemeTokens(element: HTMLElement): ITheme {
     background: read('--color-bg-main', '#1c2128'),
     foreground: read('--color-text', '#d7dde5'),
     cursor: read('--color-accent', '#388bfd'),
-    selectionBackground: read('--color-accent-muted', '#388bfd40')
+    selectionBackground: read('--color-accent-muted', '#388bfd40'),
+    ...palette
   }
 }
 
@@ -45,6 +50,14 @@ export function TerminalView({
   onReady
 }: TerminalViewProps) {
   const containerRef = useRef<HTMLDivElement | null>(null)
+  const { theme } = useTheme()
+
+  // The palette in a ref: the terminal is created once, but it has to be
+  // created with the palette that is current at that moment.
+  const paletteRef = useRef(theme.colors)
+  useEffect(() => {
+    paletteRef.current = theme.colors
+  }, [theme.colors])
   const inputRef = useRef(onInput)
   const resizeRef = useRef(onResize)
   const readyRef = useRef(onReady)
@@ -56,6 +69,20 @@ export function TerminalView({
     readyRef.current = onReady
   }, [onInput, onResize, onReady])
 
+  // The terminal instance lives in a ref: the effect that creates it must
+  // not run again when the theme changes — a new instance would lose the
+  // scrollback.
+  const terminalRef = useRef<Terminal | null>(null)
+
+  // A theme change is applied to the live terminal.
+  useEffect(() => {
+    const terminal = terminalRef.current
+    const container = containerRef.current
+    if (!terminal || !container) return
+
+    terminal.options.theme = readThemeTokens(container, theme.colors)
+  }, [theme.colors])
+
   useEffect(() => {
     const container = containerRef.current
     if (!container) return
@@ -65,7 +92,7 @@ export function TerminalView({
       fontSize: 13,
       cursorBlink: true,
       allowProposedApi: true,
-      theme: readThemeTokens(container)
+      theme: readThemeTokens(container, paletteRef.current)
     })
 
     const fit = new FitAddon()
@@ -84,6 +111,7 @@ export function TerminalView({
     }
 
     terminal.open(container)
+    terminalRef.current = terminal
     fitIfVisible()
 
     const dataDisposable = terminal.onData((data) => inputRef.current(data))
@@ -96,6 +124,7 @@ export function TerminalView({
       resizeObserver.disconnect()
       dataDisposable.dispose()
       terminal.dispose()
+      terminalRef.current = null
       readyRef.current?.(null)
     }
   }, [sessionId])

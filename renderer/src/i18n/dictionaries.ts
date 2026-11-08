@@ -174,6 +174,11 @@ const en = {
   'sync.hint':
     'The file holds encrypted records — without the master password it says nothing. Copy it to the other device and import it there.',
 
+  // ---- themes ----
+  'theme.title': 'Themes',
+  'theme.change': 'Change the theme',
+  'theme.current': 'Current theme',
+
   // ---- settings ----
   'settings.title': 'Settings',
   'settings.signedInAs': 'Signed in as {email}',
@@ -376,6 +381,10 @@ const ru: Record<TranslationKey, string> = {
   'sync.import': 'Импортировать файл',
   'sync.hint':
     'В файле лежат зашифрованные записи — без мастер-пароля он ничего не значит. Скопируйте файл на другое устройство и импортируйте там.',
+
+  'theme.title': 'Темы',
+  'theme.change': 'Сменить тему',
+  'theme.current': 'Текущая тема',
 
   'settings.title': 'Настройки',
   'settings.signedInAs': 'Вы вошли как {email}',

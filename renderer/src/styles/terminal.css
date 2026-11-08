@@ -13,6 +13,10 @@
   padding: var(--space-lg);
 }
 
+.terminal-panel__spacer {
+  flex: 1 1 auto;
+}
+
 .terminal-panel__header {
   display: flex;
   align-items: center;

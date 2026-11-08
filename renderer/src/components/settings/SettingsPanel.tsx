@@ -10,6 +10,7 @@ import { useCallback, useEffect, useState } from 'react'
 import type { AppSettings } from '@shared/api'
 import { api } from '../../services/api'
 import { useI18n } from '../../i18n/I18nProvider'
+import { ThemePicker } from '../theme/ThemePicker'
 
 const LOG_LEVELS = ['debug', 'info', 'warn', 'error'] as const
 
@@ -78,6 +79,11 @@ export function SettingsPanel() {
           ))}
         </select>
       </label>
+
+      <div className="field">
+        <span className="field__label">{t('theme.title')}</span>
+        <ThemePicker />
+      </div>
 
       <label className="field">
         <span className="field__label">{t('settings.logLevel')}</span>

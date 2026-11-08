@@ -66,6 +66,8 @@ export interface AppSettings {
   importedKdf: string
   /** The language of the interface: 'en' or 'ru'. */
   language: string
+  /** The id of the terminal theme. */
+  terminalTheme: string
 }
 
 /** One version that lost a merge, as the renderer sees it. */

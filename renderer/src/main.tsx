@@ -12,6 +12,7 @@ import './styles/host-form.css'
 import './styles/sync.css'
 import './styles/settings.css'
 import './styles/transfer.css'
+import './styles/theme-picker.css'
 
 const container = document.getElementById('root')
 if (!container) throw new Error('Root container #root not found')
