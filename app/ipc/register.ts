@@ -11,6 +11,7 @@ import {
   type TabLayoutInput
 } from '@shared/types'
 import type { ConnectRequest } from '@shared/api'
+import type { MasterKeyMaterial } from '../services/crypto'
 import type { AppSettings, SupersededSummary } from '@shared/api'
 import type { ExportOptions } from '@shared/export'
 import { EXPORT_FILE_NAME } from '@shared/export'
@@ -66,6 +67,38 @@ function getTabStore(): TabRepository {
 }
 
 /** Lazily created — app.getPath('userData') is only valid after ready. */
+/**
+ * The key the passwords of the hosts are sealed with.
+ *
+ * The master password protects them when it is set. Without one the
+ * device secret is used — it is bound to this Mac and survives the
+ * restart, so the passwords of the hosts are still there next time.
+ */
+function getPasswordMaterial(): MasterKeyMaterial {
+  return getMasterPassword().getMasterKey() ?? getMasterPassword().deviceKey()
+}
+
+/**
+ * The name of the next copy of a host: "Server" becomes "Server (copy)",
+ * and a second copy becomes "Server (copy 2)".
+ *
+ * The name is a marker, not a word of the interface — it stays the same
+ * in every language.
+ */
+function nextCopyName(name: string, hosts: Host[]): string {
+  const taken = new Set(hosts.map((host) => host.name))
+  const base = `${name} (copy)`
+
+  if (!taken.has(base)) return base
+
+  for (let index = 2; index < 1000; index += 1) {
+    const candidate = `${name} (copy ${index})`
+    if (!taken.has(candidate)) return candidate
+  }
+
+  return `${base} ${Date.now()}`
+}
+
 function getMasterPassword(): MasterPasswordManager {
   if (!masterPassword) {
     const userData = app.getPath('userData')
@@ -215,9 +248,13 @@ export function registerIpcHandlers(): void {
 
       // The password of a saved host comes from the encrypted store.
       if (host && authMethod === AuthMethod.PASSWORD && !options.password) {
-        const material = getMasterPassword().getMasterKey()
-        if (material) {
-          options.password = getStorage().passwords.reveal(host.id, material) ?? undefined
+        options.password =
+          getStorage().passwords.reveal(host.id, getPasswordMaterial()) ?? undefined
+
+        // A host without a stored password needs one — the session would
+        // fail with an error that says nothing about the cause.
+        if (!options.password) {
+          throw new Error('The host has no stored password — enter it in the form')
         }
       }
 
@@ -410,6 +447,40 @@ export function registerIpcHandlers(): void {
     })
 
     return saved
+  })
+
+  /**
+   * Makes a copy of a host.
+   *
+   * The copy gets a new id and a name that says it is a copy. The
+   * password travels with it, so the copy can be connected to right
+   * away.
+   */
+  handle(IPC.HOST_DUPLICATE, async (_event, id: string): Promise<Host> => {
+    const storage = getStorage()
+    const source = storage.hosts.get(id)
+    if (!source) throw new Error('Unknown host')
+
+    const now = new Date().toISOString()
+    const copy = storage.hosts.save({
+      ...source,
+      id: crypto.randomUUID(),
+      name: nextCopyName(source.name, storage.hosts.list()),
+      notes: source.notes,
+      createdAt: now,
+      updatedAt: now,
+      version: 1,
+      deletedAt: null
+    })
+
+    // The password of the host is copied too — otherwise the copy would
+    // be useless right away.
+    const stored = storage.passwords.get(id)
+    if (stored) {
+      storage.passwords.saveSealed(copy.id, stored.encryptedPassword, stored.deviceId)
+    }
+
+    return copy
   })
 
   handle(IPC.HOST_DELETE, async (_event, id: string) => {
@@ -615,8 +686,7 @@ export function registerIpcHandlers(): void {
 
   // ---- host passwords ----
   handle(IPC.HOST_PASSWORD_SET, async (_event, payload: { hostId: string; password: string }) => {
-    const material = getMasterPassword().getMasterKey()
-    if (!material) throw new Error('The master password is locked')
+    const material = getPasswordMaterial()
 
     getStorage().passwords.save(
       payload.hostId,
@@ -648,8 +718,7 @@ export function registerIpcHandlers(): void {
       if (!payload.hostId) return { stored: false }
       if (!payload.password) return { stored: false }
 
-      const material = getMasterPassword().getMasterKey()
-      if (!material) return { stored: false }
+      const material = getPasswordMaterial()
 
       getStorage().passwords.save(
         payload.hostId,

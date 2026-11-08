@@ -51,11 +51,11 @@ const en = {
   'hosts.edit': 'Edit',
   'hosts.delete': 'Delete',
   'hosts.notes': 'Notes',
-  'hosts.copy': 'Copy',
+  'hosts.duplicate': 'Duplicate',
   'hosts.connectSsh': 'with SSH',
   'hosts.connectSftp': 'with SFTP',
-  'hosts.connectHint': 'Click to connect, right click for the menu',
-  'hosts.copied': 'The address is in the clipboard',
+  'hosts.connectHint': 'Double click to connect, right click for the menu',
+  'hosts.duplicated': 'The copy of the host is in the list',
 
   // ---- host form ----
   'hostform.newTitle': 'New connection',
@@ -75,6 +75,7 @@ const en = {
   'hostform.passwordHint':
     'The password is encrypted with the master password and never leaves this device.',
   'hostform.notes': 'Notes',
+  'hostform.errPasswordNotSaved': 'The password of the host was not saved.',
   'hostform.cancel': 'Cancel',
   'hostform.saving': 'Saving…',
   'hostform.save': 'Save',
@@ -105,6 +106,8 @@ const en = {
   'session.disconnect': 'Disconnect',
   'session.notConnected': 'Session is not connected — reconnect to continue.',
   'session.clearScreen': 'Clear screen',
+  'session.errPasswordNotSaved':
+    'The password of the host was not stored — it will be asked again.',
   'session.restoredNote': '— restored from previous session; reconnect to continue —',
 
   // ---- file manager ----
@@ -272,11 +275,11 @@ const ru: Record<TranslationKey, string> = {
   'hosts.edit': 'Изменить',
   'hosts.delete': 'Удалить',
   'hosts.notes': 'Заметки',
-  'hosts.copy': 'Копировать',
+  'hosts.duplicate': 'Дублировать',
   'hosts.connectSsh': 'по SSH',
   'hosts.connectSftp': 'по SFTP',
-  'hosts.connectHint': 'ЛКМ — подключиться, ПКМ — меню',
-  'hosts.copied': 'Адрес в буфере обмена',
+  'hosts.connectHint': 'Двойной клик — подключиться, ПКМ — меню',
+  'hosts.duplicated': 'Копия хоста в списке',
 
   'hostform.newTitle': 'Новое подключение',
   'hostform.editTitle': 'Изменение подключения',
@@ -295,6 +298,7 @@ const ru: Record<TranslationKey, string> = {
   'hostform.passwordHint':
     'Пароль шифруется мастер-паролем и никогда не покидает это устройство.',
   'hostform.notes': 'Заметки',
+  'hostform.errPasswordNotSaved': 'Пароль хоста не был сохранён.',
   'hostform.cancel': 'Отмена',
   'hostform.saving': 'Сохранение…',
   'hostform.save': 'Сохранить',
@@ -323,6 +327,8 @@ const ru: Record<TranslationKey, string> = {
   'session.disconnect': 'Отключиться',
   'session.notConnected': 'Сессия не подключена — подключитесь снова, чтобы продолжить.',
   'session.clearScreen': 'Очистить экран',
+  'session.errPasswordNotSaved':
+    'Пароль хоста не сохранился — его спросят снова.',
   'session.restoredNote': '— восстановлено из прошлой сессии; подключитесь снова —',
 
   'files.up': '↑ Вверх',

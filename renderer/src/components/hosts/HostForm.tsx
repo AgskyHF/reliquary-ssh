@@ -125,10 +125,15 @@ export function HostForm({ host, onSaved, onCancel }: HostFormProps) {
         })
 
         // The password is stored encrypted, so it can be exported.
+        // A failure here is not swallowed — the user has to know that the
+        // password was not stored, otherwise the next connection fails
+        // with an error that comes from nowhere.
         if (values.password) {
-          await api.hostPassword
-            .set({ hostId: saved.id, password: values.password })
-            .catch(() => undefined)
+          try {
+            await api.hostPassword.set({ hostId: saved.id, password: values.password })
+          } catch (err) {
+            setError(err instanceof Error ? err.message : t('hostform.errPasswordNotSaved'))
+          }
         }
 
         onSaved?.(saved)

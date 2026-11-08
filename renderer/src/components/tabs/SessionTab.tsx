@@ -203,12 +203,23 @@ export function SessionTab({
         // The password of a saved host is stored encrypted, so it can be
         // exported. A connection made from the ad-hoc form has no host to
         // attach it to — nothing is stored then.
+        //
+        // The password of the host is stored when the user typed it in
+        // the form. When the session opened for a saved host, the
+        // password comes from the storage and there is nothing to save.
         if (values.authMethod === 'password' && values.password) {
           const host = await findHostByEndpoint(values.host, values.port, values.username)
           if (host) {
-            await api.hostPassword
-              .saveFromConnect({ hostId: host.id, password: values.password })
-              .catch(() => undefined)
+            // A failure here is not swallowed — the user has to know that
+            // the password was not stored, otherwise the next connection
+            // fails with an error that comes from nowhere.
+            const result = await api.hostPassword.saveFromConnect({
+              hostId: host.id,
+              password: values.password
+            })
+            if (!result.stored) {
+              setError(t('session.errPasswordNotSaved'))
+            }
           }
         }
       } catch (err) {
@@ -217,7 +228,7 @@ export function SessionTab({
         setConnecting(false)
       }
     },
-    [sessionId, onPatch]
+    [sessionId, onPatch, t]
   )
 
   const closeSession = useCallback(async () => {

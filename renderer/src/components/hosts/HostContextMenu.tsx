@@ -23,12 +23,12 @@ export interface HostContextMenuProps {
   onEdit: (host: Host) => void
   /** Removes the host. */
   onDelete: (host: Host) => void
-  /** Copies the address of the host to the clipboard. */
-  onCopy: (host: Host) => void
+  /** Makes a copy of the host. */
+  onDuplicate: (host: Host) => void
 }
 
 /** The commands of the menu, in the order they are shown. */
-type Command = 'connect' | 'edit' | 'delete' | 'copy'
+type Command = 'connect' | 'edit' | 'delete' | 'duplicate'
 
 export function HostContextMenu({
   host,
@@ -38,7 +38,7 @@ export function HostContextMenu({
   onConnect,
   onEdit,
   onDelete,
-  onCopy
+  onDuplicate
 }: HostContextMenuProps) {
   const { t } = useI18n()
   const rootRef = useRef<HTMLDivElement | null>(null)
@@ -95,14 +95,14 @@ export function HostContextMenu({
         case 'delete':
           onDelete(host)
           break
-        case 'copy':
-          onCopy(host)
+        case 'duplicate':
+          onDuplicate(host)
           break
         default:
           break
       }
     },
-    [host, onClose, onCopy, onDelete, onEdit]
+    [host, onClose, onDelete, onDuplicate, onEdit]
   )
 
   return (
@@ -141,10 +141,10 @@ export function HostContextMenu({
           type="button"
           className="host-menu__item"
           role="menuitem"
-          onClick={() => run('copy')}
+          onClick={() => run('duplicate')}
         >
           <span className="host-menu__icon host-menu__icon--copy" aria-hidden="true" />
-          <span className="host-menu__label">{t('hosts.copy')}</span>
+          <span className="host-menu__label">{t('hosts.duplicate')}</span>
         </button>
 
         <button

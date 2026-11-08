@@ -111,6 +111,11 @@ export interface ReliquaryApi {
     list(): Promise<Host[]>
     save(host: Partial<Host>): Promise<Host>
     remove(id: string): Promise<void>
+    /**
+     * Makes a copy of a host — the name of the copy says that it is one.
+     * The password of the host travels with the copy.
+     */
+    duplicate(id: string): Promise<Host>
   }
 
   changes: {

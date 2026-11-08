@@ -44,7 +44,6 @@ export function HostList({ onChanged, onConnect, query = '' }: HostListProps) {
   // The form is open when it creates a new host, or when it edits one.
   const [formHost, setFormHost] = useState<Host | null | undefined>(undefined)
   const [menu, setMenu] = useState<MenuState | null>(null)
-  const [copied, setCopied] = useState<string | null>(null)
   const { t } = useI18n()
 
   // The search of the sidebar filters the list by name and address.
@@ -90,23 +89,25 @@ export function HostList({ onChanged, onConnect, query = '' }: HostListProps) {
     [refresh]
   )
 
-  /** The address of the host — what the clipboard gets. */
+  /** The address of the host — how it is shown in the list. */
   const addressOf = useCallback(
     (host: Host) => `${host.username}@${host.host}:${host.port}`,
     []
   )
 
-  const copy = useCallback(
+  /**
+   * Makes a copy of the host. The name of the copy says that it is one.
+   */
+  const duplicate = useCallback(
     async (host: Host) => {
       try {
-        await navigator.clipboard.writeText(addressOf(host))
-        setCopied(host.id)
-        setTimeout(() => setCopied(null), 2000)
-      } catch {
-        // The clipboard is not available — nothing to do.
+        await api.host.duplicate(host.id)
+        await refresh()
+      } catch (err) {
+        setError(err instanceof Error ? err.message : String(err))
       }
     },
-    [addressOf]
+    [refresh]
   )
 
   if (formHost !== undefined) {
@@ -144,9 +145,9 @@ export function HostList({ onChanged, onConnect, query = '' }: HostListProps) {
         <div
           key={host.id}
           className="host-list__item"
-          // The left button connects to the host. The menu takes itself
-          // away — the click may have landed on another host.
-          onClick={() => {
+          // The double click opens the session — a single click only
+          // picks the host, so a misclick does not open a connection.
+          onDoubleClick={() => {
             setMenu(null)
             onConnect?.(host, host.protocol)
           }}
@@ -167,10 +168,6 @@ export function HostList({ onChanged, onConnect, query = '' }: HostListProps) {
           <div className="host-list__target">{addressOf(host)}</div>
 
           {host.notes ? <div className="host-list__notes">{host.notes}</div> : null}
-
-          {copied === host.id ? (
-            <div className="host-list__copied">{t('hosts.copied')}</div>
-          ) : null}
         </div>
       ))}
 
@@ -183,7 +180,7 @@ export function HostList({ onChanged, onConnect, query = '' }: HostListProps) {
           onConnect={(host, protocol) => onConnect?.(host, protocol)}
           onEdit={(host) => setFormHost(host)}
           onDelete={(host) => void remove(host.id)}
-          onCopy={(host) => void copy(host)}
+          onDuplicate={(host) => void duplicate(host)}
         />
       ) : null}
     </div>

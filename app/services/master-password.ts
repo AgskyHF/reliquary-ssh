@@ -198,6 +198,17 @@ export class MasterPasswordManager {
     return this.material
   }
 
+  /**
+   * The key of the device.
+   *
+   * It protects the stored material of the master password itself. The
+   * passwords of the hosts fall back to it when no master password is
+   * set — otherwise there would be nowhere to keep them.
+   */
+  deviceKey(): MasterKeyMaterial {
+    return this.deviceMaterial()
+  }
+
   /** The device-bound key the stored material is encrypted with. */
   private deviceMaterial(): MasterKeyMaterial {
     return {

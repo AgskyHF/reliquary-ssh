@@ -4,7 +4,7 @@
  * The list opens a tab for a host, the context menu of the right button
  * holds the commands of the host.
  */
-import { mkdtempSync, writeFileSync } from 'node:fs'
+import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { setTimeout as delay } from 'node:timers/promises'
@@ -33,6 +33,8 @@ function check(name: string, ok: boolean): void {
 async function main(): Promise<void> {
   if (!(await portIsFree(CDP_PORT))) throw new Error(`CDP port ${CDP_PORT} is busy`)
 
+
+
   const sshd = spawn('/usr/sbin/sshd', ['-f', CONFIG, '-E', '/tmp/reliquary_sshd.log'], {
     stdio: 'ignore'
   })
@@ -58,6 +60,25 @@ async function main(): Promise<void> {
     check('the key was imported', Boolean(imported?.id))
     await delay(400)
 
+    // A host with a password. The master password is not set — the
+    // password of a host has to work without one.
+    const withPassword = (await cdp.evaluate(`window.reliquary.host.save({
+      name: 'PasswordHost',
+      protocol: 'ssh',
+      host: '127.0.0.1',
+      port: ${SSH_PORT},
+      username: SSH_USER,
+      authMethod: 'password',
+      keyId: null
+    })`)) as { id?: string } | null
+    check('the host with a password was saved', Boolean(withPassword?.id))
+
+    const stored = (await cdp.evaluate(`window.reliquary.hostPassword.set({
+      hostId: ${JSON.stringify(withPassword?.id ?? '')},
+      password: 'the-secret'
+    })`)) as { stored?: boolean } | null
+    check('the password of the host was stored', stored?.stored === true)
+
     // A host is saved. It uses the key of the keychain.
     const saved = (await cdp.evaluate(`window.reliquary.host.save({
       name: 'TestHost',
@@ -75,23 +96,36 @@ async function main(): Promise<void> {
     await waitFor(cdp, `document.querySelector('.sidebar__item')`)
     await delay(900)
 
-    const hosts = await cdp.evaluate(`document.querySelectorAll('.host-list__item').length`)
-    check('the host is in the list', hosts === 1)
+    const names = (await cdp.evaluate(`(() => {
+      return Array.from(document.querySelectorAll('.host-list__name')).map((n) =>
+        (n.textContent || '').trim()
+      )
+    })()`)) as string[]
+    console.log(`  info — the hosts: ${JSON.stringify(names)}`)
+    check('the hosts are in the list', names.length === 2 && names.includes('TestHost'))
+
+    // The item of a host by its name — the menu works on the right one.
+    const itemOf = (name: string): string => `
+      (() => {
+        const items = Array.from(document.querySelectorAll('.host-list__item'))
+        const item = items.find((i) =>
+          (i.querySelector('.host-list__name')?.textContent || '').trim() === '${name}'
+        )
+        if (!item) return null
+        const box = item.getBoundingClientRect()
+        item.dispatchEvent(new MouseEvent('contextmenu', {
+          bubbles: true,
+          cancelable: true,
+          clientX: Math.round(box.left + 40),
+          clientY: Math.round(box.top + 10)
+        }))
+        return true
+      })()
+    `
 
     // ---- the right button opens the menu ----
-    const menuOpened = (await cdp.evaluate(`(() => {
-      const item = document.querySelector('.host-list__item')
-      if (!item) return 'no-item'
-      const box = item.getBoundingClientRect()
-      item.dispatchEvent(new MouseEvent('contextmenu', {
-        bubbles: true,
-        cancelable: true,
-        clientX: Math.round(box.left + 40),
-        clientY: Math.round(box.top + 10)
-      }))
-      return 'ok'
-    })()`)) as string
-    check('the right button opens the menu', menuOpened === 'ok')
+    const menuOpened = (await cdp.evaluate(itemOf('TestHost'))) as boolean
+    check('the right button opens the menu', menuOpened === true)
     await delay(500)
 
     const menu = (await cdp.evaluate(`(() => {
@@ -110,7 +144,7 @@ async function main(): Promise<void> {
 
     check('the menu holds the connect command', has('Connect') || has('Подключиться'))
     check('the menu holds the edit command', has('Edit') || has('Изменить'))
-    check('the menu holds the copy command', has('Copy') || has('Копировать'))
+    check('the menu holds the duplicate command', has('Duplicate') || has('Дублировать'))
     check('the menu holds the delete command', has('Delete') || has('Удалить'))
 
     // The submenu of the protocol opens on the hover.
@@ -150,13 +184,95 @@ async function main(): Promise<void> {
       console.log('  wrote /tmp/hosts_menu.png')
     }
 
-    // ---- the left button connects ----
+    // ---- a single click does not connect ----
+    const before = await cdp.evaluate(`document.querySelectorAll('.tab-bar__tab').length`)
     await cdp.evaluate(`(() => {
-      const item = document.querySelector('.host-list__item')
+      const items = Array.from(document.querySelectorAll('.host-list__item'))
+      const item = items.find((i) =>
+        (i.querySelector('.host-list__name')?.textContent || '').trim() === 'TestHost'
+      )
       item?.dispatchEvent(new MouseEvent('click', { bubbles: true }))
       return true
     })()`)
+    await delay(2500)
+    const after = await cdp.evaluate(`document.querySelectorAll('.tab-bar__tab').length`)
+    check('a single click does not open a session', before === after)
+
+    // ---- the double click connects ----
+    await cdp.evaluate(`(() => {
+      const items = Array.from(document.querySelectorAll('.host-list__item'))
+      const item = items.find((i) =>
+        (i.querySelector('.host-list__name')?.textContent || '').trim() === 'TestHost'
+      )
+      item?.dispatchEvent(new MouseEvent('dblclick', { bubbles: true }))
+      return true
+    })()`)
     await delay(5000)
+
+    // The duplicate of a host.
+    await cdp.evaluate(itemOf('TestHost'))
+    await delay(500)
+    await cdp.evaluate(`(() => {
+      const items = Array.from(document.querySelectorAll('.host-menu__item'))
+      const duplicate = items.find((i) => /duplicate|дублир/i.test(i.textContent || ''))
+      duplicate?.click()
+      return true
+    })()`)
+    await delay(1200)
+
+    const afterCopy = await cdp.evaluate(`(() => {
+      const names = Array.from(document.querySelectorAll('.host-list__name')).map((n) =>
+        (n.textContent || '').trim()
+      )
+      return names
+    })()`)
+    console.log(`  info — the hosts after the duplicate: ${JSON.stringify(afterCopy)}`)
+    check(
+      'the copy of the host says that it is a copy',
+      (afterCopy as string[]).some((name) => /copy/i.test(name))
+    )
+
+    // ---- a host with a password connects with the stored password ----
+    // The password of the host is the one of the test server.
+    await cdp.evaluate(`(() => {
+      const items = Array.from(document.querySelectorAll('.host-list__item'))
+      const item = items.find((i) =>
+        (i.querySelector('.host-list__name')?.textContent || '').trim() === 'PasswordHost'
+      )
+      item?.dispatchEvent(new MouseEvent('dblclick', { bubbles: true }))
+      return true
+    })()`)
+    await delay(6000)
+
+    // The test server knows only the key, so the password is refused by
+    // the server — but it has to be found in the storage and sent.
+    // The log of the app says which one of the two happened.
+    const passwordSession = (await cdp.evaluate(`(() => {
+      const dots = document.querySelectorAll('.status-dot--ok')
+      const error = document.querySelector('.connect-form__error')?.textContent ?? null
+      return { connected: dots.length > 0, error }
+    })()`)) as { connected: boolean; error: string | null }
+    console.log(`  info — the host with a password: ${JSON.stringify(passwordSession)}`)
+
+    const logPath = join(userData, 'reliquary.log')
+    let lastLines = ''
+    try {
+      lastLines = readFileSync(logPath, 'utf8').split('\n').slice(-40).join('\n')
+    } catch {
+      // The log is not there — the check below falls back to the error.
+    }
+    const noPassword = /no stored password/i.test(lastLines)
+    check(
+      'the stored password was found — the app did not claim it is missing',
+      !noPassword && !/no stored password/i.test(passwordSession.error ?? '')
+    )
+
+    // The password reached the server: the server refused it, but it was
+    // sent — the error is the one of the server, not of the app.
+    check(
+      'the stored password was sent to the server',
+      /authentication methods failed/i.test(passwordSession.error ?? '')
+    )
 
     // The menu took itself away when the host was clicked.
     const menuState = (await cdp.evaluate(`(() => {
@@ -177,7 +293,7 @@ async function main(): Promise<void> {
       return { connected: dots.length > 0, tabs }
     })()`)
     console.log(`  info — the tabs: ${JSON.stringify(connected)}`)
-    check('the left button opens a session', (connected as { connected: boolean }).connected)
+    check('the double click opens a session', (connected as { connected: boolean }).connected)
 
     const shot2 = (await cdp.send('Page.captureScreenshot', {
       format: 'png',

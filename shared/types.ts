@@ -307,6 +307,7 @@ export const IPC = {
   HOST_LIST: 'host:list',
   HOST_SAVE: 'host:save',
   HOST_DELETE: 'host:delete',
+  HOST_DUPLICATE: 'host:duplicate',
   CHANGES_PENDING_COUNT: 'changes:pendingCount',
   SYNC_EXPORT_FILE: 'sync:exportFile',
   SYNC_IMPORT_FILE: 'sync:importFile',

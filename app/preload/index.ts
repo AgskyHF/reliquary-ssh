@@ -10,7 +10,8 @@ const api: ReliquaryApi = {
   host: {
     list: () => ipcRenderer.invoke(IPC.HOST_LIST),
     save: (host) => ipcRenderer.invoke(IPC.HOST_SAVE, host),
-    remove: (id) => ipcRenderer.invoke(IPC.HOST_DELETE, id)
+    remove: (id) => ipcRenderer.invoke(IPC.HOST_DELETE, id),
+    duplicate: (id) => ipcRenderer.invoke(IPC.HOST_DUPLICATE, id)
   },
 
   key: {
