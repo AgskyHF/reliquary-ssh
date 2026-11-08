@@ -25,12 +25,17 @@ export interface ThemeContextValue {
   themes: TerminalTheme[]
   /** Picks a theme and stores it as a device setting. */
   setThemeId: (id: string) => Promise<void>
+  /** True while the drawer with the themes is out. */
+  drawerOpen: boolean
+  /** Slides the drawer in or out. */
+  setDrawerOpen: (open: boolean) => void
 }
 
 const ThemeContext = createContext<ThemeContextValue | null>(null)
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
   const [themeId, setThemeIdState] = useState<string>(DEFAULT_THEME_ID)
+  const [drawerOpen, setDrawerOpen] = useState(false)
 
   // The stored theme is applied once, when the app starts.
   useEffect(() => {
@@ -67,9 +72,11 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
       themeId,
       theme: themeById(themeId),
       themes: TERMINAL_THEMES,
-      setThemeId
+      setThemeId,
+      drawerOpen,
+      setDrawerOpen
     }),
-    [setThemeId, themeId]
+    [setThemeId, themeId, drawerOpen]
   )
 
   return <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>

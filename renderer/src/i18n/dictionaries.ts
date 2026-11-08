@@ -178,6 +178,7 @@ const en = {
   'theme.title': 'Themes',
   'theme.change': 'Change the theme',
   'theme.current': 'Current theme',
+  'theme.close': 'Close the panel',
 
   // ---- settings ----
   'settings.title': 'Settings',
@@ -385,6 +386,7 @@ const ru: Record<TranslationKey, string> = {
   'theme.title': 'Темы',
   'theme.change': 'Сменить тему',
   'theme.current': 'Текущая тема',
+  'theme.close': 'Закрыть панель',
 
   'settings.title': 'Настройки',
   'settings.signedInAs': 'Вы вошли как {email}',

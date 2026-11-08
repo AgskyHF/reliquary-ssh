@@ -9,7 +9,7 @@ import { useSession, type SessionStatus } from '../../hooks/useSession'
 import { TerminalView } from '../TerminalView'
 import { ConnectForm, type ConnectFormValues } from '../ConnectForm'
 import { FileManager } from '../files/FileManager'
-import { ThemeButton } from '../theme/ThemeButton'
+import { ThemePanel, ThemeToggle } from '../theme/ThemePanel'
 
 const RESTORE_NOTE = '\r\n— restored from previous session; reconnect to continue —\r\n'
 
@@ -208,7 +208,7 @@ export function SessionTab({
             className={`status-dot status-dot--${status.state === 'connected' ? 'ok' : 'idle'}`}
           />
           <div className="terminal-panel__spacer" />
-          <ThemeButton />
+          <ThemePanel />
           <button type="button" className="button button--ghost" onClick={closeSession}>
             {t('session.disconnect')}
           </button>
@@ -227,7 +227,7 @@ export function SessionTab({
             className={`status-dot status-dot--${status.state === 'connected' ? 'ok' : 'idle'}`}
           />
           <div className="terminal-panel__spacer" />
-          <ThemeButton />
+          <ThemeToggle />
           <button type="button" className="button button--ghost" onClick={closeSession}>
             {t('session.disconnect')}
           </button>
@@ -257,12 +257,15 @@ export function SessionTab({
           />
         </div>
       ) : null}
-      <TerminalView
-        sessionId={sessionId}
-        onReady={handleReady}
-        onInput={(data) => void write(data)}
-        onResize={(cols, rows) => void resize(cols, rows)}
-      />
+      <div className="terminal-panel__body">
+        <TerminalView
+          sessionId={sessionId}
+          onReady={handleReady}
+          onInput={(data) => void write(data)}
+          onResize={(cols, rows) => void resize(cols, rows)}
+        />
+        <ThemePanel />
+      </div>
     </div>
   )
 }

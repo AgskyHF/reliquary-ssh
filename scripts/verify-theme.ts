@@ -196,13 +196,66 @@ async function main(): Promise<void> {
     await delay(700)
 
     const menu = (await cdp.evaluate(`(() => {
-      const el = document.querySelector('.theme-button__menu')
+      const el = document.querySelector('.theme-panel')
       if (!el) return null
       const items = el.querySelectorAll('.theme-picker__item')
-      return { count: items.length }
-    })()`)) as { count: number } | null
-    check('the menu of the themes opens', menu !== null)
-    check('the menu holds ten themes', menu?.count === 10)
+      const box = el.getBoundingClientRect()
+      const terminal = document.querySelector('.terminal-view')
+      const termBox = terminal?.getBoundingClientRect()
+      return {
+        count: items.length,
+        drawerWidth: Math.round(box.width),
+        terminalRight: termBox ? Math.round(termBox.right) : null,
+        drawerLeft: Math.round(box.left)
+      }
+    })()`)) as {
+      count: number
+      drawerWidth: number
+      terminalRight: number | null
+      drawerLeft: number
+    } | null
+    check('the drawer of the themes opens', menu !== null)
+    check('the drawer holds ten themes', menu?.count === 10)
+    console.log(`  info — the drawer: ${JSON.stringify(menu)}`)
+
+    // The drawer stands next to the terminal — it does not cover it.
+    const beside = (await cdp.evaluate(`(() => {
+      const terminal = document.querySelector('.terminal-view')
+      const drawer = document.querySelector('.theme-panel')
+      if (!terminal || !drawer) return null
+      const t = terminal.getBoundingClientRect()
+      const d = drawer.getBoundingClientRect()
+      return { terminalRight: Math.round(t.right), drawerLeft: Math.round(d.left) }
+    })()`)) as { terminalRight: number; drawerLeft: number } | null
+    console.log(`  info — the terminal and the drawer: ${JSON.stringify(beside)}`)
+    check(
+      'the drawer does not cover the terminal',
+      beside !== null && beside.drawerLeft >= beside.terminalRight - 1
+    )
+
+    // The drawer has to be inside the window — the terminal gives room to it.
+    const inside = (await cdp.evaluate(`(() => {
+      const drawer = document.querySelector('.theme-panel')
+      const body = document.querySelector('.terminal-panel__body')
+      const term = document.querySelector('.terminal-view')
+      if (!drawer || !body || !term) return null
+      const d = drawer.getBoundingClientRect()
+      const b = body.getBoundingClientRect()
+      const t = term.getBoundingClientRect()
+      return {
+        window: window.innerWidth,
+        bodyLeft: Math.round(b.left),
+        bodyRight: Math.round(b.right),
+        drawerLeft: Math.round(d.left),
+        drawerRight: Math.round(d.right),
+        drawerWidth: Math.round(d.width),
+        termLeft: Math.round(t.left),
+        termRight: Math.round(t.right),
+        bodyDisplay: getComputedStyle(body).display,
+        termFlex: getComputedStyle(term).flex
+      }
+    })()`)) as Record<string, number | string> | null
+    console.log(`  info — the layout: ${JSON.stringify(inside)}`)
 
     // The check mark slides out when the menu is open.
     const shownNow = await cdp.evaluate(`(() => {
@@ -222,6 +275,7 @@ async function main(): Promise<void> {
     })()`)) as { rows: number; text: string } | null
     console.log(`  info — the terminal: ${JSON.stringify(before)}`)
 
+    // The third theme — a warm dark one.
     await cdp.evaluate(`(() => {
       const items = document.querySelectorAll('.theme-picker__item')
       items[2]?.click()
@@ -233,22 +287,36 @@ async function main(): Promise<void> {
     const stored = (await cdp.evaluate(
       `window.reliquary.settings.get().then((s) => s.terminalTheme)`
     )) as string | null
-    check('the theme was stored', stored === 'dracula')
+    check('the theme was stored', stored === 'flexoki-dark')
 
     // The colors of the terminal really changed. The DOM renderer of xterm
     // paints with classes, so the color is read from the computed style.
     const colored = (await cdp.evaluate(`(() => {
-      const view = document.querySelector('.xterm-viewport')
       const rows = Array.from(document.querySelectorAll('.xterm-rows > div'))
       const marks = rows.flatMap((row) => Array.from(row.querySelectorAll('span')))
       const colors = marks
         .map((m) => getComputedStyle(m).color)
         .filter((c) => c && c !== 'rgb(0, 0, 0)')
-      const bg = view ? getComputedStyle(view).backgroundColor : null
-      return { count: colors.length, sample: [...new Set(colors)].slice(0, 5), bg }
-    })()`)) as { count: number; sample: string[]; bg: string | null } | null
+      // The background of the viewport comes from the theme — the
+      // stylesheet of xterm paints it black otherwise.
+      const viewport = document.querySelector('.xterm-viewport')
+      const bg = viewport ? getComputedStyle(viewport).backgroundColor : null
+      const font = getComputedStyle(document.querySelector('.xterm-rows') ?? document.body).fontFamily
+      return { count: colors.length, sample: [...new Set(colors)].slice(0, 5), bg, font }
+    })()`)) as {
+      count: number
+      sample: string[]
+      bg: string | null
+      font: string
+    } | null
     console.log(`  info — the colors of the terminal: ${JSON.stringify(colored)}`)
     check('the terminal is painted in the colors of the theme', (colored?.count ?? 0) > 0)
+    // The background of the terminal comes from the theme — Flexoki Dark is
+    // #100F0F, not the black of the stylesheet.
+    check(
+      'the background of the terminal is the one of the theme',
+      colored?.bg === 'rgb(16, 15, 15)'
+    )
 
     // The background of the terminal is the background of the theme.
     const backgrounds = (await cdp.evaluate(`(() => {
@@ -257,11 +325,13 @@ async function main(): Promise<void> {
     })()`)) as { cls: string; bg: string }[] | null
     console.log(`  info — the backgrounds: ${JSON.stringify(backgrounds)}`)
 
-    // The menu takes itself away after the pick.
+    // The drawer takes itself away after the pick.
     const closed = await cdp.evaluate(`(() => {
-      return !document.querySelector('.theme-button__menu')
+      const el = document.querySelector('.theme-panel')
+      if (!el) return true
+      return el.getBoundingClientRect().width < 5
     })()`)
-    check('the menu closes after the pick', closed === true)
+    check('the drawer closes after the pick', closed === true)
 
     // The menu is opened again to see which theme is active now.
     await cdp.evaluate(`(() => {
@@ -277,10 +347,45 @@ async function main(): Promise<void> {
       return { active, name }
     })()`)) as { active: number; name: string | null } | null
     check('the third theme is active', applied?.active === 2)
+    console.log(`  info — the theme: ${applied?.name}`)
     console.log(`  info — the active theme: ${applied?.name}`)
 
     await cdp.send('Page.enable')
     await delay(300)
+
+    // The drawer open — the terminal has to make room for it.
+    const isOpen = await cdp.evaluate(`(() => {
+      const el = document.querySelector('.theme-panel')
+      return el ? el.getBoundingClientRect().width > 100 : false
+    })()`)
+    if (!isOpen) {
+      await cdp.evaluate(`(() => {
+        document.querySelector('.theme-button__toggle')?.click()
+        return true
+      })()`)
+      await delay(800)
+    }
+    const openShot = (await cdp.send('Page.captureScreenshot', {
+      format: 'png',
+      fromSurface: true
+    })) as { data?: string }
+    if (openShot?.data) {
+      writeFileSync('/tmp/theme_drawer.png', Buffer.from(openShot.data, 'base64'))
+      console.log('  wrote /tmp/theme_drawer.png')
+    }
+
+    // The drawer closed again — the terminal takes the whole width.
+    const wasOpen = await cdp.evaluate(`(() => {
+      const el = document.querySelector('.theme-panel')
+      return el ? el.getBoundingClientRect().width > 100 : false
+    })()`)
+    if (wasOpen) {
+      await cdp.evaluate(`(() => {
+        document.querySelector('.theme-button__toggle')?.click()
+        return true
+      })()`)
+      await delay(600)
+    }
     const shot = (await cdp.send('Page.captureScreenshot', {
       format: 'png',
       fromSurface: true

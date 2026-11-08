@@ -1,5 +1,5 @@
 /*
- * The theme picker and the theme button of a running session.
+ * The theme picker and the theme panel of a running session.
  * Only theme variables — no hardcoded colors, spacing or fonts.
  */
 
@@ -9,8 +9,6 @@
   display: flex;
   flex-direction: column;
   gap: var(--space-xs);
-  max-height: 340px;
-  overflow-y: auto;
   padding: var(--space-xs);
   background: var(--color-bg-input);
   border: 1px solid var(--color-border);
@@ -75,12 +73,72 @@
   font-size: var(--font-size-md);
 }
 
-/* ---- the button of a running session ---- */
+/* ---- the drawer of a running session ---- */
 
-.theme-button {
-  position: relative;
+.theme-panel {
+  display: flex;
+  flex-direction: column;
   flex: none;
+  width: 0;
+  overflow: hidden;
+  border-left: 1px solid transparent;
+  transition:
+    width var(--transition-normal),
+    border-color var(--transition-normal);
 }
+
+/*
+ * The drawer is a column of its own: it is not a popup over the
+ * terminal, the terminal gets narrower while the drawer slides out.
+ */
+.theme-panel--open {
+  width: 320px;
+  padding-left: var(--space-md);
+  border-left-color: var(--color-border);
+}
+
+.theme-panel__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-sm);
+  height: 28px;
+  padding: 0 var(--space-xs);
+  margin-bottom: var(--space-sm);
+}
+
+.theme-panel__title {
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-accent);
+  white-space: nowrap;
+}
+
+.theme-panel__close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+  background: transparent;
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-sm);
+}
+
+.theme-panel__close:hover {
+  color: var(--color-text);
+  background: var(--color-bg-hover);
+}
+
+.theme-panel__body {
+  max-height: 60vh;
+  overflow-y: auto;
+}
+
+/* ---- the button in the header ---- */
 
 .theme-button__toggle {
   display: flex;
@@ -110,7 +168,7 @@
 
 /*
  * The check mark slides out of the button — it comes from the left and
- * settles on its place when the menu opens.
+ * settles on its place when the drawer opens.
  */
 .theme-button__check {
   display: block;
@@ -122,24 +180,4 @@
 
 .theme-button__toggle:not(.theme-button__toggle--open) .theme-button__check {
   transform: translateX(140%);
-}
-
-.theme-button__menu {
-  position: absolute;
-  top: calc(100% + var(--space-sm));
-  right: 0;
-  z-index: var(--z-dropdown);
-  width: 280px;
-  padding: var(--space-md);
-  background: var(--color-bg-panel);
-  border: 1px solid var(--color-border-strong);
-  border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-lg);
-}
-
-.theme-button__title {
-  padding: 0 var(--space-xs) var(--space-sm);
-  font-size: var(--font-size-lg);
-  font-weight: var(--font-weight-semibold);
-  color: var(--color-accent);
 }

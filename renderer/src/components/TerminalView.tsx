@@ -22,6 +22,21 @@ export interface TerminalViewProps {
 }
 
 /**
+ * The background of the terminal.
+ *
+ * The stylesheet of xterm paints the viewport black, so the background of
+ * the theme is put on the element itself.
+ */
+function paintBackground(container: HTMLElement, background: string): void {
+  // The frame around the terminal belongs to the theme too — otherwise a
+  // light theme would keep a dark border around a light terminal.
+  container.style.backgroundColor = background
+
+  const viewport = container.querySelector<HTMLElement>('.xterm-viewport')
+  if (viewport) viewport.style.backgroundColor = background
+}
+
+/**
  * xterm needs concrete color values, so the theme tokens are read from the
  * stylesheet at runtime. The component itself hardcodes no colors.
  *
@@ -58,6 +73,12 @@ export function TerminalView({
   useEffect(() => {
     paletteRef.current = theme.colors
   }, [theme.colors])
+
+  // The font of the terminal follows the theme too.
+  const fontRef = useRef({ family: theme.fontFamily, size: theme.fontSize })
+  useEffect(() => {
+    fontRef.current = { family: theme.fontFamily, size: theme.fontSize }
+  }, [theme.fontFamily, theme.fontSize])
   const inputRef = useRef(onInput)
   const resizeRef = useRef(onResize)
   const readyRef = useRef(onReady)
@@ -81,15 +102,18 @@ export function TerminalView({
     if (!terminal || !container) return
 
     terminal.options.theme = readThemeTokens(container, theme.colors)
-  }, [theme.colors])
+    terminal.options.fontFamily = theme.fontFamily
+    terminal.options.fontSize = theme.fontSize
+    paintBackground(container, theme.colors.background)
+  }, [theme.colors, theme.fontFamily, theme.fontSize])
 
   useEffect(() => {
     const container = containerRef.current
     if (!container) return
 
     const terminal = new Terminal({
-      fontFamily: 'var(--font-mono)',
-      fontSize: 13,
+      fontFamily: fontRef.current.family,
+      fontSize: fontRef.current.size,
       cursorBlink: true,
       allowProposedApi: true,
       theme: readThemeTokens(container, paletteRef.current)
@@ -112,6 +136,7 @@ export function TerminalView({
 
     terminal.open(container)
     terminalRef.current = terminal
+    paintBackground(container, paletteRef.current.background)
     fitIfVisible()
 
     const dataDisposable = terminal.onData((data) => inputRef.current(data))
