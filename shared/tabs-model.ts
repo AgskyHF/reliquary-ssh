@@ -17,6 +17,8 @@ export interface NewTabOptions {
   kind?: TabKind
   title?: string
   connection?: ConnectionTarget | null
+  /** The saved host the tab opens for. */
+  hostId?: string | null
 }
 
 export function createTab(options: NewTabOptions = {}): TabState {
@@ -25,7 +27,7 @@ export function createTab(options: NewTabOptions = {}): TabState {
     id: newId(),
     kind: options.kind ?? TabKind.SSH,
     title: options.title ?? NEW_TAB_TITLE,
-    hostId: null,
+    hostId: options.hostId ?? null,
     connection: options.connection ?? null,
     buffer: '',
     createdAt: ts,

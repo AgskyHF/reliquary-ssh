@@ -1,6 +1,9 @@
 /**
  * Host list — the saved hosts of the sidebar.
  *
+ * The left button connects to the host right away. The right button opens
+ * the context menu with the commands of the host.
+ *
  * The list talks to the storage through the preload API only.
  */
 import { useCallback, useEffect, useState } from 'react'
@@ -8,12 +11,13 @@ import { ProtocolType, type Host } from '@shared/types'
 import { api } from '../../services/api'
 import { useI18n } from '../../i18n/I18nProvider'
 import { HostForm } from './HostForm'
+import { HostContextMenu } from './HostContextMenu'
 
 export interface HostListProps {
   /** Called when the list changed, so other panels can refresh. */
   onChanged?: () => void
   /** Called when the user picks a host to connect to. */
-  onConnect?: (host: Host) => void
+  onConnect?: (host: Host, protocol: ProtocolType) => void
   /** The text of the search field — the list shows the matching hosts. */
   query?: string
 }
@@ -27,12 +31,20 @@ const PROTOCOL_LABELS: Record<ProtocolType, string> = {
   [ProtocolType.LOCAL]: 'Local'
 }
 
+/** The place the context menu opens at. */
+interface MenuState {
+  host: Host
+  x: number
+  y: number
+}
+
 export function HostList({ onChanged, onConnect, query = '' }: HostListProps) {
   const [hosts, setHosts] = useState<Host[]>([])
   const [error, setError] = useState<string | null>(null)
-  const [expanded, setExpanded] = useState<string | null>(null)
   // The form is open when it creates a new host, or when it edits one.
   const [formHost, setFormHost] = useState<Host | null | undefined>(undefined)
+  const [menu, setMenu] = useState<MenuState | null>(null)
+  const [copied, setCopied] = useState<string | null>(null)
   const { t } = useI18n()
 
   // The search of the sidebar filters the list by name and address.
@@ -78,6 +90,25 @@ export function HostList({ onChanged, onConnect, query = '' }: HostListProps) {
     [refresh]
   )
 
+  /** The address of the host — what the clipboard gets. */
+  const addressOf = useCallback(
+    (host: Host) => `${host.username}@${host.host}:${host.port}`,
+    []
+  )
+
+  const copy = useCallback(
+    async (host: Host) => {
+      try {
+        await navigator.clipboard.writeText(addressOf(host))
+        setCopied(host.id)
+        setTimeout(() => setCopied(null), 2000)
+      } catch {
+        // The clipboard is not available — nothing to do.
+      }
+    },
+    [addressOf]
+  )
+
   if (formHost !== undefined) {
     return (
       <HostForm
@@ -110,51 +141,51 @@ export function HostList({ onChanged, onConnect, query = '' }: HostListProps) {
       ) : null}
 
       {visible.map((host) => (
-        <div key={host.id} className="host-list__item">
-          <div
-            className="host-list__item-head"
-            onClick={() => setExpanded(expanded === host.id ? null : host.id)}
-          >
+        <div
+          key={host.id}
+          className="host-list__item"
+          // The left button connects to the host. The menu takes itself
+          // away — the click may have landed on another host.
+          onClick={() => {
+            setMenu(null)
+            onConnect?.(host, host.protocol)
+          }}
+          // The right button opens the menu with the commands.
+          onContextMenu={(event) => {
+            event.preventDefault()
+            setMenu({ host, x: event.clientX, y: event.clientY })
+          }}
+          title={t('hosts.connectHint')}
+        >
+          <div className="host-list__item-head">
             <span className="host-list__name">{host.name}</span>
             <span className="host-list__protocol">
               {PROTOCOL_LABELS[host.protocol] ?? host.protocol}
             </span>
           </div>
 
-          <div className="host-list__target">
-            {host.username}@{host.host}:{host.port}
-          </div>
+          <div className="host-list__target">{addressOf(host)}</div>
 
-          {expanded === host.id ? (
-            <div className="host-list__detail">
-              {host.notes ? <div className="host-list__notes">{host.notes}</div> : null}
-              <div className="host-list__actions">
-                <button
-                  type="button"
-                  className="button button--ghost"
-                  onClick={() => onConnect?.(host)}
-                >
-                  {t('hosts.connect')}
-                </button>
-                <button
-                  type="button"
-                  className="button button--ghost host-list__edit"
-                  onClick={() => setFormHost(host)}
-                >
-                  {t('hosts.edit')}
-                </button>
-                <button
-                  type="button"
-                  className="button button--ghost"
-                  onClick={() => void remove(host.id)}
-                >
-                  {t('hosts.delete')}
-                </button>
-              </div>
-            </div>
+          {host.notes ? <div className="host-list__notes">{host.notes}</div> : null}
+
+          {copied === host.id ? (
+            <div className="host-list__copied">{t('hosts.copied')}</div>
           ) : null}
         </div>
       ))}
+
+      {menu ? (
+        <HostContextMenu
+          host={menu.host}
+          x={menu.x}
+          y={menu.y}
+          onClose={() => setMenu(null)}
+          onConnect={(host, protocol) => onConnect?.(host, protocol)}
+          onEdit={(host) => setFormHost(host)}
+          onDelete={(host) => void remove(host.id)}
+          onCopy={(host) => void copy(host)}
+        />
+      ) : null}
     </div>
   )
 }

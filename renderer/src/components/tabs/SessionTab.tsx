@@ -86,6 +86,46 @@ export function SessionTab({
 
   const { status, write, resize, disconnect } = useSession({ sessionId, onData: handleData })
 
+  /**
+   * A tab that was opened for a saved host connects on its own — the
+   * credentials come from the main process, the renderer never sees the
+   * password of a saved connection.
+   */
+  const connectToHost = useCallback(async () => {
+    if (!tab.hostId) return
+
+    setConnecting(true)
+    setError(null)
+    try {
+      const host = (await api.host.list()).find((item) => item.id === tab.hostId)
+      if (!host) throw new Error('The host is not in the list anymore')
+
+      await api.session.connect({
+        sessionId,
+        protocol: tab.kind === TabKind.SFTP ? 'sftp' : 'ssh',
+        host: host.host,
+        port: host.port,
+        username: host.username,
+        authMethod: host.authMethod,
+        keyId: host.keyId,
+        hostId: host.id
+      })
+      everConnectedRef.current = true
+      setConnected(true)
+      setHideRestored(false)
+      onPatch({
+        kind: tab.kind === TabKind.SFTP ? TabKind.SFTP : TabKind.SSH,
+        title: `${host.username}@${host.host}`,
+        hostId: host.id,
+        connection: { host: host.host, port: host.port, username: host.username }
+      })
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err))
+    } finally {
+      setConnecting(false)
+    }
+  }, [onPatch, sessionId, tab.hostId, tab.kind])
+
   const handleReady = useCallback(
     (terminal: Terminal | null) => {
       terminalRef.current = terminal
@@ -119,6 +159,21 @@ export function SessionTab({
       setConnected(false)
     }
   }, [status.state])
+
+  // A tab that was opened for a saved host connects as soon as it is
+  // shown. The attempt happens once — a failure is shown in the form.
+  const autoConnectRef = useRef(false)
+  useEffect(() => {
+    if (autoConnectRef.current) return
+    if (!tab.hostId) return
+    if (tab.buffer.length > 0) return
+
+    autoConnectRef.current = true
+    // The attempt waits for the next tick, so the effect itself does not
+    // change the state while it runs.
+    const timer = setTimeout(() => void connectToHost(), 0)
+    return () => clearTimeout(timer)
+  }, [connectToHost, tab.buffer.length, tab.hostId])
 
   const connect = useCallback(
     async (values: ConnectFormValues) => {

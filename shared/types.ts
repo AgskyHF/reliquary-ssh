@@ -129,7 +129,10 @@ export interface TabState {
   id: string
   kind: TabKind
   title: string
-  /** Host id for remote tabs; null for the local terminal. */
+  /**
+   * The saved host this tab was opened for. When it is set, the tab
+   * connects on its own as soon as it is shown.
+   */
   hostId: string | null
   /** Last endpoint used by the tab (no credentials) — prefills the reconnect form. */
   connection: ConnectionTarget | null

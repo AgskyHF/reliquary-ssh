@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { ProtocolType, TabKind } from '@shared/types'
 import { useI18n } from '../../i18n/I18nProvider'
 import { Logo } from './Logo'
 import { KeychainPanel } from '../keys/KeychainPanel'
@@ -9,6 +10,14 @@ import { TransferPanel } from '../transfer/TransferPanel'
 
 interface AppShellProps {
   children?: ReactNode
+  /**
+   * Opens a tab for a saved host. The sidebar needs it to connect to a
+   * host — the tabs themselves live in the main area.
+   */
+  onOpenHost?: (
+    host: { id: string; host: string; port: number; username: string },
+    protocol: TabKind
+  ) => void
 }
 
 type SidebarSection = 'hosts' | 'keychain' | 'sync' | 'transfer' | 'settings'
@@ -18,13 +27,13 @@ type SidebarSection = 'hosts' | 'keychain' | 'sync' | 'transfer' | 'settings'
  * The MainArea content (tabs, panels) is owned by the children —
  * new panels are added inside the regions below, the shell stays untouched.
  */
-export function AppShell({ children }: AppShellProps) {
+export function AppShell({ children, onOpenHost }: AppShellProps) {
   const [section, setSection] = useState<SidebarSection>('hosts')
 
   return (
     <div className="app-shell">
       <TopBar />
-      <Sidebar section={section} onSelect={setSection} />
+      <Sidebar section={section} onSelect={setSection} onOpenHost={onOpenHost} />
       <main className="app-shell__main">{children}</main>
     </div>
   )
@@ -107,10 +116,15 @@ function MenuIcon({ name }: { name: SidebarSection }) {
 
 function Sidebar({
   section,
-  onSelect
+  onSelect,
+  onOpenHost
 }: {
   section: SidebarSection
   onSelect: (section: SidebarSection) => void
+  onOpenHost?: (
+    host: { id: string; host: string; port: number; username: string },
+    protocol: TabKind
+  ) => void
 }) {
   const { t } = useI18n()
   const [query, setQuery] = useState('')
@@ -212,7 +226,15 @@ function Sidebar({
         ) : (
           <>
             <div className="sidebar__section-header">{t('hosts.title')}</div>
-            <HostList query={query} />
+            <HostList
+              query={query}
+              onConnect={(host, protocol) =>
+                onOpenHost?.(
+                  host,
+                  protocol === ProtocolType.SFTP ? TabKind.SFTP : TabKind.SSH
+                )
+              }
+            />
           </>
         )}
       </div>

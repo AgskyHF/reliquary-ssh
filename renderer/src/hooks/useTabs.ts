@@ -4,7 +4,7 @@
  * persists it (debounced) on every change and on window unload.
  */
 import { useCallback, useEffect, useRef, useState } from 'react'
-import type { TabLayoutInput } from '@shared/types'
+import { TabKind, type TabLayoutInput } from '@shared/types'
 import {
   activateTab,
   addTab,
@@ -117,6 +117,23 @@ export function useTabs({ collectBuffers }: UseTabsOptions) {
     commit(addTab(layoutRef.current, createTab()))
   }, [commit])
 
+  /**
+   * Opens a tab for a saved host. The tab connects on its own — the
+   * credentials stay in the main process.
+   */
+  const openHostTab = useCallback(
+    (host: { id: string; host: string; port: number; username: string }, protocol: TabKind) => {
+      const tab = createTab({
+        kind: protocol,
+        title: `${host.username}@${host.host}`,
+        hostId: host.id,
+        connection: { host: host.host, port: host.port, username: host.username }
+      })
+      commit(addTab(layoutRef.current, tab), true)
+    },
+    [commit]
+  )
+
   const activate = useCallback(
     (id: string) => commit(activateTab(layoutRef.current, id), true),
     [commit]
@@ -141,6 +158,7 @@ export function useTabs({ collectBuffers }: UseTabsOptions) {
     activeId: layout.activeTabId,
     loaded,
     createNewTab,
+    openHostTab,
     activate,
     close,
     patch,

@@ -33,6 +33,12 @@ export interface ConnectRequest {
   keyId?: string | null
   cols?: number
   rows?: number
+  /**
+   * The saved host to connect to. When it is set, the main process takes
+   * the endpoint and the credentials from the stored host — the renderer
+   * never sees the password of a saved connection.
+   */
+  hostId?: string | null
 }
 
 export interface SessionDataEvent {

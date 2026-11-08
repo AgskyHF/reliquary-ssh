@@ -1,5 +1,6 @@
-import { useCallback, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import type { TabPatch } from '@shared/tabs-model'
+import { TabKind } from '@shared/types'
 import { useTabs } from '../../hooks/useTabs'
 import type { SessionStatus } from '../../hooks/useSession'
 import { TabBar } from './TabBar'
@@ -10,7 +11,20 @@ import { SessionTab } from './SessionTab'
  * Inactive panes are hidden, not unmounted — their xterm instance and
  * session subscription stay alive, which is what makes tabs independent.
  */
-export function TabsWorkspace() {
+export interface TabsWorkspaceProps {
+  /** The host the sidebar picked — a tab is opened for it. */
+  pendingHost?: {
+    id: string
+    host: string
+    port: number
+    username: string
+    protocol: TabKind
+  } | null
+  /** Called when the host was opened — the pending one is cleared. */
+  onHostOpened?: () => void
+}
+
+export function TabsWorkspace({ pendingHost, onHostOpened }: TabsWorkspaceProps) {
   const buffersRef = useRef(new Map<string, () => string>())
 
   const collectBuffers = useCallback(() => {
@@ -19,9 +33,25 @@ export function TabsWorkspace() {
     return snapshot
   }, [])
 
-  const { tabs, activeId, loaded, createNewTab, activate, close, patch, touch } = useTabs({
-    collectBuffers
-  })
+  const { tabs, activeId, loaded, createNewTab, openHostTab, activate, close, patch, touch } =
+    useTabs({
+      collectBuffers
+    })
+
+  // The host from the sidebar opens in a tab of its own.
+  useEffect(() => {
+    if (!pendingHost) return
+    openHostTab(
+      {
+        id: pendingHost.id,
+        host: pendingHost.host,
+        port: pendingHost.port,
+        username: pendingHost.username
+      },
+      pendingHost.protocol
+    )
+    onHostOpened?.()
+  }, [onHostOpened, openHostTab, pendingHost])
 
   const [states, setStates] = useState<Record<string, SessionStatus['state']>>({})
 

@@ -51,6 +51,11 @@ const en = {
   'hosts.edit': 'Edit',
   'hosts.delete': 'Delete',
   'hosts.notes': 'Notes',
+  'hosts.copy': 'Copy',
+  'hosts.connectSsh': 'with SSH',
+  'hosts.connectSftp': 'with SFTP',
+  'hosts.connectHint': 'Click to connect, right click for the menu',
+  'hosts.copied': 'The address is in the clipboard',
 
   // ---- host form ----
   'hostform.newTitle': 'New connection',
@@ -267,6 +272,11 @@ const ru: Record<TranslationKey, string> = {
   'hosts.edit': 'Изменить',
   'hosts.delete': 'Удалить',
   'hosts.notes': 'Заметки',
+  'hosts.copy': 'Копировать',
+  'hosts.connectSsh': 'по SSH',
+  'hosts.connectSftp': 'по SFTP',
+  'hosts.connectHint': 'ЛКМ — подключиться, ПКМ — меню',
+  'hosts.copied': 'Адрес в буфере обмена',
 
   'hostform.newTitle': 'Новое подключение',
   'hostform.editTitle': 'Изменение подключения',

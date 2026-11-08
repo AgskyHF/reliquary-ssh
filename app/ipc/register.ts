@@ -194,20 +194,39 @@ export function registerIpcHandlers(): void {
   handle(
     IPC.SESSION_CONNECT,
     async (_event, request: ConnectRequest): Promise<void> => {
+      // A saved host carries its own endpoint and its credentials. The
+      // password stays in the main process — it never travels to the
+      // renderer, so the renderer only names the host.
+      const host = request.hostId ? getStorage().hosts.get(request.hostId) : null
+
+      if (request.hostId && !host) {
+        throw new Error('The host is not in the list anymore')
+      }
+
+      const authMethod = (host?.authMethod ?? request.authMethod) as AuthMethod
       const options: ConnectionOptions = {
-        host: request.host,
-        port: request.port,
-        username: request.username,
-        authMethod: request.authMethod as AuthMethod,
+        host: host?.host ?? request.host,
+        port: host?.port ?? request.port,
+        username: host?.username ?? request.username,
+        authMethod,
         password: request.password,
         timeoutMs: 20_000
       }
 
+      // The password of a saved host comes from the encrypted store.
+      if (host && authMethod === AuthMethod.PASSWORD && !options.password) {
+        const material = getMasterPassword().getMasterKey()
+        if (material) {
+          options.password = getStorage().passwords.reveal(host.id, material) ?? undefined
+        }
+      }
+
       // Key authentication: the private key is decrypted in the main
       // process and never travels to the renderer.
-      if (request.authMethod === 'key') {
-        if (!request.keyId) throw new Error('Key authentication requires a key')
-        options.privateKey = await getKeychain().privateKeyMaterial(request.keyId)
+      if (authMethod === AuthMethod.KEY) {
+        const keyId = host?.keyId ?? request.keyId
+        if (!keyId) throw new Error('Key authentication requires a key')
+        options.privateKey = await getKeychain().privateKeyMaterial(keyId)
       }
 
       const protocol =
