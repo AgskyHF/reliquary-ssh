@@ -213,6 +213,31 @@ async function main(): Promise<void> {
       item?.dispatchEvent(new MouseEvent('dblclick', { bubbles: true }))
       return true
     })()`)
+
+    // The animation of a connection — the form of a new connection must
+    // not stand in its place. It is polled: on a fast host it is over in
+    // a moment.
+    let animation: { present: boolean; title: string | null; steps: number } = {
+      present: false,
+      title: null,
+      steps: 0
+    }
+    for (let attempt = 0; attempt < 60 && !animation.present; attempt += 1) {
+      animation = (await cdp.evaluate(`(() => {
+        const el = document.querySelector('.connecting')
+        return {
+          present: Boolean(el),
+          title: el?.querySelector('.connecting__title')?.textContent ?? null,
+          steps: el?.querySelectorAll('.connecting__step').length ?? 0
+        }
+      })()`)) as { present: boolean; title: string | null; steps: number }
+      if (animation.present) break
+      await delay(50)
+    }
+    console.log(`  info — the animation: ${JSON.stringify(animation)}`)
+    check('the connection shows an animation', animation.present === true)
+    check('the animation holds the steps', animation.steps === 3)
+
     await delay(5000)
 
     // The duplicate of a host.

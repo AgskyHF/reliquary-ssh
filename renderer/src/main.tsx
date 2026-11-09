@@ -13,6 +13,7 @@ import './styles/sync.css'
 import './styles/settings.css'
 import './styles/transfer.css'
 import './styles/theme-picker.css'
+import './styles/connecting.css'
 
 const container = document.getElementById('root')
 if (!container) throw new Error('Root container #root not found')

@@ -10,6 +10,7 @@ import { TerminalView } from '../TerminalView'
 import { ConnectForm, type ConnectFormValues } from '../ConnectForm'
 import { FileManager } from '../files/FileManager'
 import { ThemePanel, ThemeToggle } from '../theme/ThemePanel'
+import { ConnectingOverlay } from './ConnectingOverlay'
 
 const RESTORE_NOTE = '\r\n— restored from previous session; reconnect to continue —\r\n'
 
@@ -309,6 +310,23 @@ export function SessionTab({
   // shows the connect form until the session is up.
   const showForm = !connected && (isFileManager || hideRestored || !hadRestoredBuffer)
   const showRestored = !connected && hadRestoredBuffer && !hideRestored
+
+  /*
+   * While the session of a saved host is coming up, the animation takes
+   * the place of the form: the data the user gave is already known, and
+   * asking for it again would be wrong.
+   */
+  if (connecting && tab.hostId && !error) {
+    const host = tab.connection
+    return (
+      <div className="terminal-panel terminal-panel--empty">
+        <ConnectingOverlay
+          label={host ? `${host.username}@${host.host}` : t('session.connecting')}
+          protocol={tab.kind === TabKind.SFTP ? 'sftp' : 'ssh'}
+        />
+      </div>
+    )
+  }
 
   if (showForm) {
     return (
