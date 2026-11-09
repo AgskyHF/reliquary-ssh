@@ -74,6 +74,12 @@ export class SshAdapter extends BaseAdapter {
       const onFatal = (error: Error) => {
         cleanup()
         this.client = null
+        // The user took the connection back — the state is closed then,
+        // and the failure is not the one of the handshake.
+        if (this.closing) {
+          reject(new Error('The connection was cancelled'))
+          return
+        }
         this.setState(SessionState.ERROR)
         this.emitter.emit('error', error)
         reject(error)
@@ -84,13 +90,29 @@ export class SshAdapter extends BaseAdapter {
         this.openShell(client).then(resolve, reject)
       }
 
+      /*
+       * The user may cancel while the handshake is still running. The
+       * client is closed then, and without this the promise would wait
+       * for a 'ready' that never comes — the tab would hang on the
+       * animation of the connection for ever.
+       */
+      const onClose = () => {
+        cleanup()
+        this.client = null
+        // A cancellation is not a failure: the state stays closed.
+        if (!this.closing) this.setState(SessionState.ERROR)
+        reject(new Error('The connection was cancelled'))
+      }
+
       const cleanup = () => {
         client.off('ready', onReady)
         client.off('error', onFatal)
+        client.off('close', onClose)
       }
 
       client.once('ready', onReady)
       client.once('error', onFatal)
+      client.once('close', onClose)
       client.connect(config)
     })
 

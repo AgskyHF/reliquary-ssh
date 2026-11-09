@@ -79,6 +79,9 @@ export function SessionTab({
   const [error, setError] = useState<string | null>(null)
   // The name of the host that was just added to the list.
   const [savedHostName, setSavedHostName] = useState<string | null>(null)
+  // The flag of the cancellation. It lives in a ref: the callback of the
+  // connection reads it without being rebuilt on every change.
+  const cancelledRef = useRef(false)
   // Grows when the form has to clear itself.
   const [formReset, setFormReset] = useState(0)
   const [protocol, setProtocol] = useState<'ssh' | 'sftp'>(
@@ -112,6 +115,7 @@ export function SessionTab({
   const connectToHost = useCallback(async () => {
     if (!tab.hostId) return
 
+    cancelledRef.current = false
     setConnecting(true)
     setError(null)
     try {
@@ -138,9 +142,12 @@ export function SessionTab({
         connection: { host: host.host, port: host.port, username: host.username }
       })
     } catch (err) {
-      setError(
-        err instanceof Error ? translateError(err.message, t) : String(err)
-      )
+      // The user took the connection back — that is not a failure.
+      if (!cancelledRef.current) {
+        setError(
+          err instanceof Error ? translateError(err.message, t) : String(err)
+        )
+      }
     } finally {
       setConnecting(false)
     }
@@ -197,6 +204,7 @@ export function SessionTab({
 
   const connect = useCallback(
     async (values: ConnectFormValues) => {
+      cancelledRef.current = false
       setConnecting(true)
       setError(null)
       try {
@@ -298,6 +306,20 @@ export function SessionTab({
     setConnected(false)
   }, [disconnect])
 
+  /**
+   * Takes a connection back.
+   *
+   * The session is closed in the main process — the handshake that is
+   * still running there ends with it. The form comes back, so the user
+   * can try another host.
+   */
+  const cancelConnecting = useCallback(async () => {
+    cancelledRef.current = true
+    await disconnect().catch(() => undefined)
+    setConnecting(false)
+    setError(null)
+  }, [disconnect])
+
   const initialValues = tab.connection
     ? {
         host: tab.connection.host,
@@ -323,6 +345,7 @@ export function SessionTab({
         <ConnectingOverlay
           label={host ? `${host.username}@${host.host}` : t('session.connecting')}
           protocol={tab.kind === TabKind.SFTP ? 'sftp' : 'ssh'}
+          onCancel={() => void cancelConnecting()}
         />
       </div>
     )

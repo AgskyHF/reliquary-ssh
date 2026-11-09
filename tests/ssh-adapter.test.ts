@@ -1,4 +1,5 @@
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
+import { setTimeout as delay } from 'node:timers/promises'
 import { AuthMethod, ProtocolType, SessionState } from '@shared/types'
 import { SshAdapter } from '@protocols/ssh'
 import { startTestSshServer, type TestSshServer } from './helpers/test-ssh-server'
@@ -101,6 +102,30 @@ describe('SshAdapter against a real SSH server', () => {
       },
       { timeout: 3000 }
     )
+  })
+
+  it('ends the handshake when the connection is taken back', async () => {
+    const adapter = new SshAdapter()
+
+    // A host that accepts the tcp but never answers the handshake — the
+    // way a host behind a black hole answers.
+    const connecting = adapter.connect({
+      host: '192.0.2.1',
+      port: 22,
+      username: 'nobody',
+      authMethod: AuthMethod.PASSWORD,
+      password: 'nothing',
+      timeoutMs: 30_000
+    })
+
+    // The user takes the connection back while the handshake runs.
+    await delay(300)
+    await adapter.disconnect()
+
+    // The promise of the connection has to end — without it the tab would
+    // hang on the animation of the connection for ever.
+    await expect(connecting).rejects.toThrow()
+    expect(adapter.state).toBe(SessionState.CLOSED)
   })
 
   it('reports the protocol and terminal capability', () => {

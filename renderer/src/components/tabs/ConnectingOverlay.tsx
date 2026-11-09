@@ -14,12 +14,18 @@ export interface ConnectingOverlayProps {
   label: string
   /** The protocol of the session: SSH or SFTP. */
   protocol: 'ssh' | 'sftp'
+  /** Called when the user cancels the connection. */
+  onCancel?: () => void
 }
 
 /** The steps of the animation — they cycle while the session comes up. */
 const STEPS = ['connect.stepLookup', 'connect.stepHandshake', 'connect.stepAuth'] as const
 
-export function ConnectingOverlay({ label, protocol }: ConnectingOverlayProps) {
+export function ConnectingOverlay({
+  label,
+  protocol,
+  onCancel
+}: ConnectingOverlayProps) {
   const { t } = useI18n()
   const [step, setStep] = useState(0)
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
@@ -64,6 +70,16 @@ export function ConnectingOverlay({ label, protocol }: ConnectingOverlayProps) {
           </div>
         ))}
       </div>
+
+      {/*
+        The connection can be taken back — the user may have picked the
+        wrong host.
+      */}
+      {onCancel ? (
+        <button type="button" className="button button--ghost connecting__cancel" onClick={onCancel}>
+          {t('connect.cancel')}
+        </button>
+      ) : null}
     </div>
   )
 }

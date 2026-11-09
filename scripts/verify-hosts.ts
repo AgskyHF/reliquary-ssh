@@ -238,6 +238,15 @@ async function main(): Promise<void> {
     check('the connection shows an animation', animation.present === true)
     check('the animation holds the steps', animation.steps === 3)
 
+    // The animation holds the button that takes the connection back.
+    const cancelButton = await cdp.evaluate(`(() => {
+      const button = document.querySelector('.connecting__cancel')
+      return button ? (button.textContent || '').trim() : null
+    })()`)
+    console.log(`  info — the cancel button: ${JSON.stringify(cancelButton)}`)
+    check('the animation holds a cancel button', Boolean(cancelButton))
+
+
     await delay(5000)
 
     // The duplicate of a host.
