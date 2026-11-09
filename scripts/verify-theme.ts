@@ -312,6 +312,27 @@ async function main(): Promise<void> {
     )) as string | null
     check('the theme was stored', stored === 'flexoki-dark')
 
+    // The rows of the terminal have to fit into the visible area — when
+    // they are taller, the last line of the session hangs below the edge
+    // of the window with half of it cut off.
+    const fit = (await cdp.evaluate(`(() => {
+      const rows = document.querySelector('.xterm-rows')
+      const viewport = document.querySelector('.xterm-viewport')
+      if (!rows || !viewport) return null
+      const r = rows.getBoundingClientRect()
+      const v = viewport.getBoundingClientRect()
+      return {
+        rowsBottom: Math.round(r.bottom),
+        viewportBottom: Math.round(v.bottom),
+        overflow: Math.round(r.bottom - v.bottom)
+      }
+    })()`)) as { rowsBottom: number; viewportBottom: number; overflow: number } | null
+    console.log(`  info — the rows of the terminal: ${JSON.stringify(fit)}`)
+    check(
+      'the last line of the terminal is not cut off',
+      fit !== null && fit.overflow <= 1
+    )
+
     // The colors of the terminal really changed. The DOM renderer of xterm
     // paints with classes, so the color is read from the computed style.
     const colored = (await cdp.evaluate(`(() => {

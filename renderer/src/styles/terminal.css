@@ -50,12 +50,22 @@
   flex: 1;
   min-width: 0;
   min-height: 0;
-  padding: var(--space-sm);
   background: var(--color-bg-main);
 }
 
+/*
+ * The padding belongs to the terminal itself, not to the box around it.
+ *
+ * The fit addon measures the height of the box the terminal lives in and
+ * subtracts the padding of the terminal — but it does not know about the
+ * padding of the box. With the padding outside, the addon believes the
+ * terminal is 16 px taller than it is, fits one row too many, and the
+ * last line of the session hangs below the edge of the window with half
+ * of it cut off.
+ */
 .terminal-view .xterm {
   height: 100%;
+  padding: var(--space-sm);
 }
 
 /* ---- connect form ---- */
