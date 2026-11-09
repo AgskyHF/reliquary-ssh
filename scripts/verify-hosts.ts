@@ -337,6 +337,15 @@ async function main(): Promise<void> {
     console.log(`  info — the host field: ${JSON.stringify(hostField)}`)
     check('the host field starts empty', (hostField as { value: string }).value === '')
 
+    // The form asks for the name and for the note — the same fields the
+    // form of a host has.
+    const formFields = await cdp.evaluate(`(() => ({
+      name: Boolean(document.querySelector('[name="connectionName"]')),
+      notes: Boolean(document.querySelector('[name="connectionNotes"]'))
+    }))()`)
+    check('the form asks for the name', (formFields as { name: boolean }).name === true)
+    check('the form asks for the note', (formFields as { notes: boolean }).notes === true)
+
     // The form is filled and the host is added to the list.
     await cdp.evaluate(`(() => {
       const set = (name, value) => {
@@ -348,6 +357,8 @@ async function main(): Promise<void> {
         el.dispatchEvent(new Event('change', { bubbles: true }))
         return true
       }
+      set('connectionName', 'MyServer')
+      set('connectionNotes', 'the note of the host')
       set('host', '10.0.0.77')
       set('username', SSH_USER)
       return true
@@ -367,9 +378,34 @@ async function main(): Promise<void> {
       )
     })()`)) as string[]
     console.log(`  info — the hosts after the add: ${JSON.stringify(afterAdd)}`)
+
+    // The host is in the list — the name is the one the user gave, and
+    // the address is under it.
+    const afterAddTargets = (await cdp.evaluate(`(() => {
+      return Array.from(document.querySelectorAll('.host-list__target')).map((n) =>
+        (n.textContent || '').trim()
+      )
+    })()`)) as string[]
+    console.log(`  info — the targets after the add: ${JSON.stringify(afterAddTargets)}`)
     check(
       'the add button puts the host into the list',
-      afterAdd.some((name) => name.includes('10.0.0.77'))
+      afterAddTargets.some((target) => target.includes('10.0.0.77'))
+    )
+
+    // The name the user gave is the name in the list, and the note
+    // travels with the host.
+    check(
+      'the name of the user is the name in the list',
+      afterAdd.some((name) => name === 'MyServer')
+    )
+
+    const savedNote = await cdp.evaluate(`window.reliquary.host.list().then((hosts) => {
+      const found = hosts.find((host) => host.name === 'MyServer')
+      return found ? found.notes : null
+    })`)
+    check(
+      'the note is saved with the host',
+      savedNote === 'the note of the host'
     )
 
     // "Add" does not connect — the tab of the session stays without a

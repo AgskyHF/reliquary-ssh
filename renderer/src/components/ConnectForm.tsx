@@ -4,6 +4,12 @@ import { api } from '../services/api'
 import { useI18n } from '../i18n/I18nProvider'
 
 export interface ConnectFormValues {
+  /**
+   * The name of the connection in the list of the hosts. It is empty by
+   * default — the name is made from the user and the address, and the
+   * user can give his own.
+   */
+  name: string
   host: string
   port: number
   username: string
@@ -14,6 +20,8 @@ export interface ConnectFormValues {
   authMethod: 'password' | 'key'
   /** The Keychain key id, when authMethod is 'key'. */
   keyId: string | null
+  /** A free note about the host — it travels with the export. */
+  notes: string
 }
 
 export type ConnectProtocol = 'ssh' | 'sftp'
@@ -48,13 +56,15 @@ export interface ConnectFormProps {
 }
 
 const DEFAULT_VALUES: ConnectFormValues = {
+  name: '',
   host: '',
   port: 22,
   username: '',
   password: '',
   protocol: 'ssh',
   authMethod: 'password',
-  keyId: null
+  keyId: null,
+  notes: ''
 }
 
 /**
@@ -98,7 +108,14 @@ export function ConnectForm({
     // The clearing waits for the next tick, so the effect itself does not
     // change the state while it runs.
     const timer = setTimeout(() => {
-      setValues((prev) => ({ ...prev, host: '', username: '', password: '' }))
+      setValues((prev) => ({
+        ...prev,
+        name: '',
+        host: '',
+        username: '',
+        password: '',
+        notes: ''
+      }))
       setKeyId(null)
       setShowPassword(false)
     }, 0)
@@ -204,6 +221,21 @@ export function ConnectForm({
       ) : null}
 
       <label className="field">
+        <span className="field__label">{t('connect.name')}</span>
+        <input
+          className="field__input"
+          name="connectionName"
+          type="text"
+          value={values.name}
+          onChange={(event) => update('name', event.target.value)}
+          placeholder={t('connect.namePlaceholder')}
+          autoComplete="off"
+          spellCheck={false}
+        />
+        <span className="field__hint">{t('connect.nameHint')}</span>
+      </label>
+
+      <label className="field">
         <span className="field__label">{t('connect.host')}</span>
         <input
           className="field__input"
@@ -292,6 +324,17 @@ export function ConnectForm({
           {notice}
         </div>
       ) : null}
+
+      <label className="field">
+        <span className="field__label">{t('connect.notes')}</span>
+        <textarea
+          className="field__input"
+          name="connectionNotes"
+          value={values.notes}
+          onChange={(event) => update('notes', event.target.value)}
+          rows={2}
+        />
+      </label>
 
       <div className="connect-form__actions">
         {onCancel ? (

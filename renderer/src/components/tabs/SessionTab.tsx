@@ -269,15 +269,20 @@ export function SessionTab({
     async (values: ConnectFormValues) => {
       setError(null)
       try {
+        // The name is made from the user and the address, when the user
+        // did not give his own.
+        const name = values.name.trim() || `${values.username}@${values.host}`
+
         const saved = await api.host.save({
-          name: `${values.username}@${values.host}`,
+          name,
           protocol: values.protocol === 'sftp' ? ProtocolType.SFTP : ProtocolType.SSH,
           host: values.host,
           port: values.port,
           username: values.username,
           authMethod:
             values.authMethod === 'key' ? AuthMethod.KEY : AuthMethod.PASSWORD,
-          keyId: values.authMethod === 'key' ? values.keyId : null
+          keyId: values.authMethod === 'key' ? values.keyId : null,
+          notes: values.notes
         })
 
         if (values.authMethod === 'password' && values.password) {

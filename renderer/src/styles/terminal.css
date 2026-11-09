@@ -161,6 +161,13 @@
   color: var(--color-text-muted);
 }
 
+/* The hint under a field — it says what happens when it is empty. */
+.field__hint {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-faint);
+  line-height: var(--line-height-normal);
+}
+
 .field__row {
   display: flex;
   gap: var(--space-sm);
