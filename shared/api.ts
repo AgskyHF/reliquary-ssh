@@ -205,6 +205,10 @@ export interface ReliquaryApi {
     export(payload: { options: ExportOptions; path?: string }): Promise<{
       path: string
       summary: string
+      /** How many passwords went into the archive. */
+      passwords: number
+      /** How many could not be read and stayed out of it. */
+      unreadable: number
     }>
     /**
      * Reads an archive the user picked and merges it into the local

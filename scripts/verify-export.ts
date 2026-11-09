@@ -36,21 +36,8 @@ import {
 
 const CDP_A = 9235
 const CDP_B = 9236
-const MASTER_PASSWORD = 'master horse battery'
 
 const checks = new Checks()
-
-async function setInput(cdp: CdpClient, selector: string, value: string): Promise<boolean> {
-  const ok = await cdp.evaluate(`(() => {
-    const input = document.querySelector(${JSON.stringify(selector)})
-    if (!input) return false
-    const proto = Object.getPrototypeOf(input)
-    Object.getOwnPropertyDescriptor(proto, 'value').set.call(input, ${JSON.stringify(value)})
-    input.dispatchEvent(new Event('input', { bubbles: true }))
-    return true
-  })()`)
-  return ok === true
-}
 
 /** Toggles a checkbox. */
 async function toggle(cdp: CdpClient, selector: string, on: boolean): Promise<boolean> {
@@ -121,26 +108,15 @@ async function main(): Promise<void> {
       await waitFor(cdpA, exists('.transfer-panel input[name="withPasswords"]'), 10)
     )
 
-    // The master password is created in the export panel — the export
-    // must not depend on the sync being set up.
-    await openSection(cdpA, 'Export')
-    await toggle(cdpA, '.transfer-panel input[name="withPasswords"]', true)
-
-    // The panel asks for the master password as soon as the option is
-    // picked — the user must not hit the button to learn it is missing.
-    checks.check(
-      'the panel asks for the master password',
-      await waitFor(cdpA, exists('.transfer-panel input[name="exportMasterPassword"]'), 15)
-    )
-
-    await setInput(cdpA, 'input[name="exportMasterPassword"]', MASTER_PASSWORD)
-    await setInput(cdpA, 'input[name="exportMasterPasswordConfirm"]', MASTER_PASSWORD)
-    await cdpA.evaluate(`document.querySelector('.transfer-panel__master-set')?.click(), true`)
-
-    checks.check(
-      'the master password is created',
-      await waitFor(cdpA, `window.reliquary.master.status().then(s => s.configured)`, 25)
-    )
+    // The option is off by default and there is no password of its own:
+    // the panel must never ask for a master password.
+    const initial = await cdpA.evaluate(`(() => ({
+      checked: document.querySelector('.transfer-panel input[name="withPasswords"]').checked,
+      asksMaster: Boolean(document.querySelector('.transfer-panel input[name="exportMasterPassword"]')),
+      text: document.querySelector('.transfer-panel__hint')?.textContent ?? ''
+    }))()`) as { checked: boolean; asksMaster: boolean; text: string }
+    checks.check('the option is off by default', initial.checked === false)
+    checks.check('the panel asks for no password', initial.asksMaster === false)
 
     // A host with a password.
     const created = await cdpA.evaluate(`(async () => {
@@ -162,52 +138,43 @@ async function main(): Promise<void> {
     await toggle(cdpA, '.transfer-panel input[name="withPasswords"]', false)
 
     const plainResult = (await cdpA.evaluate(`window.reliquary.transfer.export({
-      options: { mode: 'plain', includeKeys: true, includeOld: true },
+      options: { mode: 'without-passwords', includeKeys: true, includeOld: true },
       path: ${JSON.stringify(plainArchive)}
     })`)) as { path: string; summary: string }
-    checks.check('the plain export is written', plainResult.path === plainArchive)
+    checks.check('the export without the passwords is written', plainResult.path === plainArchive)
 
     const plainText = archiveText(plainArchive)
     checks.check(
-      'the plain archive holds no password',
+      'the archive without the passwords holds no password',
       !plainText.includes('super secret')
     )
-    checks.check('the plain archive holds the connection', plainText.includes('example.com'))
+    checks.check('it holds the connection', plainText.includes('example.com'))
 
-    // 3. the sealed export — with the host and its password.
+    // 3. the export with the passwords — no master password involved.
     await toggle(cdpA, '.transfer-panel input[name="withPasswords"]', true)
 
-    const sealedResult = (await cdpA.evaluate(`window.reliquary.transfer.export({
-      options: { mode: 'sealed', includeKeys: true, includeOld: true },
+    const withResult = (await cdpA.evaluate(`window.reliquary.transfer.export({
+      options: { mode: 'with-passwords', includeKeys: true, includeOld: true },
       path: ${JSON.stringify(sealedArchive)}
     })`)) as { path: string; summary: string }
-    checks.check('the sealed export is written', sealedResult.path === sealedArchive)
+    checks.check('the export with the passwords is written', withResult.path === sealedArchive)
 
-    const sealedText = archiveText(sealedArchive)
-    checks.check(
-      'the sealed archive holds no plaintext password',
-      !sealedText.includes('super secret')
-    )
-
-    // The archive carries a secrets entry with a sealed envelope — the
-    // password is wrapped in the master-password envelope.
-    const sealedZip = new AdmZip(readFileSync(sealedArchive))
-    const secretsEntry = sealedZip.getEntry('secrets.json')
-    checks.check('the sealed archive has a secrets entry', Boolean(secretsEntry))
+    // The password is in the archive, readable: that is what makes the
+    // import work on another device without a password of any kind.
+    const withZip = new AdmZip(readFileSync(sealedArchive))
+    const secretsEntry = withZip.getEntry('secrets.json')
+    checks.check('the archive with the passwords has a secrets entry', Boolean(secretsEntry))
 
     const secrets = secretsEntry
       ? (JSON.parse(secretsEntry.getData().toString('utf8')) as {
+          format?: string
           passwords: Record<string, string>
-          kdf: { salt: string; iterations: number } | null
         })
       : null
+    checks.check('the secrets are marked as plain', secrets?.format === 'plain')
     checks.check(
-      'the sealed archive holds a sealed envelope',
-      Boolean(secrets && Object.keys(secrets.passwords).length > 0)
-    )
-    checks.check(
-      'the sealed archive carries the salt of the account',
-      Boolean(secrets?.kdf?.salt)
+      'the password of the host is in the archive',
+      Object.values(secrets?.passwords ?? {}).includes('super secret')
     )
 
     // 4. the second device imports it.
@@ -224,40 +191,19 @@ async function main(): Promise<void> {
     })()`)) as ImportResult
     checks.check('the import adds the connection', imported.added === 1)
 
-    // The imported password is sealed — it opens with the master password
-    // of the account. The second device sets it now, using the salt the
-    // import brought.
-    await openSection(cdpB, 'Export')
-    await toggle(cdpB, '.transfer-panel input[name="withPasswords"]', true)
-    checks.check(
-      'the second device is asked for a master password',
-      await waitFor(cdpB, exists('.transfer-panel input[name="exportMasterPassword"]'), 15)
-    )
+    // Nothing was entered anywhere: the second device has no master
+    // password, and the host of the archive had one.
+    checks.check('the import brings the password', imported.passwords === 1)
 
-    await setInput(cdpB, 'input[name="exportMasterPassword"]', MASTER_PASSWORD)
-    await setInput(cdpB, 'input[name="exportMasterPasswordConfirm"]', MASTER_PASSWORD)
-    await cdpB.evaluate(`document.querySelector('.transfer-panel__master-set')?.click(), true`)
-    checks.check(
-      'the second device sets the master password',
-      await waitFor(cdpB, `window.reliquary.master.status().then(s => s.configured)`, 25)
-    )
+    const secondMaster = await cdpB.evaluate(`window.reliquary.master.status().then(s => s.configured)`)
+    checks.check('the second device has no master password', secondMaster === false)
 
-    // The imported host carries its password now.
     const hasPassword = await cdpB.evaluate(`(async () => {
       const hosts = await window.reliquary.host.list()
       if (hosts.length === 0) return false
       return window.reliquary.hostPassword.has({ hostId: hosts[0].id })
     })()`)
     checks.check('the imported host carries its password', hasPassword === true)
-
-    // And the password is the one of the first device.
-    const revealed = await cdpB.evaluate(`(async () => {
-      const hosts = await window.reliquary.host.list()
-      const status = await window.reliquary.master.status()
-      if (!status.unlocked || hosts.length === 0) return null
-      return 'readable'
-    })()`)
-    checks.check('the imported password is readable', revealed === 'readable')
 
     // 5. the second device changes the host.
     const renamed = await cdpB.evaluate(`(async () => {
@@ -269,7 +215,7 @@ async function main(): Promise<void> {
     checks.check('the second device renames the host', renamed === 'prod-new')
 
     const updatedResult = (await cdpB.evaluate(`window.reliquary.transfer.export({
-      options: { mode: 'sealed', includeKeys: true, includeOld: true },
+      options: { mode: 'with-passwords', includeKeys: true, includeOld: true },
       path: ${JSON.stringify(updatedArchive)}
     })`)) as { path: string; summary: string }
     checks.check('the second device exports the change', updatedResult.path === updatedArchive)
@@ -351,14 +297,20 @@ async function main(): Promise<void> {
     })()`)) as string
     checks.check('the host shows the old name again', restoredName.includes('prod'))
 
-    // The password of the restored version is readable again.
+    // The password of the restored version is readable again — and no
+    // master password was needed for it.
     const restoredPassword = await cdpA.evaluate(`(async () => {
       const hosts = await window.reliquary.host.list()
-      const status = await window.reliquary.master.status()
-      if (!status.unlocked || hosts.length === 0) return null
-      return 'unlocked'
+      if (hosts.length === 0) return null
+      const has = await window.reliquary.hostPassword.has({ hostId: hosts[0].id })
+      const master = await window.reliquary.master.status()
+      return { has, configured: master.configured }
     })()`)
-    checks.check('the master password is still unlocked', restoredPassword === 'unlocked')
+    checks.check(
+      'the restored version has a password without a master password',
+      (restoredPassword as { has: boolean; configured: boolean } | null)?.has === true &&
+        (restoredPassword as { configured: boolean }).configured === false
+    )
 
     const passwordIsBack = await cdpA.evaluate(`(async () => {
       const hosts = await window.reliquary.host.list()

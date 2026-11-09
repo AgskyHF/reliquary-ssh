@@ -50,8 +50,9 @@ describe('export and import', () => {
     })
 
     if (password) {
-      const material = master.getMasterKey()
-      if (material) storage.passwords.save(host.id, password, material, 'device-a')
+      // The app seals the passwords of the hosts with the device secret,
+      // so a master password is not needed for one to be stored.
+      storage.passwords.save(host.id, password, master.deviceKey(), 'device-a')
     }
 
     return host
@@ -61,7 +62,7 @@ describe('export and import', () => {
     await master.set(PASSWORD)
     makeHost('prod', '2026-11-07T10:00:00.000Z')
 
-    const buffer = await service.build({ mode: 'plain', includeKeys: true, includeOld: true })
+    const { buffer } = await service.build({ mode: 'without-passwords', includeKeys: true, includeOld: true })
     const zip = new AdmZip(buffer)
 
     const manifest = JSON.parse(
@@ -69,65 +70,90 @@ describe('export and import', () => {
     ) as ExportManifest
 
     expect(manifest.version).toBe(1)
-    expect(manifest.mode).toBe('plain')
+    expect(manifest.mode).toBe('without-passwords')
     expect(manifest.connectionCount).toBe(1)
     expect(zip.getEntry(EXPORT_FILES.connections)).toBeTruthy()
   })
 
-  it('keeps the passwords out of a plain export', async () => {
+  it('keeps the passwords out of an export without them', async () => {
     await master.set(PASSWORD)
     makeHost('prod', '2026-11-07T10:00:00.000Z', 'super secret')
 
-    const buffer = await service.build({ mode: 'plain', includeKeys: true, includeOld: true })
+    const { buffer } = await service.build({ mode: 'without-passwords', includeKeys: true, includeOld: true })
     const text = buffer.toString('binary')
 
     expect(text).not.toContain('super secret')
     expect(new AdmZip(buffer).getEntry(EXPORT_FILES.secrets)).toBeFalsy()
   })
 
-  it('seals the passwords in a sealed export', async () => {
+  it('carries the passwords in an export with them', async () => {
     await master.set(PASSWORD)
     const host = makeHost('prod', '2026-11-07T10:00:00.000Z', 'super secret')
 
-    const buffer = await service.build({ mode: 'sealed', includeKeys: true, includeOld: true })
+    const { buffer } = await service.build({ mode: 'with-passwords', includeKeys: true, includeOld: true })
     const zip = new AdmZip(buffer)
 
     const manifest = JSON.parse(zip.readAsText(EXPORT_FILES.manifest)) as ExportManifest
-    expect(manifest.mode).toBe('sealed')
+    expect(manifest.mode).toBe('with-passwords')
 
     const secrets = JSON.parse(zip.readAsText(EXPORT_FILES.secrets)) as ExportSecrets
-    expect(secrets.passwords[host.id]).toBeTruthy()
-    expect(secrets.kdf?.salt).toBeTruthy()
+    expect(secrets.format).toBe('plain')
+    expect(secrets.passwords[host.id]).toBe('super secret')
 
-    // The plaintext is nowhere in the archive.
-    expect(buffer.toString('binary')).not.toContain('super secret')
+    // There is no master password of the file — the archive needs none.
+    expect(secrets.kdf).toBeNull()
   })
 
-  it('refuses a sealed export while the master password is locked', async () => {
-    makeHost('prod', '2026-11-07T10:00:00.000Z')
+  it('exports the passwords without a master password', async () => {
+    // No master password is set on this device at all.
+    const host = makeHost('prod', '2026-11-07T10:00:00.000Z', 'super secret')
 
-    await expect(
-      service.build({ mode: 'sealed', includeKeys: true, includeOld: true })
-    ).rejects.toThrow(/locked/u)
+    const { buffer } = await service.build({ mode: 'with-passwords', includeKeys: true, includeOld: true })
+
+    const secrets = JSON.parse(new AdmZip(buffer).readAsText(EXPORT_FILES.secrets)) as ExportSecrets
+    expect(secrets.passwords[host.id]).toBe('super secret')
   })
 
-  it('imports a connection that is not known yet', async () => {
+  it('imports a connection and its password on a device without a master password', async () => {
     await master.set(PASSWORD)
-    makeHost('prod', '2026-11-07T10:00:00.000Z', 'super secret')
+    const host = makeHost('prod', '2026-11-07T10:00:00.000Z', 'super secret')
 
-    const buffer = await service.build({ mode: 'sealed', includeKeys: true, includeOld: true })
+    const { buffer } = await service.build({ mode: 'with-passwords', includeKeys: true, includeOld: true })
 
-    // A second device with the same master password.
+    // A second device that never had a master password.
     const otherDir = mkdtempSync(join(tmpdir(), 'reliquary-export-b-'))
     dirs.push(otherDir)
     const otherStorage = new Storage(join(otherDir, 'reliquary.db'), () => 'device-b')
     const otherMaster = new MasterPasswordManager(join(otherDir, 'master.json'), Buffer.alloc(32, 2))
     otherMaster.init()
 
-    const params = (JSON.parse(new AdmZip(buffer).readAsText(EXPORT_FILES.secrets)) as ExportSecrets)
-      .kdf
-    expect(params).toBeTruthy()
-    await otherMaster.set(PASSWORD, params ?? undefined)
+    const otherService = new ExportService(otherStorage, otherMaster)
+    const result = await otherService.import(buffer, otherMaster.getMasterKey())
+
+    expect(result.added).toBe(1)
+    expect(result.passwords).toBe(1)
+    expect(otherStorage.hosts.list().map((item) => item.name)).toEqual(['prod'])
+
+    // The password came back readable — no master password was entered.
+    const revealed = otherStorage.passwords.reveal(host.id, otherMaster.deviceKey())
+    expect(revealed).toBe('super secret')
+
+    otherStorage.close()
+  })
+
+  it('imports a connection that is not known yet', async () => {
+    await master.set(PASSWORD)
+    makeHost('prod', '2026-11-07T10:00:00.000Z', 'super secret')
+
+    const { buffer } = await service.build({ mode: 'with-passwords', includeKeys: true, includeOld: true })
+
+    // A second device with a master password of its own.
+    const otherDir = mkdtempSync(join(tmpdir(), 'reliquary-export-b-'))
+    dirs.push(otherDir)
+    const otherStorage = new Storage(join(otherDir, 'reliquary.db'), () => 'device-b')
+    const otherMaster = new MasterPasswordManager(join(otherDir, 'master.json'), Buffer.alloc(32, 2))
+    otherMaster.init()
+    await otherMaster.set(PASSWORD)
 
     const otherService = new ExportService(otherStorage, otherMaster)
     const result = await otherService.import(buffer, otherMaster.getMasterKey())
@@ -135,8 +161,11 @@ describe('export and import', () => {
     expect(result.added).toBe(1)
     expect(otherStorage.hosts.list().map((host) => host.name)).toEqual(['prod'])
 
+    // The password is sealed with the device secret of the second
+    // device — the master passwords of the two devices differ and it
+    // still opens.
     const imported = otherStorage.hosts.list()[0]
-    const revealed = otherStorage.passwords.reveal(imported!.id, otherMaster.getMasterKey()!)
+    const revealed = otherStorage.passwords.reveal(imported!.id, otherMaster.deviceKey())
     expect(revealed).toBe('super secret')
 
     otherStorage.close()
@@ -155,7 +184,7 @@ describe('export and import', () => {
     })
 
     // The archive carries the older version — it is the one that loses.
-    const buffer = await service.build({ mode: 'sealed', includeKeys: true, includeOld: true })
+    const { buffer } = await service.build({ mode: 'with-passwords', includeKeys: true, includeOld: true })
 
     // The import sees the older version — the local one is newer, so the
     // local one wins and the older goes to old.
@@ -197,7 +226,7 @@ describe('export and import', () => {
         JSON.stringify({
           version: 1,
           exportedAt: '2026-11-09T10:00:00.000Z',
-          mode: 'plain',
+          mode: 'without-passwords',
           appVersion: '0.1.0',
           connectionCount: 1,
           keyCount: 0,
@@ -293,7 +322,7 @@ describe('export and import', () => {
         JSON.stringify({
           version: 1,
           exportedAt: '2026-11-09T10:00:00.000Z',
-          mode: 'sealed',
+          mode: 'with-passwords',
           appVersion: '0.1.0',
           connectionCount: 1,
           keyCount: 0,
@@ -407,7 +436,7 @@ describe('export and import', () => {
       reason: 'newer'
     })
 
-    const buffer = await service.build({ mode: 'sealed', includeKeys: true, includeOld: true })
+    const { buffer } = await service.build({ mode: 'with-passwords', includeKeys: true, includeOld: true })
     const zip = new AdmZip(buffer)
 
     const oldFiles = zip
@@ -430,7 +459,7 @@ describe('export and import', () => {
     const host = makeHost('prod', '2026-11-07T10:00:00.000Z', 'super secret')
 
     // The user exports, deletes the host and imports the archive back.
-    const buffer = await service.build({ mode: 'sealed', includeKeys: true, includeOld: true })
+    const { buffer } = await service.build({ mode: 'with-passwords', includeKeys: true, includeOld: true })
     storage.hosts.remove(host.id)
 
     const result = await service.import(buffer, master.getMasterKey())
@@ -444,7 +473,7 @@ describe('export and import', () => {
     expect(storage.superseded.list()).toHaveLength(0)
 
     // The password came back with it.
-    const revealed = storage.passwords.reveal(host.id, master.getMasterKey()!)
+    const revealed = storage.passwords.reveal(host.id, master.deviceKey())
     expect(revealed).toBe('super secret')
   })
 
@@ -452,7 +481,7 @@ describe('export and import', () => {
     await master.set(PASSWORD)
     const host = makeHost('prod', '2026-11-07T10:00:00.000Z', 'old password')
 
-    const buffer = await service.build({ mode: 'sealed', includeKeys: true, includeOld: true })
+    const { buffer } = await service.build({ mode: 'with-passwords', includeKeys: true, includeOld: true })
 
     // The host changes on the other device — the archive carries the
     // newer version of the same host.
@@ -476,7 +505,7 @@ describe('export and import', () => {
     await master.set(PASSWORD)
     makeHost('prod', '2026-11-07T10:00:00.000Z', 'old password')
 
-    const buffer = await service.build({ mode: 'sealed', includeKeys: true, includeOld: true })
+    const { buffer } = await service.build({ mode: 'with-passwords', includeKeys: true, includeOld: true })
 
     await service.import(buffer, master.getMasterKey())
     await service.import(buffer, master.getMasterKey())
@@ -490,7 +519,7 @@ describe('export and import', () => {
     makeHost('prod', '2026-11-07T10:00:00.000Z', 'old password')
     makeHost('stage', '2026-11-07T10:00:00.000Z', 'old password')
 
-    const buffer = await service.build({ mode: 'sealed', includeKeys: true, includeOld: true })
+    const { buffer } = await service.build({ mode: 'with-passwords', includeKeys: true, includeOld: true })
     await service.import(buffer, master.getMasterKey())
 
     expect(storage.superseded.list().length).toBeGreaterThan(0)

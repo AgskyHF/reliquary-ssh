@@ -70,12 +70,29 @@ function getTabStore(): TabRepository {
 /**
  * The key the passwords of the hosts are sealed with.
  *
- * The master password protects them when it is set. Without one the
- * device secret is used — it is bound to this Mac and survives the
- * restart, so the passwords of the hosts are still there next time.
+ * The passwords of the hosts belong to the device: they are sealed with
+ * the device secret, so they are readable without a master password and
+ * survive a restart. A master password, when the user has one, protects
+ * the keys and the sync — not this.
  */
 function getPasswordMaterial(): MasterKeyMaterial {
-  return getMasterPassword().getMasterKey() ?? getMasterPassword().deviceKey()
+  return getMasterPassword().deviceKey()
+}
+
+/**
+ * The plaintext password of a host, or null.
+ *
+ * The passwords of the older builds were sealed with the master key when
+ * it was unlocked, so it is tried as a second key — otherwise a password
+ * that was saved then would look lost.
+ */
+function revealPassword(hostId: string): string | null {
+  const storage = getStorage()
+  const direct = storage.passwords.reveal(hostId, getPasswordMaterial())
+  if (direct !== null) return direct
+
+  const material = getMasterPassword().getMasterKey()
+  return material ? storage.passwords.reveal(hostId, material) : null
 }
 
 /**
@@ -250,8 +267,7 @@ export function registerIpcHandlers(): void {
 
       // The password of a saved host comes from the encrypted store.
       if (host && authMethod === AuthMethod.PASSWORD && !options.password) {
-        options.password =
-          getStorage().passwords.reveal(host.id, getPasswordMaterial()) ?? undefined
+        options.password = revealPassword(host.id) ?? undefined
 
         // A host without a stored password needs one — the session would
         // fail with an error that says nothing about the cause.
@@ -599,15 +615,17 @@ export function registerIpcHandlers(): void {
         target = result.filePath
       }
 
-      const buffer = await getExport().build(options, app.getVersion())
-      writeFileSync(target, buffer)
+      const built = await getExport().build(options, app.getVersion())
+      writeFileSync(target, built.buffer)
 
       return {
         path: target,
         summary:
-          options.mode === 'sealed'
-            ? 'Exported with the passwords'
-            : 'Exported without the passwords'
+          options.mode === 'with-passwords'
+            ? `Exported with ${built.passwords} passwords`
+            : 'Exported without the passwords',
+        passwords: built.passwords,
+        unreadable: built.unreadable
       }
     }
   )
@@ -698,8 +716,9 @@ export function registerIpcHandlers(): void {
 
   // ---- restoring a replaced version ----
   handle(IPC.EXPORT_SUPERSEDED_RESTORE, async (_event, payload: { id: string }) => {
-    const material = getMasterPassword().getMasterKey()
-    return getRestore().restore(payload.id, material)
+    // The passwords of the hosts are sealed with the device secret, so
+    // the restore opens them without a master password.
+    return getRestore().restore(payload.id, getPasswordMaterial())
   })
 
   handle(IPC.EXPORT_SUPERSEDED_REMOVE, async (_event, payload: { id: string }) => {

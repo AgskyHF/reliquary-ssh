@@ -26,15 +26,34 @@ import {
   type ExportedKey,
   type ImportResult
 } from '@shared/export'
-import { decryptWithMasterKey, type MasterKeyMaterial } from './crypto'
+import { decryptWithMasterKey, encryptWithMasterKey, type MasterKeyMaterial } from './crypto'
 import type { Storage } from './storage'
 import type { MasterPasswordManager } from './master-password'
 import { logger } from './logger'
+
+/** The decrypted value of an envelope, or null when the key does not fit. */
+function decryptOrNull(envelope: string, material: MasterKeyMaterial): string | null {
+  try {
+    return decryptWithMasterKey(envelope, material)
+  } catch {
+    return null
+  }
+}
 
 /** The payload of a superseded version: the host and its password. */
 interface SupersededPayload {
   connection: ExportedConnection
   encryptedPassword: string | null
+}
+
+/** What an export produced. */
+export interface ExportBuildResult {
+  /** The archive itself. */
+  buffer: Buffer
+  /** How many passwords went into it. */
+  passwords: number
+  /** How many could not be read — they are sealed with a key this device lacks. */
+  unreadable: number
 }
 
 /** The export/import service of the main process. */
@@ -47,15 +66,15 @@ export class ExportService {
   /**
    * Builds the archive.
    *
-   * A sealed export needs the master key: without it the passwords cannot
-   * be included, and the archive is written in the plain mode instead.
+   * The passwords need no password of their own: with the option on they
+   * go into the archive as they are, so any device that imports it has
+   * them. Without the option the archive carries no secret at all.
    */
-  async build(options: ExportOptions, appVersion = '0.1.0'): Promise<Buffer> {
-    const material = options.mode === 'sealed' ? this.master.getMasterKey() : null
-
-    if (options.mode === 'sealed' && !material) {
-      throw new Error('The master password is locked — unlock it to export the secrets')
-    }
+  async build(options: ExportOptions, appVersion = '0.1.0'): Promise<ExportBuildResult> {
+    const withPasswords = options.mode === 'with-passwords'
+    // The private keys travel sealed — a key needs a master password on
+    // the other side anyway, and it is not what this option is about.
+    const material = this.master.getMasterKey()
 
     const connections = this.storage.hosts.list()
     const keys = options.includeKeys ? await this.storage.keys.list() : []
@@ -63,7 +82,7 @@ export class ExportService {
 
     const exportedConnections: ExportedConnection[] = connections.map((host) => ({
       ...host,
-      hasPassword: Boolean(material && this.storage.passwords.has(host.id))
+      hasPassword: withPasswords && this.storage.passwords.has(host.id)
     }))
 
     const exportedKeys: ExportedKey[] = keys.map((key) => ({
@@ -80,26 +99,42 @@ export class ExportService {
     }))
 
     const secrets: ExportSecrets = {
+      format: 'plain',
       passwords: {},
       privateKeys: {},
-      kdf: material ? { salt: material.salt, iterations: material.iterations } : null
+      kdf: null
     }
 
-    if (material) {
+    // A password that cannot be read is counted, not ignored: the user
+    // has to know that the archive came out without it.
+    let unreadable = 0
+
+    if (withPasswords) {
       for (const host of connections) {
-        const stored = this.storage.passwords.get(host.id)
-        if (stored) secrets.passwords[host.id] = stored.encryptedPassword
+        if (!this.storage.passwords.has(host.id)) continue
+
+        const plaintext = this.plaintextPassword(host.id)
+        if (plaintext === null) {
+          unreadable++
+          continue
+        }
+        secrets.passwords[host.id] = plaintext
       }
 
-      for (const key of keys) {
-        secrets.privateKeys[key.id] = key.encryptedPrivateKey
+      // A private key is a secret too, so it goes with the same option.
+      // It travels sealed: a key needs a master password on the other
+      // side anyway.
+      if (material) {
+        for (const key of keys) {
+          secrets.privateKeys[key.id] = key.encryptedPrivateKey
+        }
       }
     }
 
     const manifest: ExportManifest = {
       version: EXPORT_FORMAT_VERSION,
       exportedAt: new Date().toISOString(),
-      mode: material ? 'sealed' : 'plain',
+      mode: withPasswords ? 'with-passwords' : 'without-passwords',
       appVersion,
       connectionCount: exportedConnections.length,
       keyCount: exportedKeys.length,
@@ -123,7 +158,12 @@ export class ExportService {
       )
     }
 
-    if (material) {
+    // The secrets file exists only when there is something to carry.
+    // Without the option the archive holds no password at all.
+    const hasSecrets =
+      Object.keys(secrets.passwords).length > 0 || Object.keys(secrets.privateKeys).length > 0
+
+    if (hasSecrets) {
       zip.addFile(
         EXPORT_FILES.secrets,
         Buffer.from(JSON.stringify(secrets, null, 2), 'utf8')
@@ -159,10 +199,16 @@ export class ExportService {
       mode: manifest.mode,
       connections: manifest.connectionCount,
       keys: manifest.keyCount,
-      superseded: manifest.supersededCount
+      superseded: manifest.supersededCount,
+      passwords: Object.keys(secrets.passwords).length,
+      unreadable
     })
 
-    return zip.toBuffer()
+    return {
+      buffer: zip.toBuffer(),
+      passwords: Object.keys(secrets.passwords).length,
+      unreadable
+    }
   }
 
   /**
@@ -177,7 +223,10 @@ export class ExportService {
 
     const connections = this.readConnections(zip)
     const keys = this.readKeys(zip)
-    const secrets = this.readSecrets(zip)
+    // A 'plain' archive carries the passwords as they are. They are
+    // sealed with the key of this device right away, so the rest of the
+    // import works with one shape: an envelope it can store and read.
+    const secrets = this.normalizeSecrets(this.readSecrets(zip))
 
     // A device that has no master password yet takes the salt of the
     // archive — that is how it derives the same key as the device that
@@ -194,6 +243,7 @@ export class ExportService {
       superseded: 0,
       keysAdded: 0,
       undecryptable: 0,
+      passwords: 0,
       summary: ''
     }
 
@@ -209,7 +259,7 @@ export class ExportService {
         const tombstone = this.storage.hosts.getIncludingDeleted(incoming.id)
 
         if (tombstone) {
-          this.applyConnection(incoming, secrets, material, tombstone.id)
+          if (this.applyConnection(incoming, secrets, material, tombstone.id)) result.passwords++
           result.added++
           continue
         }
@@ -222,7 +272,7 @@ export class ExportService {
           continue
         }
 
-        this.applyConnection(incoming, secrets, material)
+        if (this.applyConnection(incoming, secrets, material)) result.passwords++
         result.added++
         continue
       }
@@ -308,13 +358,35 @@ export class ExportService {
     return opened
   }
 
+  /**
+   * Brings the secrets of an archive to one shape.
+   *
+   * A 'plain' archive (the current one) carries the passwords as they
+   * are: they are sealed here, with the key of this device, and the
+   * result is the same envelope the rest of the code already handles.
+   * A sealed archive of an older build is taken as it is.
+   */
+  private normalizeSecrets(secrets: ExportSecrets | null): ExportSecrets | null {
+    if (!secrets || secrets.format !== 'plain') return secrets
+
+    const material = this.master.deviceKey()
+    const passwords: Record<string, string> = {}
+
+    for (const [hostId, plaintext] of Object.entries(secrets.passwords ?? {})) {
+      if (typeof plaintext !== 'string' || plaintext === '') continue
+      passwords[hostId] = encryptWithMasterKey(plaintext, material)
+    }
+
+    return { ...secrets, format: 'sealed', passwords }
+  }
+
   /** Writes one connection into the local database. */
   private applyConnection(
     incoming: ExportedConnection,
     secrets: ExportSecrets | null,
     material: MasterKeyMaterial | null,
     targetId?: string
-  ): void {
+  ): boolean {
     const id = targetId ?? incoming.id
 
     this.storage.hosts.save({
@@ -327,28 +399,25 @@ export class ExportService {
     })
 
     const envelope = secrets?.passwords[incoming.id]
-    if (!envelope) return
+    if (!envelope) return false
 
-    if (!material) {
-      // The device has no master password yet. The sealed password is
-      // stored as it is — it opens as soon as the user enters the master
-      // password of the account.
-      this.storage.passwords.saveSealed(id, envelope, incoming.deviceId || '')
-      return
+    // The envelope is sealed with the key of this device — that is what
+    // normalizeSecrets makes of a plain archive. The master key of an
+    // older archive is tried too, so its passwords open here.
+    const device = this.master.deviceKey()
+    const plaintext =
+      decryptOrNull(envelope, device) ?? (material ? decryptOrNull(envelope, material) : null)
+
+    if (plaintext !== null) {
+      this.storage.passwords.save(id, plaintext, device, incoming.deviceId || '')
+      return true
     }
 
-    // The password of the archive was sealed with the master password of
-    // the device that made the export. It can only be read when this
-    // device derives the same key.
-    try {
-      const plaintext = decryptWithMasterKey(envelope, material)
-      this.storage.passwords.save(id, plaintext, material, incoming.deviceId || '')
-    } catch {
-      // The master passwords differ — the password stays sealed. It is
-      // kept, not lost: the user can unlock it with the account password.
-      this.storage.passwords.saveSealed(id, envelope, incoming.deviceId || '')
-      logger.warn(`The password of ${incoming.name} stays sealed`)
-    }
+    // The password belongs to another key — it is kept, not lost: it
+    // opens when the master password of that account is entered.
+    this.storage.passwords.saveSealed(id, envelope, incoming.deviceId || '')
+    logger.warn(`The password of ${incoming.name} stays sealed`)
+    return true
   }
 
   /**
@@ -381,7 +450,7 @@ export class ExportService {
       )
       result.superseded++
 
-      this.applyConnection(incoming, secrets, material, local.id)
+      if (this.applyConnection(incoming, secrets, material, local.id)) result.passwords++
       result.updated++
       return
     }
@@ -418,21 +487,7 @@ export class ExportService {
       hasPassword: Boolean(encryptedPassword)
     }
 
-    const payload = JSON.stringify({
-      connection,
-      encryptedPassword
-    } satisfies SupersededPayload)
-
-    // The same version of the same host is already in the folder — the
-    // import does not add it a second time.
-    const existing = this.storage.superseded
-      .listForHost(local.id)
-      .find((record) => record.payload === payload)
-
-    if (existing) {
-      this.storage.superseded.touch(existing.id)
-      return
-    }
+    if (this.touchSame(connection)) return
 
     this.storage.superseded.record({
       hostId: local.id,
@@ -442,23 +497,34 @@ export class ExportService {
     })
   }
 
+  /**
+   * Finds the same version in the old folder and moves it up.
+   *
+   * The comparison is the connection itself: the password travels in an
+   * envelope, and the same password is sealed with a fresh IV every time,
+   * so comparing the bytes would pile up copies of one version.
+   */
+  private touchSame(connection: ExportedConnection): boolean {
+    const key = JSON.stringify(connection)
+    const existing = this.storage.superseded.listForHost(connection.id).find((record) => {
+      try {
+        const parsed = JSON.parse(record.payload) as SupersededPayload
+        return JSON.stringify(parsed.connection) === key
+      } catch {
+        return false
+      }
+    })
+
+    if (!existing) return false
+    this.storage.superseded.touch(existing.id)
+    return true
+  }
+
   /** Stores a superseded version that came from the archive. */
   private storeSupersededPayload(entry: ExportSuperseded): void {
-    const payload = JSON.stringify({
-      connection: entry.connection,
-      encryptedPassword: entry.encryptedPassword ?? null
-    } satisfies SupersededPayload)
-
     // The archive can be imported more than once — the version it
     // carries is stored once, not once per import.
-    const existing = this.storage.superseded
-      .listForHost(entry.hostId)
-      .find((record) => record.payload === payload)
-
-    if (existing) {
-      this.storage.superseded.touch(existing.id)
-      return
-    }
+    if (this.touchSame(entry.connection)) return
 
     this.storage.superseded.record({
       hostId: entry.hostId,
@@ -475,6 +541,30 @@ export class ExportService {
   /** The sealed password of a local host, if it has one. */
   private localPasswordEnvelope(hostId: string): string | null {
     return this.storage.passwords.get(hostId)?.encryptedPassword ?? null
+  }
+
+  /**
+   * The plaintext password of a host, or null when it cannot be read.
+   *
+   * The passwords are sealed with the device secret of this Mac. One that
+   * was sealed with a master password by an older build opens with it,
+   * and is sealed again with the device secret while it is at hand —
+   * otherwise it would need that password every time.
+   */
+  private plaintextPassword(hostId: string): string | null {
+    const device = this.master.deviceKey()
+    const direct = this.storage.passwords.reveal(hostId, device)
+    if (direct !== null) return direct
+
+    const material = this.master.getMasterKey()
+    if (!material) return null
+
+    const sealed = this.storage.passwords.reveal(hostId, material)
+    if (sealed === null) return null
+
+    this.storage.passwords.save(hostId, sealed, device)
+    logger.info('A password was sealed with the key of this device again', { hostId })
+    return sealed
   }
 
   private readManifest(zip: AdmZip): ExportManifest {
@@ -557,6 +647,7 @@ export class ExportService {
     if (result.unchanged > 0) parts.push(`${result.unchanged} unchanged`)
     if (result.superseded > 0) parts.push(`${result.superseded} moved to old`)
     if (result.keysAdded > 0) parts.push(`${result.keysAdded} keys added`)
+    if (result.passwords > 0) parts.push(`${result.passwords} with a password`)
 
     return parts.length > 0 ? parts.join(', ') : 'Nothing to import'
   }

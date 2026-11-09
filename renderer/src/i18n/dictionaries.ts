@@ -231,19 +231,20 @@ const en = {
 
   // ---- transfer ----
   'transfer.title': 'Export and import',
-  'transfer.sealedText':
-    'The passwords are sealed with the master password. It never leaves this device and cannot be recovered.',
   'transfer.withPasswords': 'With the passwords',
   'transfer.withPasswordsHint':
-    'Without the passwords the file carries only the connections and the public keys. With them the passwords are sealed with the master password — the file is unreadable without it.',
+    'Without them the file carries only the connections and the public keys. With them the passwords of the hosts go along — the file is readable by anyone who opens it, so keep it safe.',
   'transfer.includeKeys': 'Include the SSH keys',
   'transfer.includeOld': 'Include the replaced versions',
   'transfer.working': 'Working…',
   'transfer.export': 'Export…',
   'transfer.import': 'Import…',
   'transfer.exported': 'Exported to {path}',
+  'transfer.exportedWith': 'Exported to {path} — {count} passwords inside',
+  'transfer.errUnreadable':
+    '{count} passwords are sealed with a key this device does not have, so the file came out without them',
   'transfer.result':
-    'Added {added}, updated {updated}, unchanged {unchanged}, moved to old {superseded}, keys {keys}',
+    'Added {added}, updated {updated}, unchanged {unchanged}, moved to old {superseded}, keys {keys}, with a password {passwords}',
   'transfer.oldTitle': 'Replaced versions ({count})',
   'transfer.oldEmpty': 'Nothing yet',
   'transfer.oldVersionTag': 'Replaced',
@@ -254,9 +255,6 @@ const en = {
   'transfer.withPasswordTag': ' · with a password',
   'transfer.restore': 'Restore',
   'transfer.forget': 'Forget',
-  'transfer.masterSet': 'Set the master password',
-  'transfer.masterReady': 'The master password is set — now pick the export mode and export',
-  'transfer.errWrongMaster': 'Wrong master password'
 } as const
 
 export type TranslationKey = keyof typeof en
@@ -459,19 +457,20 @@ const ru: Record<TranslationKey, string> = {
   'login.create': 'Создать аккаунт',
 
   'transfer.title': 'Экспорт и импорт',
-  'transfer.sealedText':
-    'Пароли запечатываются мастер-паролем. Он не покидает это устройство и не может быть восстановлен.',
   'transfer.withPasswords': 'С паролями',
   'transfer.withPasswordsHint':
-    'Без паролей файл содержит только подключения и открытые ключи. С паролями они запечатаны мастер-паролем — без него файл не читается.',
+    'Без паролей файл содержит только подключения и открытые ключи. С паролями в него попадают пароли хостов — файл открывается кем угодно, храните его в надёжном месте.',
   'transfer.includeKeys': 'Включить SSH-ключи',
   'transfer.includeOld': 'Включить заменённые версии',
   'transfer.working': 'Обработка…',
   'transfer.export': 'Экспорт…',
   'transfer.import': 'Импорт…',
   'transfer.exported': 'Экспортировано в {path}',
+  'transfer.exportedWith': 'Экспортировано в {path} — внутри паролей: {count}',
+  'transfer.errUnreadable':
+    'Паролей запечатаны ключом, которого нет на этом устройстве: {count}. В файл они не попали',
   'transfer.result':
-    'Добавлено {added}, обновлено {updated}, без изменений {unchanged}, перенесено в old {superseded}, ключей {keys}',
+    'Добавлено {added}, обновлено {updated}, без изменений {unchanged}, перенесено в old {superseded}, ключей {keys}, с паролем {passwords}',
   'transfer.oldTitle': 'Заменённые версии ({count})',
   'transfer.oldEmpty': 'Пока пусто',
   'transfer.oldVersionTag': 'Заменён',
@@ -482,9 +481,6 @@ const ru: Record<TranslationKey, string> = {
   'transfer.withPasswordTag': ' · с паролем',
   'transfer.restore': 'Восстановить',
   'transfer.forget': 'Забыть',
-  'transfer.masterSet': 'Задать мастер-пароль',
-  'transfer.masterReady': 'Мастер-пароль задан — выберите режим экспорта и экспортируйте',
-  'transfer.errWrongMaster': 'Неверный мастер-пароль'
 }
 
 export const DICTIONARIES: Record<Language, Record<TranslationKey, string>> = {

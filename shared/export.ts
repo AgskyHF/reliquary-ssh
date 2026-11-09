@@ -6,19 +6,20 @@
  *   manifest.json          the version, the export time and the options
  *   connections.json       the hosts, in full
  *   keys.json              the SSH keys (public part and metadata)
- *   secrets.json           the encrypted passwords and private keys
+ *   secrets.json           the passwords of the hosts
  *   old/                   the versions that lost a merge — never deleted
  *     connections-<ts>.json
  *
  * Two kinds of export:
- *  - 'plain':   no secrets at all — hosts and public keys only;
- *  - 'sealed':  the passwords and the private keys are included, encrypted
- *               with the master password (the same envelope the app uses
- *               at rest).
+ *  - 'without-passwords': no secrets at all — hosts and public keys only;
+ *  - 'with-passwords':    the passwords of the hosts are in the archive,
+ *                         so they come back with the import. The file is
+ *                         not protected by anything: it is a key to the
+ *                         servers, and it has to be kept like one.
  *
- * A sealed export is only readable with the master password it was made
- * with, so moving it to another device means entering that password once
- * during the import.
+ * The archives of the older builds carried the passwords sealed with the
+ * master password. They still import: `secrets.format` says which one it
+ * is, and a file without the marker is a sealed one.
  */
 import type { Host, KeySummary } from './types'
 
@@ -29,7 +30,7 @@ export const EXPORT_FORMAT_VERSION = 1
 export const EXPORT_FILE_NAME = 'reliquary-export.zip'
 
 /** The kinds of export. */
-export type ExportMode = 'plain' | 'sealed'
+export type ExportMode = 'without-passwords' | 'with-passwords'
 
 /** The file names inside the archive. */
 export const EXPORT_FILES = {
@@ -46,7 +47,7 @@ export interface ExportManifest {
   version: number
   /** When the export was made. */
   exportedAt: string
-  /** 'plain' or 'sealed'. */
+  /** 'without-passwords' or 'with-passwords'. */
   mode: ExportMode
   /** The app version that made the export. */
   appVersion: string
@@ -74,7 +75,13 @@ export interface ExportedKey extends KeySummary {
 
 /** The sealed secrets of a sealed export. */
 export interface ExportSecrets {
-  /** The encrypted passwords, by host id. */
+  /**
+   * 'plain' — the passwords are readable; 'sealed' — they are envelopes
+   * of the master password of the device that made the export. A file
+   * without the marker came from a build that always sealed them.
+   */
+  format?: 'plain' | 'sealed'
+  /** The passwords, by host id. */
   passwords: Record<string, string>
   /** The encrypted private keys, by key id. */
   privateKeys: Record<string, string>
@@ -120,6 +127,8 @@ export interface ImportResult {
   superseded: number
   /** The keys that were added. */
   keysAdded: number
+  /** The passwords that came back with the archive. */
+  passwords: number
   /** The hosts whose password could not be decrypted. */
   undecryptable: number
   /** A readable summary for the UI. */

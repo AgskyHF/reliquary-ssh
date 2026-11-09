@@ -1,9 +1,11 @@
 /**
  * Transfer panel — the export and import screen of the sidebar.
  *
- * The export offers the choice the user asked for: with the passwords or
- * without them. A sealed export needs an unlocked master password; a plain
- * one works always and carries no secrets at all.
+ * The export offers one choice: with the passwords or without them.
+ * There is no password of its own — the archive is made the moment the
+ * button is pressed. Without the option it carries the connections and
+ * the public keys; with it the passwords of the hosts go along, and they
+ * come back on any device that imports the file.
  *
  * The panel also lists the versions that lost a merge — the "old" folder.
  * They are never deleted, because the old password may still be needed.
@@ -38,11 +40,6 @@ export function TransferPanel({ onHostsChanged }: { onHostsChanged?: () => void 
   const [message, setMessage] = useState<string | null>(null)
   const [result, setResult] = useState<ImportResult | null>(null)
   const [superseded, setSuperseded] = useState<SupersededSummary[]>([])
-  // The master password has to be created or entered before a sealed
-  // export — it does not depend on the sync being set up.
-  const [needsMaster, setNeedsMaster] = useState(false)
-  const [masterPassword, setMasterPassword] = useState('')
-  const [masterConfirmation, setMasterConfirmation] = useState('')
   const { t } = useI18n()
 
   const refresh = useCallback(async () => {
@@ -84,38 +81,30 @@ export function TransferPanel({ onHostsChanged }: { onHostsChanged?: () => void 
     setError(null)
     setMessage(null)
     try {
-      // A sealed export needs an unlocked master password. The panel
-      // asks for it when it is missing — the export must not depend on
-      // the sync being set up.
-      if (withPasswords) {
-        const status = await api.master.status()
-        if (!status.configured) {
-          setNeedsMaster(true)
-          return
-        }
-        if (!status.unlocked) {
-          const ok = await api.master.verify(masterPassword)
-          if (!ok) {
-            setError(t('transfer.errWrongMaster'))
-            return
-          }
-        }
-      }
-
       const outcome = await api.transfer.export({
         options: {
-          mode: withPasswords ? 'sealed' : 'plain',
+          mode: withPasswords ? 'with-passwords' : 'without-passwords',
           includeKeys,
           includeOld
         }
       })
-      if (outcome.path) setMessage(t('transfer.exported', { path: outcome.path }))
+      if (outcome.path) {
+        if (outcome.unreadable > 0) {
+          // A password sealed with another key cannot be read here — the
+          // user has to know it did not make it into the file.
+          setError(t('transfer.errUnreadable', { count: outcome.unreadable }))
+        } else if (withPasswords) {
+          setMessage(t('transfer.exportedWith', { path: outcome.path, count: outcome.passwords }))
+        } else {
+          setMessage(t('transfer.exported', { path: outcome.path }))
+        }
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err))
     } finally {
       setBusy(false)
     }
-  }, [includeKeys, includeOld, masterPassword, t, withPasswords])
+  }, [includeKeys, includeOld, t, withPasswords])
 
   /** Brings a replaced version back — with its password when it can be read. */
   const restore = useCallback(
@@ -185,125 +174,16 @@ export function TransferPanel({ onHostsChanged }: { onHostsChanged?: () => void 
     }
   }, [onHostsChanged, refresh])
 
-  /**
-   * The sealed export needs an unlocked master password.
-   *
-   * The requirement is shown as soon as the option is picked — the user
-   * must not hit the button and only then learn that a master password
-   * is missing.
-   */
-  useEffect(() => {
-    let cancelled = false
-    void (async () => {
-      await Promise.resolve()
-      if (cancelled || !withPasswords) return
-
-      try {
-        const status = await api.master.status()
-        if (!cancelled && !status.configured) setNeedsMaster(true)
-      } catch {
-        // The status is not known — the export will report the problem.
-      }
-    })()
-
-    return () => {
-      cancelled = true
-    }
-  }, [withPasswords])
-
-  /** Creates the master password, then the export can continue. */
-  const createMaster = useCallback(async () => {
-    if (masterPassword !== masterConfirmation) {
-      setError(t('master.errMismatch'))
-      return
-    }
-    if (masterPassword.length < 8) {
-      setError(t('master.errShort'))
-      return
-    }
-
-    setBusy(true)
-    setError(null)
-    try {
-      await api.master.set(masterPassword)
-      setMasterPassword('')
-      setMasterConfirmation('')
-      setNeedsMaster(false)
-      setMessage(t('transfer.masterReady'))
-    } catch (err) {
-      setError(err instanceof Error ? err.message : String(err))
-    } finally {
-      setBusy(false)
-    }
-  }, [masterConfirmation, masterPassword, t])
-
   return (
     <div className="transfer-panel">
       <div className="transfer-panel__title">{t('transfer.title')}</div>
-
-      {needsMaster ? (
-        <div className="transfer-panel__master">
-          <div className="master-setup__title">{t('master.setupTitle')}</div>
-          <p className="master-setup__text">{t('transfer.sealedText')}</p>
-
-          <label className="field">
-            <span className="field__label">{t('master.password')}</span>
-            <input
-              className="field__input"
-              name="exportMasterPassword"
-              type="password"
-              value={masterPassword}
-              onChange={(event) => setMasterPassword(event.target.value)}
-              autoComplete="new-password"
-            />
-          </label>
-
-          <label className="field">
-            <span className="field__label">{t('master.repeat')}</span>
-            <input
-              className="field__input"
-              name="exportMasterPasswordConfirm"
-              type="password"
-              value={masterConfirmation}
-              onChange={(event) => setMasterConfirmation(event.target.value)}
-              autoComplete="new-password"
-            />
-          </label>
-
-          {error ? <div className="connect-form__error">{error}</div> : null}
-
-          <div className="master-setup__actions">
-            <button
-              type="button"
-              className="button button--ghost"
-              onClick={() => {
-                setNeedsMaster(false)
-                setError(null)
-              }}
-            >
-              {t('master.cancel')}
-            </button>
-            <button
-              type="button"
-              className="button button--primary transfer-panel__master-set"
-              disabled={busy || !masterPassword || !masterConfirmation}
-              onClick={() => void createMaster()}
-            >
-              {busy ? t('transfer.working') : t('transfer.masterSet')}
-            </button>
-          </div>
-        </div>
-      ) : null}
 
       <label className="transfer-panel__check">
         <input
           type="checkbox"
           name="withPasswords"
           checked={withPasswords}
-          onChange={(event) => {
-            setWithPasswords(event.target.checked)
-            if (!event.target.checked) setNeedsMaster(false)
-          }}
+          onChange={(event) => setWithPasswords(event.target.checked)}
         />
         <span>{t('transfer.withPasswords')}</span>
       </label>
@@ -358,7 +238,8 @@ export function TransferPanel({ onHostsChanged }: { onHostsChanged?: () => void 
             updated: result.updated,
             unchanged: result.unchanged,
             superseded: result.superseded,
-            keys: result.keysAdded
+            keys: result.keysAdded,
+            passwords: result.passwords
           })}
         </div>
       ) : null}
