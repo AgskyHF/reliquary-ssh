@@ -274,12 +274,19 @@ export function SessionTab({
             className={`status-dot status-dot--${status.state === 'connected' ? 'ok' : 'idle'}`}
           />
           <div className="terminal-panel__spacer" />
-          <ThemePanel />
+          <ThemeToggle />
           <button type="button" className="button button--ghost" onClick={closeSession}>
             {t('session.disconnect')}
           </button>
         </div>
-        <FileManager sessionId={sessionId} onError={setError} />
+        {/*
+          The file manager and the drawer of the themes stand in a row —
+          the drawer takes a column of its own, the content moves aside.
+        */}
+        <div className="terminal-panel__body">
+          <FileManager sessionId={sessionId} onError={setError} />
+          <ThemePanel />
+        </div>
       </div>
     )
   }

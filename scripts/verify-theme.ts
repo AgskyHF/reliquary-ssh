@@ -183,10 +183,27 @@ async function main(): Promise<void> {
       if (!mark) return null
       // The mark is pushed out of the button with a transform.
       const shift = getComputedStyle(mark).transform
-      return { shift, away: shift !== 'none' && !shift.includes('matrix(1, 0, 0, 1, 0, 0)') }
+      return {
+        shift,
+        away: shift !== 'none' && !shift.includes('matrix(1, 0, 0, 1, 0, 0)')
+      }
     })()`) as { shift: string; away: boolean } | null
     console.log(`  info — the check mark while closed: ${JSON.stringify(hiddenBefore)}`)
     check('the check mark is away while the menu is closed', hiddenBefore?.away === true)
+
+    // The palette shows while the drawer is closed — an empty square
+    // would look like a broken button.
+    const palette = await cdp.evaluate(`(() => {
+      const el = document.querySelector('.theme-button__palette')
+      if (!el) return null
+      const styles = getComputedStyle(el)
+      const box = el.getBoundingClientRect()
+      return { opacity: styles.opacity, width: Math.round(box.width) }
+    })()`)
+    check(
+      'the palette shows while the drawer is closed',
+      palette !== null && palette.opacity !== '0' && palette.width > 5
+    )
 
     // Open the menu.
     await cdp.evaluate(`(() => {
@@ -261,8 +278,14 @@ async function main(): Promise<void> {
     const shownNow = await cdp.evaluate(`(() => {
       const mark = document.querySelector('.theme-button__check')
       if (!mark) return null
-      const shift = getComputedStyle(mark).transform
-      return shift === 'none' || shift.includes('matrix(1, 0, 0, 1, 0, 0)')
+      // The mark is in the middle of the button while the drawer is open.
+      const button = document.querySelector('.theme-button__toggle')
+      if (!button) return null
+      const buttonBox = button.getBoundingClientRect()
+      const markBox = mark.getBoundingClientRect()
+      const middle = (markBox.left + markBox.right) / 2
+      const buttonMiddle = (buttonBox.left + buttonBox.right) / 2
+      return Math.abs(middle - buttonMiddle) < 3
     })()`)
     check('the check mark slides out', shownNow === true)
 

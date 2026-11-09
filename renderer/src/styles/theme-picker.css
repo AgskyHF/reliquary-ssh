@@ -82,9 +82,15 @@
   width: 0;
   overflow: hidden;
   border-left: 1px solid transparent;
+  /*
+   * The closed drawer is invisible: without this its content would
+   * still take the space of the header it was rendered in.
+   */
+  visibility: hidden;
   transition:
     width var(--transition-normal),
-    border-color var(--transition-normal);
+    border-color var(--transition-normal),
+    visibility var(--transition-normal);
 }
 
 /*
@@ -95,6 +101,7 @@
   width: 320px;
   padding-left: var(--space-md);
   border-left-color: var(--color-border);
+  visibility: visible;
 }
 
 .theme-panel__head {
@@ -141,6 +148,7 @@
 /* ---- the button in the header ---- */
 
 .theme-button__toggle {
+  position: relative;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -167,17 +175,41 @@
 }
 
 /*
- * The check mark slides out of the button — it comes from the left and
- * settles on its place when the drawer opens.
+ * The button holds two marks: the palette while the drawer is closed and
+ * the check mark while it is open. The check mark slides out of the
+ * button and takes the place of the palette.
  */
+.theme-button__palette {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 15px;
+  height: 15px;
+  transition: opacity var(--transition-fast);
+}
+
+.theme-button__palette svg {
+  width: 100%;
+  height: 100%;
+}
+
 .theme-button__check {
+  position: absolute;
+  top: 50%;
+  left: 50%;
   display: block;
   font-size: var(--font-size-md);
   line-height: 1;
-  transform: translateX(0);
+  transform: translate(-50%, -50%);
   transition: transform var(--transition-normal);
 }
 
+/* The check mark sits outside of the button while the drawer is closed. */
 .theme-button__toggle:not(.theme-button__toggle--open) .theme-button__check {
-  transform: translateX(140%);
+  transform: translate(calc(-50% + 200%), -50%);
+}
+
+.theme-button__toggle--open .theme-button__palette {
+  opacity: 0;
+  pointer-events: none;
 }
