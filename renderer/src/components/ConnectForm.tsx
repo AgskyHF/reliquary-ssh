@@ -21,6 +21,11 @@ export type ConnectProtocol = 'ssh' | 'sftp'
 export interface ConnectFormProps {
   /** Called with the entered values when the user submits the form. */
   onConnect: (values: ConnectFormValues) => void
+  /**
+   * Called when the user wants to save the connection to the list of
+   * the hosts. The button "Add" shows next to "Connect".
+   */
+  onSave?: (values: ConnectFormValues) => void
   /** Called when the user cancels. */
   onCancel?: () => void
   /** Pre-fills host/port/username (e.g. reconnecting a restored tab). */
@@ -33,10 +38,12 @@ export interface ConnectFormProps {
   allowAuthSwitch?: boolean
   busy?: boolean
   error?: string | null
+  /** The name of the host that was just added to the list. */
+  notice?: string | null
 }
 
 const DEFAULT_VALUES: ConnectFormValues = {
-  host: '127.0.0.1',
+  host: '',
   port: 22,
   username: '',
   password: '',
@@ -50,13 +57,15 @@ const DEFAULT_VALUES: ConnectFormValues = {
  */
 export function ConnectForm({
   onConnect,
+  onSave,
   onCancel,
   initialValues,
   protocol = 'ssh',
   allowProtocolSwitch = false,
   allowAuthSwitch = false,
   busy,
-  error
+  error,
+  notice
 }: ConnectFormProps) {
   const [values, setValues] = useState<ConnectFormValues>(() => ({
     ...DEFAULT_VALUES,
@@ -181,7 +190,7 @@ export function ConnectForm({
           name="host"
           value={values.host}
           onChange={(event) => update('host', event.target.value)}
-          placeholder="example.com or 10.0.0.5"
+          placeholder={t('connect.hostPlaceholder')}
           autoComplete="off"
           spellCheck={false}
         />
@@ -255,6 +264,7 @@ export function ConnectForm({
       )}
 
       {error ? <div className="connect-form__error">{error}</div> : null}
+      {notice ? <div className="connect-form__notice">{notice}</div> : null}
 
       <div className="connect-form__actions">
         {onCancel ? (
@@ -262,6 +272,22 @@ export function ConnectForm({
             {t('connect.cancel')}
           </button>
         ) : null}
+
+        {/*
+          "Add" puts the connection into the list of the hosts on the
+          left, "Connect" opens the session with it.
+        */}
+        {onSave ? (
+          <button
+            type="button"
+            className="button button--ghost"
+            disabled={busy || !values.host || !values.username}
+            onClick={() => onSave(values)}
+          >
+            {t('connect.add')}
+          </button>
+        ) : null}
+
         <button
           type="submit"
           className="button button--primary"

@@ -44,7 +44,6 @@ const en = {
   'tab.newConnection': 'New connection',
 
   // ---- host list ----
-  'hosts.add': 'Add a connection',
   'hosts.empty': 'No hosts yet',
   'hosts.noMatch': 'Nothing found',
   'hosts.connect': 'Connect',
@@ -101,6 +100,9 @@ const en = {
   'connect.cancel': 'Cancel',
   'connect.connecting': 'Connecting…',
   'connect.connect': 'Connect',
+  'connect.add': 'Add',
+  'connect.hostPlaceholder': 'example.com or 10.0.0.5',
+  'connect.addedToList': '"{name}" is in the list of the hosts',
 
   // ---- session tab ----
   'session.disconnect': 'Disconnect',
@@ -268,7 +270,6 @@ const ru: Record<TranslationKey, string> = {
   'tab.new': 'Новая вкладка',
   'tab.newConnection': 'Новое подключение',
 
-  'hosts.add': 'Добавить подключение',
   'hosts.empty': 'Хостов пока нет',
   'hosts.noMatch': 'Ничего не найдено',
   'hosts.connect': 'Подключиться',
@@ -323,6 +324,9 @@ const ru: Record<TranslationKey, string> = {
   'connect.cancel': 'Отмена',
   'connect.connecting': 'Подключение…',
   'connect.connect': 'Подключиться',
+  'connect.add': 'Добавить',
+  'connect.hostPlaceholder': 'example.com или 10.0.0.5',
+  'connect.addedToList': '«{name}» в списке хостов',
 
   'session.disconnect': 'Отключиться',
   'session.notConnected': 'Сессия не подключена — подключитесь снова, чтобы продолжить.',

@@ -96,6 +96,12 @@ async function main(): Promise<void> {
     await waitFor(cdp, `document.querySelector('.sidebar__item')`)
     await delay(900)
 
+    // The sidebar holds the hosts only — the button to add one is gone.
+    const addButton = await cdp.evaluate(
+      `document.querySelectorAll('.host-list__add').length`
+    )
+    check('the sidebar has no add button', addButton === 0)
+
     const names = (await cdp.evaluate(`(() => {
       return Array.from(document.querySelectorAll('.host-list__name')).map((n) =>
         (n.textContent || '').trim()
@@ -272,6 +278,64 @@ async function main(): Promise<void> {
     check(
       'the stored password was sent to the server',
       /authentication methods failed/i.test(passwordSession.error ?? '')
+    )
+
+    // ---- the button "Add" puts the host into the list ----
+    const formButtons = await cdp.evaluate(`(() => {
+      const buttons = Array.from(document.querySelectorAll('.connect-form__actions button'))
+      return buttons.map((b) => (b.textContent || '').trim())
+    })()`)
+    console.log(`  info — the buttons of the form: ${JSON.stringify(formButtons)}`)
+    check(
+      'the form holds an add button',
+      (formButtons as string[]).some((b) => /add|добав/i.test(b))
+    )
+    check(
+      'the form holds a connect button',
+      (formButtons as string[]).some((b) => /connect|подключ/i.test(b))
+    )
+
+    // The host field starts empty — the address is only a hint.
+    const hostField = await cdp.evaluate(`(() => {
+      const el = document.querySelector('input[name="host"]')
+      return el ? { value: el.value, placeholder: el.placeholder } : null
+    })()`)
+    console.log(`  info — the host field: ${JSON.stringify(hostField)}`)
+    check('the host field starts empty', (hostField as { value: string }).value === '')
+
+    // The form is filled and the host is added to the list.
+    await cdp.evaluate(`(() => {
+      const set = (name, value) => {
+        const el = document.querySelector('[name="' + name + '"]')
+        if (!el) return false
+        const proto = Object.getPrototypeOf(el)
+        Object.getOwnPropertyDescriptor(proto, 'value').set.call(el, value)
+        el.dispatchEvent(new Event('input', { bubbles: true }))
+        el.dispatchEvent(new Event('change', { bubbles: true }))
+        return true
+      }
+      set('host', '10.0.0.77')
+      set('username', SSH_USER)
+      return true
+    })()`)
+    await delay(400)
+    await cdp.evaluate(`(() => {
+      const buttons = Array.from(document.querySelectorAll('.connect-form__actions button'))
+      const add = buttons.find((b) => /add|добав/i.test(b.textContent || ''))
+      add?.click()
+      return true
+    })()`)
+    await delay(1500)
+
+    const afterAdd = (await cdp.evaluate(`(() => {
+      return Array.from(document.querySelectorAll('.host-list__name')).map((n) =>
+        (n.textContent || '').trim()
+      )
+    })()`)) as string[]
+    console.log(`  info — the hosts after the add: ${JSON.stringify(afterAdd)}`)
+    check(
+      'the add button puts the host into the list',
+      afterAdd.some((name) => name.includes('10.0.0.77'))
     )
 
     // The menu took itself away when the host was clicked.

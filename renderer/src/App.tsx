@@ -25,6 +25,9 @@ export interface PendingHost {
 export default function App() {
   // The host the sidebar picked — the workspace opens a tab for it.
   const [pendingHost, setPendingHost] = useState<PendingHost | null>(null)
+  // The number of the hosts in the list — the sidebar reloads them when
+  // it changes.
+  const [hostsVersion, setHostsVersion] = useState(0)
 
   // The traffic lights of macOS are drawn over the top-left corner of the
   // window. The platform goes into the document, so the header can keep
@@ -41,8 +44,15 @@ export default function App() {
   return (
     <I18nProvider>
       <ThemeProvider>
-        <AppShell onOpenHost={(host, protocol) => setPendingHost({ ...host, protocol })}>
-          <TabsWorkspace pendingHost={pendingHost} onHostOpened={() => setPendingHost(null)} />
+        <AppShell
+          onOpenHost={(host, protocol) => setPendingHost({ ...host, protocol })}
+          hostsVersion={hostsVersion}
+        >
+          <TabsWorkspace
+            pendingHost={pendingHost}
+            onHostOpened={() => setPendingHost(null)}
+            onHostAdded={() => setHostsVersion((prev) => prev + 1)}
+          />
         </AppShell>
       </ThemeProvider>
     </I18nProvider>

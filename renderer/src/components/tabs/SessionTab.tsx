@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import type { Terminal } from '@xterm/xterm'
 import type { TabPatch } from '@shared/tabs-model'
 import { NEW_TAB_TITLE } from '@shared/tabs-model'
-import { TabKind, type TabState } from '@shared/types'
+import { AuthMethod, ProtocolType, TabKind, type TabState } from '@shared/types'
 import { api } from '../../services/api'
 import { useI18n } from '../../i18n/I18nProvider'
 import { useSession, type SessionStatus } from '../../hooks/useSession'
@@ -20,6 +20,8 @@ export interface SessionTabProps {
   registerBuffer: (sessionId: string, getter: (() => string) | null) => void
   /** Signals "the screen changed" so the layout save gets scheduled. */
   onActivity: () => void
+  /** Called when a host was added to the list from the form. */
+  onHostAdded?: () => void
 }
 
 /** Plain-text snapshot of the whole buffer (viewport + scrollback). */
@@ -47,7 +49,8 @@ export function SessionTab({
   onPatch,
   onSessionState,
   registerBuffer,
-  onActivity
+  onActivity,
+  onHostAdded
 }: SessionTabProps) {
   const sessionId = tab.id
   const isFileManager = tab.kind === TabKind.SFTP
@@ -63,6 +66,8 @@ export function SessionTab({
   const [hideRestored, setHideRestored] = useState(false)
   const [connecting, setConnecting] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  // The name of the host that was just added to the list.
+  const [savedHostName, setSavedHostName] = useState<string | null>(null)
   const [protocol, setProtocol] = useState<'ssh' | 'sftp'>(
     isFileManager ? 'sftp' : 'ssh'
   )
@@ -231,6 +236,48 @@ export function SessionTab({
     [sessionId, onPatch, t]
   )
 
+  /**
+   * Puts the connection into the list of the hosts.
+   *
+   * The password is stored with it, so the next connection to this host
+   * does not ask for it again.
+   */
+  const saveHost = useCallback(
+    async (values: ConnectFormValues) => {
+      setError(null)
+      try {
+        const saved = await api.host.save({
+          name: `${values.username}@${values.host}`,
+          protocol: values.protocol === 'sftp' ? ProtocolType.SFTP : ProtocolType.SSH,
+          host: values.host,
+          port: values.port,
+          username: values.username,
+          authMethod:
+            values.authMethod === 'key' ? AuthMethod.KEY : AuthMethod.PASSWORD,
+          keyId: values.authMethod === 'key' ? values.keyId : null
+        })
+
+        if (values.authMethod === 'password' && values.password) {
+          await api.hostPassword.set({ hostId: saved.id, password: values.password })
+        }
+
+        // The tab now points at the saved host.
+        onPatch({
+          hostId: saved.id,
+          kind: values.protocol === 'sftp' ? TabKind.SFTP : TabKind.SSH,
+          title: `${values.username}@${values.host}`,
+          connection: { host: values.host, port: values.port, username: values.username }
+        })
+
+        setSavedHostName(saved.name)
+        onHostAdded?.()
+      } catch (err) {
+        setError(err instanceof Error ? err.message : String(err))
+      }
+    },
+    [onHostAdded, onPatch]
+  )
+
   const closeSession = useCallback(async () => {
     await disconnect().catch(() => undefined)
     setConnected(false)
@@ -254,8 +301,10 @@ export function SessionTab({
       <div className="terminal-panel terminal-panel--empty">
         <ConnectForm
           onConnect={connect}
+          onSave={(values) => void saveHost(values)}
           busy={connecting}
           error={error}
+          notice={savedHostName ? t('connect.addedToList', { name: savedHostName }) : null}
           initialValues={initialValues}
           protocol={protocol}
           allowProtocolSwitch={!isFileManager}
@@ -321,8 +370,12 @@ export function SessionTab({
         <div className="reconnect-form-wrap">
           <ConnectForm
             onConnect={connect}
+            onSave={(values) => void saveHost(values)}
             busy={connecting}
             error={error}
+            notice={
+              savedHostName ? t('connect.addedToList', { name: savedHostName }) : null
+            }
             initialValues={initialValues}
             protocol={protocol}
             allowProtocolSwitch

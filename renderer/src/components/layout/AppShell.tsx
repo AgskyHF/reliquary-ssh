@@ -10,6 +10,8 @@ import { TransferPanel } from '../transfer/TransferPanel'
 
 interface AppShellProps {
   children?: ReactNode
+  /** The number of the hosts in the list — it reloads them when it grows. */
+  hostsVersion?: number
   /**
    * Opens a tab for a saved host. The sidebar needs it to connect to a
    * host — the tabs themselves live in the main area.
@@ -27,13 +29,18 @@ type SidebarSection = 'hosts' | 'keychain' | 'sync' | 'transfer' | 'settings'
  * The MainArea content (tabs, panels) is owned by the children —
  * new panels are added inside the regions below, the shell stays untouched.
  */
-export function AppShell({ children, onOpenHost }: AppShellProps) {
+export function AppShell({ children, onOpenHost, hostsVersion }: AppShellProps) {
   const [section, setSection] = useState<SidebarSection>('hosts')
 
   return (
     <div className="app-shell">
       <TopBar />
-      <Sidebar section={section} onSelect={setSection} onOpenHost={onOpenHost} />
+      <Sidebar
+        section={section}
+        onSelect={setSection}
+        onOpenHost={onOpenHost}
+        hostsVersion={hostsVersion}
+      />
       <main className="app-shell__main">{children}</main>
     </div>
   )
@@ -117,7 +124,8 @@ function MenuIcon({ name }: { name: SidebarSection }) {
 function Sidebar({
   section,
   onSelect,
-  onOpenHost
+  onOpenHost,
+  hostsVersion
 }: {
   section: SidebarSection
   onSelect: (section: SidebarSection) => void
@@ -125,6 +133,7 @@ function Sidebar({
     host: { id: string; host: string; port: number; username: string },
     protocol: TabKind
   ) => void
+  hostsVersion?: number
 }) {
   const { t } = useI18n()
   const [query, setQuery] = useState('')
@@ -228,6 +237,7 @@ function Sidebar({
             <div className="sidebar__section-header">{t('hosts.title')}</div>
             <HostList
               query={query}
+              version={hostsVersion}
               onConnect={(host, protocol) =>
                 onOpenHost?.(
                   host,

@@ -20,6 +20,11 @@ export interface HostListProps {
   onConnect?: (host: Host, protocol: ProtocolType) => void
   /** The text of the search field — the list shows the matching hosts. */
   query?: string
+  /**
+   * The number of the hosts in the list. It grows when a host was added
+   * somewhere else — from the form of a new connection, for example.
+   */
+  version?: number
 }
 
 const PROTOCOL_LABELS: Record<ProtocolType, string> = {
@@ -38,7 +43,7 @@ interface MenuState {
   y: number
 }
 
-export function HostList({ onChanged, onConnect, query = '' }: HostListProps) {
+export function HostList({ onChanged, onConnect, query = '', version }: HostListProps) {
   const [hosts, setHosts] = useState<Host[]>([])
   const [error, setError] = useState<string | null>(null)
   // The form is open when it creates a new host, or when it edits one.
@@ -75,7 +80,7 @@ export function HostList({ onChanged, onConnect, query = '' }: HostListProps) {
     return () => {
       cancelled = true
     }
-  }, [refresh])
+  }, [refresh, version])
 
   const remove = useCallback(
     async (id: string) => {
@@ -126,14 +131,6 @@ export function HostList({ onChanged, onConnect, query = '' }: HostListProps) {
   return (
     <div className="host-list">
       {error ? <div className="keychain-panel__error">{error}</div> : null}
-
-      <button
-        type="button"
-        className="button button--ghost host-list__add"
-        onClick={() => setFormHost(null)}
-      >
-        {t('hosts.add')}
-      </button>
 
       {hosts.length === 0 ? (
         <div className="sidebar__empty">{t('hosts.empty')}</div>

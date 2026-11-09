@@ -110,11 +110,25 @@
   border-radius: var(--radius-sm);
 }
 
+.connect-form__notice {
+  padding: var(--space-xs) var(--space-sm);
+  font-size: var(--font-size-sm);
+  color: var(--color-accent);
+  background: var(--color-bg-active);
+  border: 1px solid var(--color-accent);
+  border-radius: var(--radius-sm);
+}
+
 .connect-form__actions {
   display: flex;
   justify-content: flex-end;
   gap: var(--space-sm);
   margin-top: var(--space-xs);
+}
+
+/* The "Add" button sits next to "Connect". */
+.connect-form__actions .button--ghost {
+  order: -1;
 }
 
 /* ---- fields ---- */

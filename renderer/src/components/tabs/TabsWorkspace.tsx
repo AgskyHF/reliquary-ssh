@@ -22,9 +22,15 @@ export interface TabsWorkspaceProps {
   } | null
   /** Called when the host was opened — the pending one is cleared. */
   onHostOpened?: () => void
+  /** Called when a host was added to the list from the form. */
+  onHostAdded?: () => void
 }
 
-export function TabsWorkspace({ pendingHost, onHostOpened }: TabsWorkspaceProps) {
+export function TabsWorkspace({
+  pendingHost,
+  onHostOpened,
+  onHostAdded
+}: TabsWorkspaceProps) {
   const buffersRef = useRef(new Map<string, () => string>())
 
   const collectBuffers = useCallback(() => {
@@ -105,6 +111,7 @@ export function TabsWorkspace({ pendingHost, onHostOpened }: TabsWorkspaceProps)
               onSessionState={handleSessionState}
               registerBuffer={registerBuffer}
               onActivity={touch}
+              onHostAdded={onHostAdded}
             />
           </div>
         ))}
