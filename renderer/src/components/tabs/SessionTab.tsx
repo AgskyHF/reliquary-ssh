@@ -13,6 +13,16 @@ import { ThemePanel, ThemeToggle } from '../theme/ThemePanel'
 
 const RESTORE_NOTE = '\r\n— restored from previous session; reconnect to continue —\r\n'
 
+/**
+ * The main process reports the errors it cannot describe in the words of
+ * the interface — it sends a code instead. Here the code becomes a
+ * message of the language the user chose.
+ */
+function translateError(message: string, t: (key: 'session.errHostGone') => string): string {
+  if (message === 'HOST_GONE') return t('session.errHostGone')
+  return message
+}
+
 export interface SessionTabProps {
   tab: TabState
   onPatch: (patch: TabPatch) => void
@@ -68,6 +78,8 @@ export function SessionTab({
   const [error, setError] = useState<string | null>(null)
   // The name of the host that was just added to the list.
   const [savedHostName, setSavedHostName] = useState<string | null>(null)
+  // Grows when the form has to clear itself.
+  const [formReset, setFormReset] = useState(0)
   const [protocol, setProtocol] = useState<'ssh' | 'sftp'>(
     isFileManager ? 'sftp' : 'ssh'
   )
@@ -103,7 +115,7 @@ export function SessionTab({
     setError(null)
     try {
       const host = (await api.host.list()).find((item) => item.id === tab.hostId)
-      if (!host) throw new Error('The host is not in the list anymore')
+      if (!host) throw new Error(t('session.errHostGone'))
 
       await api.session.connect({
         sessionId,
@@ -125,11 +137,13 @@ export function SessionTab({
         connection: { host: host.host, port: host.port, username: host.username }
       })
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err))
+      setError(
+        err instanceof Error ? translateError(err.message, t) : String(err)
+      )
     } finally {
       setConnecting(false)
     }
-  }, [onPatch, sessionId, tab.hostId, tab.kind])
+  }, [onPatch, sessionId, t, tab.hostId, tab.kind])
 
   const handleReady = useCallback(
     (terminal: Terminal | null) => {
@@ -261,21 +275,21 @@ export function SessionTab({
           await api.hostPassword.set({ hostId: saved.id, password: values.password })
         }
 
-        // The tab now points at the saved host.
-        onPatch({
-          hostId: saved.id,
-          kind: values.protocol === 'sftp' ? TabKind.SFTP : TabKind.SSH,
-          title: `${values.username}@${values.host}`,
-          connection: { host: values.host, port: values.port, username: values.username }
-        })
-
+        // The tab is NOT pointed at the saved host: "Add" only puts the
+        // connection into the list, it does not open a session. The host
+        // id on the tab would start the auto-connect.
         setSavedHostName(saved.name)
+        setFormReset((prev) => prev + 1)
         onHostAdded?.()
+
+        // The notice takes itself away — the form is empty again and the
+        // message would only be in the way.
+        setTimeout(() => setSavedHostName(null), 4000)
       } catch (err) {
         setError(err instanceof Error ? err.message : String(err))
       }
     },
-    [onHostAdded, onPatch]
+    [onHostAdded]
   )
 
   const closeSession = useCallback(async () => {
@@ -305,6 +319,7 @@ export function SessionTab({
           busy={connecting}
           error={error}
           notice={savedHostName ? t('connect.addedToList', { name: savedHostName }) : null}
+          resetSignal={formReset}
           initialValues={initialValues}
           protocol={protocol}
           allowProtocolSwitch={!isFileManager}
@@ -376,6 +391,7 @@ export function SessionTab({
             notice={
               savedHostName ? t('connect.addedToList', { name: savedHostName }) : null
             }
+            resetSignal={formReset}
             initialValues={initialValues}
             protocol={protocol}
             allowProtocolSwitch

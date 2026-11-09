@@ -233,7 +233,9 @@ export function registerIpcHandlers(): void {
       const host = request.hostId ? getStorage().hosts.get(request.hostId) : null
 
       if (request.hostId && !host) {
-        throw new Error('The host is not in the list anymore')
+        // A code, not a sentence: the renderer turns it into the words
+        // of the language the user chose.
+        throw new Error('HOST_GONE')
       }
 
       const authMethod = (host?.authMethod ?? request.authMethod) as AuthMethod

@@ -338,6 +338,37 @@ async function main(): Promise<void> {
       afterAdd.some((name) => name.includes('10.0.0.77'))
     )
 
+    // "Add" does not connect — the tab of the session stays without a
+    // connection and the form is cleared.
+    const afterAddState = (await cdp.evaluate(`(() => {
+      const tabs = Array.from(document.querySelectorAll('.tab-bar__tab')).map((t) => ({
+        title: (t.textContent || '').trim(),
+        connected: Boolean(t.querySelector('.status-dot--ok'))
+      }))
+      const host = document.querySelector('input[name="host"]')
+      const username = document.querySelector('input[name="username"]')
+      const password = document.querySelector('input[name="password"]')
+      return {
+        tabs,
+        host: host ? host.value : null,
+        username: username ? username.value : null,
+        password: password ? password.value : null
+      }
+    })()`)) as {
+      tabs: { title: string; connected: boolean }[]
+      host: string | null
+      username: string | null
+      password: string | null
+    }
+    console.log(`  info — the state after the add: ${JSON.stringify(afterAddState)}`)
+    check(
+      'the add button does not open a session',
+      !afterAddState.tabs.some((tab) => tab.connected && tab.title.includes('10.0.0.77'))
+    )
+    check('the host field is cleared', afterAddState.host === '')
+    check('the username field is cleared', afterAddState.username === '')
+    check('the password field is cleared', afterAddState.password === '')
+
     // The menu took itself away when the host was clicked.
     const menuState = (await cdp.evaluate(`(() => {
       const el = document.querySelector('.host-menu')

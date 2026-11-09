@@ -40,6 +40,11 @@ export interface ConnectFormProps {
   error?: string | null
   /** The name of the host that was just added to the list. */
   notice?: string | null
+  /**
+   * Grows when the fields have to be cleared — after the connection was
+   * added to the list, for example.
+   */
+  resetSignal?: number
 }
 
 const DEFAULT_VALUES: ConnectFormValues = {
@@ -65,7 +70,8 @@ export function ConnectForm({
   allowAuthSwitch = false,
   busy,
   error,
-  notice
+  notice,
+  resetSignal
 }: ConnectFormProps) {
   const [values, setValues] = useState<ConnectFormValues>(() => ({
     ...DEFAULT_VALUES,
@@ -84,6 +90,20 @@ export function ConnectForm({
   useEffect(() => {
     formRef.current?.querySelector<HTMLInputElement>('input[name="host"]')?.focus()
   }, [])
+
+  // The fields are cleared when the connection was added to the list.
+  useEffect(() => {
+    if (resetSignal === undefined) return
+
+    // The clearing waits for the next tick, so the effect itself does not
+    // change the state while it runs.
+    const timer = setTimeout(() => {
+      setValues((prev) => ({ ...prev, host: '', username: '', password: '' }))
+      setKeyId(null)
+      setShowPassword(false)
+    }, 0)
+    return () => clearTimeout(timer)
+  }, [resetSignal])
 
   // The key list is needed only when key authentication is available.
   useEffect(() => {
@@ -264,7 +284,14 @@ export function ConnectForm({
       )}
 
       {error ? <div className="connect-form__error">{error}</div> : null}
-      {notice ? <div className="connect-form__notice">{notice}</div> : null}
+      {notice ? (
+        <div className="connect-form__notice">
+          <span className="connect-form__notice-mark" aria-hidden="true">
+            ✓
+          </span>
+          {notice}
+        </div>
+      ) : null}
 
       <div className="connect-form__actions">
         {onCancel ? (

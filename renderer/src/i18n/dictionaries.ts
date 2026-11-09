@@ -108,6 +108,7 @@ const en = {
   'session.disconnect': 'Disconnect',
   'session.notConnected': 'Session is not connected — reconnect to continue.',
   'session.clearScreen': 'Clear screen',
+  'session.errHostGone': 'The host is not in the list anymore',
   'session.errPasswordNotSaved':
     'The password of the host was not stored — it will be asked again.',
   'session.restoredNote': '— restored from previous session; reconnect to continue —',
@@ -331,6 +332,7 @@ const ru: Record<TranslationKey, string> = {
   'session.disconnect': 'Отключиться',
   'session.notConnected': 'Сессия не подключена — подключитесь снова, чтобы продолжить.',
   'session.clearScreen': 'Очистить экран',
+  'session.errHostGone': 'Хоста больше нет в списке',
   'session.errPasswordNotSaved':
     'Пароль хоста не сохранился — его спросят снова.',
   'session.restoredNote': '— восстановлено из прошлой сессии; подключитесь снова —',
