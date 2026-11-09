@@ -469,6 +469,61 @@ async function main(): Promise<void> {
       console.log('  wrote /tmp/hosts_connected.png')
     }
 
+    // The form has to stay inside the window when the app is zoomed in:
+    // the card scrolls, it does not run off the edge. A fresh tab holds
+    // the form — the connected session has no form in it.
+    await cdp.evaluate(`document.querySelector('.tab-bar__new')?.click(), true`)
+    await new Promise((resolve) => setTimeout(resolve, 800))
+
+    await cdp.send('Emulation.setDeviceMetricsOverride', {
+      width: 1280,
+      height: 725,
+      deviceScaleFactor: 1,
+      mobile: false
+    })
+    await new Promise((resolve) => setTimeout(resolve, 600))
+
+    const zoomed = (await cdp.evaluate(`(() => {
+      // Only the visible tab holds a form with a size — the panes of the
+      // other tabs are hidden.
+      const form = document.querySelector('.tab-pane:not([hidden]) .connect-form')
+      if (!form) return null
+      const box = form.getBoundingClientRect()
+      const note = form.querySelector('textarea')
+      const hint = form.querySelector('.field__hint')
+      form.scrollTop = form.scrollHeight
+      const actions = form.querySelector('.connect-form__actions').getBoundingClientRect()
+      return {
+        fits: box.top >= 0 && box.bottom <= innerHeight + 1,
+        box: { top: Math.round(box.top), bottom: Math.round(box.bottom), h: Math.round(box.height) },
+        inner: innerHeight,
+        scrollH: form.scrollHeight,
+        clientH: form.clientHeight,
+        scrollable: form.scrollHeight > form.clientHeight + 1,
+        actionsReachable: actions.bottom <= box.bottom + 1,
+        hint: Boolean(hint),
+        resize: note ? getComputedStyle(note).resize : 'none',
+        pageScroll: document.documentElement.scrollHeight > innerHeight + 1
+      }
+    })()`)) as {
+      fits: boolean
+      scrollable: boolean
+      actionsReachable: boolean
+      hint: boolean
+      resize: string
+      pageScroll: boolean
+    }
+    console.log(`  info — the short window: ${JSON.stringify(zoomed)}`)
+    check('the form stays inside a short window', zoomed.fits === true)
+    check('the form scrolls inside the card', zoomed.scrollable === true)
+    check('the buttons are reachable by the scroll', zoomed.actionsReachable === true)
+    check('the window itself does not scroll', zoomed.pageScroll === false)
+    check('the name field has no hint under it', zoomed.hint === false)
+    check('the note cannot be resized by the handle', zoomed.resize === 'none')
+
+    await cdp.send('Emulation.clearDeviceMetricsOverride')
+    await new Promise((resolve) => setTimeout(resolve, 400))
+
     socket.close()
   } finally {
     await cleanupApp(app, userData)

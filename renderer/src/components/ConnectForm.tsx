@@ -232,7 +232,6 @@ export function ConnectForm({
           autoComplete="off"
           spellCheck={false}
         />
-        <span className="field__hint">{t('connect.nameHint')}</span>
       </label>
 
       <label className="field">

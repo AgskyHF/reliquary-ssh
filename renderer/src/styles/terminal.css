@@ -75,6 +75,14 @@
   gap: var(--space-lg);
   width: 460px;
   max-width: 100%;
+  /* The form is taller than the window when the app is zoomed in. It
+     scrolls inside its own card then, so the title and the buttons stay
+     reachable instead of going under the edge of the window. */
+  max-height: 100%;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-border-strong) transparent;
   padding: var(--space-xl) var(--space-xxl);
   background: var(--color-bg-panel);
   border: 1px solid var(--color-border-strong);
@@ -161,13 +169,6 @@
   color: var(--color-text-muted);
 }
 
-/* The hint under a field — it says what happens when it is empty. */
-.field__hint {
-  font-size: var(--font-size-xs);
-  color: var(--color-text-faint);
-  line-height: var(--line-height-normal);
-}
-
 .field__row {
   display: flex;
   gap: var(--space-sm);
@@ -189,6 +190,16 @@
   outline: none;
   border-color: var(--color-accent);
   box-shadow: var(--focus-ring);
+}
+
+/*
+ * A note is sized by the form, not by the user: the handle in the corner
+ * of a textarea broke the look of the card, and the note never needed
+ * more room than two lines. The key dialog keeps its own handle — it is
+ * a different class.
+ */
+textarea.field__input {
+  resize: none;
 }
 
 .field__toggle {
