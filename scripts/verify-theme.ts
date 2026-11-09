@@ -274,6 +274,41 @@ async function main(): Promise<void> {
     })()`)) as Record<string, number | string> | null
     console.log(`  info — the layout: ${JSON.stringify(inside)}`)
 
+    /*
+     * The second press on the button has to take the drawer away again.
+     * The click outside the panel used to close it and the button opened
+     * it right away — the panel never went away.
+     */
+    const secondPress = (await cdp.evaluate(`(() => {
+      const button = document.querySelector('.theme-button__toggle')
+      if (!button) return false
+      button.click()
+      return true
+    })()`)) as boolean
+    check('the button was pressed again', secondPress === true)
+    await delay(800)
+
+    const closedAgain = (await cdp.evaluate(`(() => {
+      const el = document.querySelector('.theme-panel')
+      if (!el) return null
+      return el.getBoundingClientRect().width < 5
+    })()`)) as boolean | null
+    console.log(`  info — the drawer after the second press: ${JSON.stringify(closedAgain)}`)
+    check('the second press takes the drawer away', closedAgain === true)
+
+    // And it opens again on the next press.
+    await cdp.evaluate(`(() => {
+      document.querySelector('.theme-button__toggle')?.click()
+      return true
+    })()`)
+    await delay(800)
+    const openedAgain = (await cdp.evaluate(`(() => {
+      const el = document.querySelector('.theme-panel')
+      if (!el) return false
+      return el.getBoundingClientRect().width > 100
+    })()`)) as boolean
+    check('the drawer opens again', openedAgain === true)
+
     // The check mark slides out when the menu is open.
     const shownNow = await cdp.evaluate(`(() => {
       const mark = document.querySelector('.theme-button__check')

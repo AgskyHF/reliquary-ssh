@@ -202,7 +202,14 @@ export class SshAdapter extends BaseAdapter {
       // The channel may already be gone — closing the client is enough.
     }
 
-    this.client?.end()
+    /*
+     * The client is destroyed, not ended: a client that is still in the
+     * handshake does not react to end() — it waits for the handshake to
+     * finish, which may never happen. The destroy breaks the handshake
+     * at once, so the promise of the connection ends and the tab does
+     * not hang on the animation of the connection.
+     */
+    this.client?.destroy()
     this.client = null
     this.setState(SessionState.CLOSED)
     this.emitter.emit('close', undefined)

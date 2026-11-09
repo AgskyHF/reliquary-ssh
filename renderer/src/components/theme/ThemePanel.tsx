@@ -30,6 +30,17 @@ export function ThemePanel() {
     if (!open) return
 
     const onPointerDown = (event: MouseEvent): void => {
+      const target = event.target as HTMLElement | null
+
+      /*
+       * The button that opens the drawer stands in the header, while the
+       * drawer stands next to the terminal — it is not inside the panel.
+       * Without this the click on the button would count as a click
+       * outside: the panel would close and the button would open it
+       * again right away.
+       */
+      if (target?.closest?.('[data-theme-toggle]')) return
+
       if (!rootRef.current?.contains(event.target as Node)) close()
     }
 
@@ -82,11 +93,12 @@ export function ThemeToggle() {
   return (
     <button
       type="button"
+      data-theme-toggle="true"
       className={`theme-button__toggle${drawerOpen ? ' theme-button__toggle--open' : ''}`}
       title={t('theme.change')}
       aria-label={t('theme.change')}
       aria-expanded={drawerOpen}
-      onClick={() => setDrawerOpen(!drawerOpen)}
+      onClick={() => setDrawerOpen((prev) => !prev)}
     >
       {/*
         The check mark slides out of the button when the drawer opens.

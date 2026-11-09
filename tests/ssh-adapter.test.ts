@@ -1,5 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
 import { setTimeout as delay } from 'node:timers/promises'
+import { createServer, type Socket } from 'node:net'
+import type { AddressInfo } from 'node:net'
 import { AuthMethod, ProtocolType, SessionState } from '@shared/types'
 import { SshAdapter } from '@protocols/ssh'
 import { startTestSshServer, type TestSshServer } from './helpers/test-ssh-server'
@@ -105,18 +107,34 @@ describe('SshAdapter against a real SSH server', () => {
   })
 
   it('ends the handshake when the connection is taken back', async () => {
+    /*
+     * A server that accepts the tcp but never answers the handshake —
+     * the way a host behind a black hole answers. The connection hangs
+     * until the user takes it back.
+     */
+    const sockets: Socket[] = []
+    const silent = createServer((socket) => {
+      // The socket stays open and says nothing.
+      sockets.push(socket)
+    })
+    await new Promise<void>((resolve) => silent.listen(0, '127.0.0.1', resolve))
+    const port = (silent.address() as AddressInfo).port
+
     const adapter = new SshAdapter()
 
-    // A host that accepts the tcp but never answers the handshake — the
-    // way a host behind a black hole answers.
-    const connecting = adapter.connect({
-      host: '192.0.2.1',
-      port: 22,
-      username: 'nobody',
-      authMethod: AuthMethod.PASSWORD,
-      password: 'nothing',
-      timeoutMs: 30_000
-    })
+    // The promise of the connection is caught right away: it is rejected
+    // when the connection is taken back, and an unhandled rejection would
+    // fail the test on its own.
+    const connecting = adapter
+      .connect({
+        host: '127.0.0.1',
+        port,
+        username: 'nobody',
+        authMethod: AuthMethod.PASSWORD,
+        password: 'nothing',
+        timeoutMs: 30_000
+      })
+      .then(() => 'resolved', (error: Error) => `rejected: ${error.message}`)
 
     // The user takes the connection back while the handshake runs.
     await delay(300)
@@ -124,8 +142,12 @@ describe('SshAdapter against a real SSH server', () => {
 
     // The promise of the connection has to end — without it the tab would
     // hang on the animation of the connection for ever.
-    await expect(connecting).rejects.toThrow()
+    await expect(connecting).resolves.toMatch(/rejected/)
     expect(adapter.state).toBe(SessionState.CLOSED)
+
+    // The sockets are closed by hand: close() would wait for them.
+    for (const socket of sockets) socket.destroy()
+    await new Promise<void>((resolve) => silent.close(() => resolve()))
   })
 
   it('reports the protocol and terminal capability', () => {

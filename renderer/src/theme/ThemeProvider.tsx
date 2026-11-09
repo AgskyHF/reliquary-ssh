@@ -27,15 +27,28 @@ export interface ThemeContextValue {
   setThemeId: (id: string) => Promise<void>
   /** True while the drawer with the themes is out. */
   drawerOpen: boolean
-  /** Slides the drawer in or out. */
-  setDrawerOpen: (open: boolean) => void
+  /**
+   * Slides the drawer in or out.
+   *
+   * It takes the new state, or a function that gets the current one —
+   * the button of the header toggles the drawer, and it must see the
+   * state as it is at that moment.
+   */
+  setDrawerOpen: (open: boolean | ((prev: boolean) => boolean)) => void
 }
 
 const ThemeContext = createContext<ThemeContextValue | null>(null)
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
   const [themeId, setThemeIdState] = useState<string>(DEFAULT_THEME_ID)
-  const [drawerOpen, setDrawerOpen] = useState(false)
+  const [drawerOpen, setDrawerOpenState] = useState(false)
+
+  const setDrawerOpen = useCallback(
+    (open: boolean | ((prev: boolean) => boolean)) => {
+      setDrawerOpenState((prev) => (typeof open === 'function' ? open(prev) : open))
+    },
+    []
+  )
 
   // The stored theme is applied once, when the app starts.
   useEffect(() => {
@@ -76,7 +89,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
       drawerOpen,
       setDrawerOpen
     }),
-    [setThemeId, themeId, drawerOpen]
+    [drawerOpen, setDrawerOpen, setThemeId, themeId]
   )
 
   return <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>
