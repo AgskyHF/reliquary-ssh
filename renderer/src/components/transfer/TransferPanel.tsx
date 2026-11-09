@@ -14,7 +14,22 @@ import type { ImportResult } from '@shared/export'
 import { api } from '../../services/api'
 import { useI18n } from '../../i18n/I18nProvider'
 
-export function TransferPanel() {
+/** The date of a version — the day, the time and the seconds. */
+function formatDate(value: string): string {
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return value
+
+  return date.toLocaleString(undefined, {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit'
+  })
+}
+
+export function TransferPanel({ onHostsChanged }: { onHostsChanged?: () => void }) {
   const [withPasswords, setWithPasswords] = useState(false)
   const [includeKeys, setIncludeKeys] = useState(true)
   const [includeOld, setIncludeOld] = useState(true)
@@ -111,6 +126,8 @@ export function TransferPanel() {
       try {
         const outcome = await api.transfer.restore({ id })
         setMessage(outcome.summary)
+        // The host changed — the list has to show it.
+        onHostsChanged?.()
         await refresh()
       } catch (err) {
         setError(err instanceof Error ? err.message : String(err))
@@ -118,7 +135,7 @@ export function TransferPanel() {
         setBusy(false)
       }
     },
-    [refresh]
+    [onHostsChanged, refresh]
   )
 
   /** Removes a version from the old folder for good. */
@@ -134,6 +151,22 @@ export function TransferPanel() {
     [refresh]
   )
 
+  /** Empties the old folder — one click instead of one click per version. */
+  const forgetAll = useCallback(async () => {
+    setBusy(true)
+    setError(null)
+    setMessage(null)
+    try {
+      const outcome = await api.transfer.forgetAll()
+      setMessage(t('transfer.forgetAllDone', { count: outcome.removed }))
+      await refresh()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err))
+    } finally {
+      setBusy(false)
+    }
+  }, [refresh, t])
+
   const runImport = useCallback(async () => {
     setBusy(true)
     setError(null)
@@ -142,13 +175,15 @@ export function TransferPanel() {
       const outcome = await api.transfer.import()
       setResult(outcome)
       if (outcome.summary !== 'Cancelled') setMessage(outcome.summary)
+      // The import changed the hosts — the list has to show them.
+      if (outcome.added > 0 || outcome.updated > 0) onHostsChanged?.()
       await refresh()
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err))
     } finally {
       setBusy(false)
     }
-  }, [refresh])
+  }, [onHostsChanged, refresh])
 
   /**
    * The sealed export needs an unlocked master password.
@@ -330,19 +365,52 @@ export function TransferPanel() {
 
       <div className="transfer-panel__old">
         <div className="transfer-panel__old-title">
-          {t('transfer.oldTitle', { count: superseded.length })}
+          <span>{t('transfer.oldTitle', { count: superseded.length })}</span>
+          {superseded.length > 0 ? (
+            <button
+              type="button"
+              className="button button--ghost transfer-panel__forget-all"
+              disabled={busy}
+              onClick={() => void forgetAll()}
+            >
+              {t('transfer.forgetAll')}
+            </button>
+          ) : null}
         </div>
         {superseded.length === 0 ? (
           <div className="sidebar__empty">{t('transfer.oldEmpty')}</div>
         ) : (
           superseded.map((item) => (
             <div key={item.id} className="transfer-panel__old-item">
-              <span className="transfer-panel__old-name">{item.name}</span>
-              <span className="transfer-panel__old-target">{item.target}</span>
-              <span className="transfer-panel__old-time">
-                {new Date(item.replacedAt).toLocaleString()}
-                {item.hasPassword ? t('transfer.withPasswordTag') : ''}
-              </span>
+              <div className="transfer-panel__old-version">
+                <span className="transfer-panel__old-tag">
+                  {t('transfer.oldVersionTag')}
+                </span>
+                <span className="transfer-panel__old-name">{item.name}</span>
+                <span className="transfer-panel__old-target">{item.target}</span>
+                <span className="transfer-panel__old-time">
+                  {formatDate(item.updatedAt)}
+                  {item.hasPassword ? t('transfer.withPasswordTag') : ''}
+                </span>
+              </div>
+
+              <div className="transfer-panel__old-version">
+                <span className="transfer-panel__old-tag transfer-panel__old-tag--current">
+                  {t('transfer.currentVersionTag')}
+                </span>
+                <span className="transfer-panel__old-name">
+                  {item.currentName || t('transfer.currentGone')}
+                </span>
+                {item.currentTarget ? (
+                  <span className="transfer-panel__old-target">{item.currentTarget}</span>
+                ) : null}
+                {item.currentUpdatedAt ? (
+                  <span className="transfer-panel__old-time">
+                    {formatDate(item.currentUpdatedAt)}
+                  </span>
+                ) : null}
+              </div>
+
               <div className="transfer-panel__old-actions">
                 <button
                   type="button"

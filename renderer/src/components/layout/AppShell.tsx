@@ -13,6 +13,11 @@ interface AppShellProps {
   /** The number of the hosts in the list — it reloads them when it grows. */
   hostsVersion?: number
   /**
+   * Called when the hosts changed outside of the list — an import, for
+   * example. The list reloads them.
+   */
+  onHostsChanged?: () => void
+  /**
    * Opens a tab for a saved host. The sidebar needs it to connect to a
    * host — the tabs themselves live in the main area.
    */
@@ -29,7 +34,12 @@ type SidebarSection = 'hosts' | 'keychain' | 'sync' | 'transfer' | 'settings'
  * The MainArea content (tabs, panels) is owned by the children —
  * new panels are added inside the regions below, the shell stays untouched.
  */
-export function AppShell({ children, onOpenHost, hostsVersion }: AppShellProps) {
+export function AppShell({
+  children,
+  onOpenHost,
+  hostsVersion,
+  onHostsChanged
+}: AppShellProps) {
   const [section, setSection] = useState<SidebarSection>('hosts')
 
   return (
@@ -40,6 +50,7 @@ export function AppShell({ children, onOpenHost, hostsVersion }: AppShellProps) 
         onSelect={setSection}
         onOpenHost={onOpenHost}
         hostsVersion={hostsVersion}
+        onHostsChanged={onHostsChanged}
       />
       <main className="app-shell__main">{children}</main>
     </div>
@@ -125,7 +136,8 @@ function Sidebar({
   section,
   onSelect,
   onOpenHost,
-  hostsVersion
+  hostsVersion,
+  onHostsChanged
 }: {
   section: SidebarSection
   onSelect: (section: SidebarSection) => void
@@ -134,6 +146,7 @@ function Sidebar({
     protocol: TabKind
   ) => void
   hostsVersion?: number
+  onHostsChanged?: () => void
 }) {
   const { t } = useI18n()
   const [query, setQuery] = useState('')
@@ -225,7 +238,7 @@ function Sidebar({
         ) : section === 'transfer' ? (
           <>
             <div className="sidebar__section-header">{t('nav.export')}</div>
-            <TransferPanel />
+            <TransferPanel onHostsChanged={onHostsChanged} />
           </>
         ) : section === 'keychain' ? (
           <>

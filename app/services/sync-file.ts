@@ -284,7 +284,9 @@ export class SyncService {
     deviceId: string
   ): Promise<SyncEntry | null> {
     if (entity === 'hosts') {
-      const host = this.storage.hosts.get(entityId)
+      // A deleted host is a tombstone — it has to travel with the file,
+      // otherwise the other device would keep a host the user removed.
+      const host = this.storage.hosts.getIncludingDeleted(entityId)
       if (!host) return null
 
       // The password travels with the host: it is already sealed with the
@@ -374,7 +376,7 @@ export class SyncService {
   /** The version vector of the local row, or null when it is unknown. */
   private async localVector(entry: SyncEntry): Promise<SyncVector | null> {
     if (entry.entity === 'hosts') {
-      const host = this.storage.hosts.get(entry.entityId)
+      const host = this.storage.hosts.getIncludingDeleted(entry.entityId)
       return host ? { version: host.version, updatedAt: host.updatedAt } : null
     }
 

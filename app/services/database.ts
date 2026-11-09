@@ -115,9 +115,46 @@ export class HostRepository {
     return (this.db.prepare(sql).all() as HostRow[]).map(rowToHost)
   }
 
+  /**
+   * One host by its id.
+   *
+   * A deleted host is not returned: the user deleted it, so it does not
+   * exist for the app. The soft-deleted rows are kept for the merge, and
+   * `getIncludingDeleted` reaches them.
+   */
   get(id: string): Host | null {
+    const row = this.db
+      .prepare('SELECT * FROM hosts WHERE id = ? AND deleted_at IS NULL')
+      .get(id) as HostRow | undefined
+    return row ? rowToHost(row) : null
+  }
+
+  /** One host by its id — the deleted ones too. */
+  getIncludingDeleted(id: string): Host | null {
     const row = this.db.prepare('SELECT * FROM hosts WHERE id = ?').get(id) as HostRow | undefined
     return row ? rowToHost(row) : null
+  }
+
+  /**
+   * The live host with the same endpoint — the same address, port and
+   * user. The id may differ: the host can have been created again on
+   * another device.
+   */
+  findByEndpoint(host: {
+    host: string
+    port: number
+    username: string
+    protocol: string
+  }): Host | null {
+    const rows = this.db
+      .prepare(
+        `SELECT * FROM hosts WHERE deleted_at IS NULL AND host = ? AND port = ? AND username = ?
+           AND protocol = ?`
+      )
+      .all(host.host, host.port, host.username, host.protocol) as HostRow[]
+
+    if (rows.length === 0) return null
+    return rowToHost(rows[0]!)
   }
 
   save(host: Partial<Host>): Host {

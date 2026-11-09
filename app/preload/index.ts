@@ -42,7 +42,8 @@ const api: ReliquaryApi = {
     import: (payload) => ipcRenderer.invoke(IPC.EXPORT_IMPORT, payload),
     superseded: () => ipcRenderer.invoke(IPC.EXPORT_SUPERSEDED_LIST),
     restore: (payload) => ipcRenderer.invoke(IPC.EXPORT_SUPERSEDED_RESTORE, payload),
-    forget: (payload) => ipcRenderer.invoke(IPC.EXPORT_SUPERSEDED_REMOVE, payload)
+    forget: (payload) => ipcRenderer.invoke(IPC.EXPORT_SUPERSEDED_REMOVE, payload),
+    forgetAll: () => ipcRenderer.invoke(IPC.EXPORT_SUPERSEDED_REMOVE_ALL)
   },
 
   hostPassword: {

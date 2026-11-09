@@ -84,12 +84,20 @@ export interface SupersededSummary {
   name: string
   /** The endpoint of that version. */
   target: string
+  /** When that version itself was changed — its own date of modification. */
+  updatedAt: string
   /** When it was replaced. */
   replacedAt: string
   /** Why it was replaced: 'newer' or 'deleted'. */
   reason: string
   /** True when the version carries a sealed password. */
   hasPassword: boolean
+  /** The name of the version that won — the current one. */
+  currentName: string
+  /** The endpoint of the version that won. */
+  currentTarget: string
+  /** When the version that won was changed. */
+  currentUpdatedAt: string
 }
 
 /** What a restore did. */
@@ -213,6 +221,8 @@ export interface ReliquaryApi {
     restore(payload: { id: string }): Promise<RestoreSummary>
     /** Removes a version from the old folder — the user said it is not needed. */
     forget(payload: { id: string }): Promise<void>
+    /** Removes every version from the old folder at once. */
+    forgetAll(): Promise<{ removed: number }>
   }
 
   hostPassword: {

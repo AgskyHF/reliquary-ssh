@@ -424,4 +424,77 @@ describe('export and import', () => {
 
     await expect(service.import(zip.toBuffer(), null)).rejects.toThrow(/not a ReliquarySSH/u)
   })
+
+  it('brings a deleted host back as a live host, not into the old folder', async () => {
+    await master.set(PASSWORD)
+    const host = makeHost('prod', '2026-11-07T10:00:00.000Z', 'super secret')
+
+    // The user exports, deletes the host and imports the archive back.
+    const buffer = await service.build({ mode: 'sealed', includeKeys: true, includeOld: true })
+    storage.hosts.remove(host.id)
+
+    const result = await service.import(buffer, master.getMasterKey())
+
+    // The host is back — right away, not as a version to restore.
+    expect(result.added).toBe(1)
+    expect(storage.hosts.list().map((item) => item.name)).toEqual(['prod'])
+    expect(storage.hosts.get(host.id)).not.toBeNull()
+
+    // And nothing waits in the old folder.
+    expect(storage.superseded.list()).toHaveLength(0)
+
+    // The password came back with it.
+    const revealed = storage.passwords.reveal(host.id, master.getMasterKey()!)
+    expect(revealed).toBe('super secret')
+  })
+
+  it('replaces the older host with the newer one when both exist', async () => {
+    await master.set(PASSWORD)
+    const host = makeHost('prod', '2026-11-07T10:00:00.000Z', 'old password')
+
+    const buffer = await service.build({ mode: 'sealed', includeKeys: true, includeOld: true })
+
+    // The host changes on the other device — the archive carries the
+    // newer version of the same host.
+    const newer = { ...host, name: 'prod-new', updatedAt: '2026-11-09T10:00:00.000Z', version: 9 }
+    storage.hosts.save(newer)
+
+    const result = await service.import(buffer, master.getMasterKey())
+
+    // The older archive loses — the newer one stays.
+    expect(result.updated).toBe(0)
+    expect(result.unchanged).toBe(1)
+    expect(storage.hosts.list()[0]?.name).toBe('prod-new')
+
+    // The losing version waits in the old folder.
+    const old = storage.superseded.list()
+    expect(old).toHaveLength(1)
+    expect(old[0]?.hostId).toBe(host.id)
+  })
+
+  it('does not add the same version to the old folder twice', async () => {
+    await master.set(PASSWORD)
+    makeHost('prod', '2026-11-07T10:00:00.000Z', 'old password')
+
+    const buffer = await service.build({ mode: 'sealed', includeKeys: true, includeOld: true })
+
+    await service.import(buffer, master.getMasterKey())
+    await service.import(buffer, master.getMasterKey())
+
+    // The old folder is a list of versions, not a log of the imports.
+    expect(storage.superseded.list()).toHaveLength(1)
+  })
+
+  it('empties the old folder in one go', async () => {
+    await master.set(PASSWORD)
+    makeHost('prod', '2026-11-07T10:00:00.000Z', 'old password')
+    makeHost('stage', '2026-11-07T10:00:00.000Z', 'old password')
+
+    const buffer = await service.build({ mode: 'sealed', includeKeys: true, includeOld: true })
+    await service.import(buffer, master.getMasterKey())
+
+    expect(storage.superseded.list().length).toBeGreaterThan(0)
+    expect(storage.superseded.removeAll()).toBe(storage.superseded.list().length + 2)
+    expect(storage.superseded.list()).toHaveLength(0)
+  })
 })

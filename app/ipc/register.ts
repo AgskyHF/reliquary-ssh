@@ -645,33 +645,53 @@ export function registerIpcHandlers(): void {
   })
 
   handle(IPC.EXPORT_SUPERSEDED_LIST, async (): Promise<SupersededSummary[]> => {
-    return getStorage().superseded.list().map((record) => {
+    const storage = getStorage()
+
+    return storage.superseded.list().map((record) => {
       let name = record.hostId
       let target = ''
+      let updatedAt = record.replacedAt
       let hasPassword = false
 
       try {
         const payload = JSON.parse(record.payload) as {
-          connection?: { name?: string; host?: string; port?: number; username?: string }
+          connection?: {
+            name?: string
+            host?: string
+            port?: number
+            username?: string
+            updatedAt?: string
+          }
           encryptedPassword?: string | null
         }
         name = payload.connection?.name ?? record.hostId
         target = payload.connection
           ? `${payload.connection.username ?? ''}@${payload.connection.host ?? ''}:${payload.connection.port ?? 22}`
           : ''
+        updatedAt = payload.connection?.updatedAt ?? record.replacedAt
         hasPassword = Boolean(payload.encryptedPassword)
       } catch {
         // A broken payload still shows the id.
       }
+
+      // The version that won — the current one. The user wants to see
+      // both: what was replaced and what replaced it.
+      const current = storage.hosts.getIncludingDeleted(record.replacedBy)
 
       return {
         id: record.id,
         hostId: record.hostId,
         name,
         target,
+        updatedAt,
         replacedAt: record.replacedAt,
         reason: record.reason,
-        hasPassword
+        hasPassword,
+        currentName: current?.name ?? '',
+        currentTarget: current
+          ? `${current.username}@${current.host}:${current.port}`
+          : '',
+        currentUpdatedAt: current?.updatedAt ?? ''
       }
     })
   })
@@ -684,6 +704,12 @@ export function registerIpcHandlers(): void {
 
   handle(IPC.EXPORT_SUPERSEDED_REMOVE, async (_event, payload: { id: string }) => {
     getStorage().superseded.remove(payload.id)
+  })
+
+  handle(IPC.EXPORT_SUPERSEDED_REMOVE_ALL, async (): Promise<{ removed: number }> => {
+    const removed = getStorage().superseded.removeAll()
+    logger.info('The old folder was emptied', { removed })
+    return { removed }
   })
 
   // ---- host passwords ----

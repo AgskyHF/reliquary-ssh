@@ -47,6 +47,7 @@ export default function App() {
         <AppShell
           onOpenHost={(host, protocol) => setPendingHost({ ...host, protocol })}
           hostsVersion={hostsVersion}
+          onHostsChanged={() => setHostsVersion((prev) => prev + 1)}
         >
           <TabsWorkspace
             pendingHost={pendingHost}

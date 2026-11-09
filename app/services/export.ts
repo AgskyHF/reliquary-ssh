@@ -202,40 +202,32 @@ export class ExportService {
       const local = this.storage.hosts.get(incoming.id)
 
       if (!local) {
+        // The host was deleted here. The tombstone is still in the
+        // database, but the host does not exist for the user — so the
+        // import brings it back, right away, as a live host. It does not
+        // go to the old folder: there is nothing to restore it from.
+        const tombstone = this.storage.hosts.getIncludingDeleted(incoming.id)
+
+        if (tombstone) {
+          this.applyConnection(incoming, secrets, material, tombstone.id)
+          result.added++
+          continue
+        }
+
+        // The same host may exist under another id — it was created
+        // again on another device. The endpoint decides.
+        const same = this.storage.hosts.findByEndpoint(incoming)
+        if (same) {
+          this.mergeInto(incoming, same, secrets, material, result)
+          continue
+        }
+
         this.applyConnection(incoming, secrets, material)
         result.added++
         continue
       }
 
-      // The newer record wins. The timestamps are ISO strings, so the
-      // lexicographic order is the chronological one.
-      if (incoming.updatedAt > local.updatedAt) {
-        // The local version loses — it is kept, not deleted, together
-        // with the password it had.
-        this.storeSuperseded(
-          local,
-          this.localPasswordEnvelope(local.id),
-          incoming.id,
-          'newer'
-        )
-        result.superseded++
-
-        this.applyConnection(incoming, secrets, material)
-        result.updated++
-        continue
-      }
-
-      // The incoming version is older — it loses. Its password goes to
-      // the old folder too: that is the version the user may still need
-      // (the old password of a host that was changed elsewhere).
-      this.storeSuperseded(
-        incoming,
-        secrets?.passwords[incoming.id] ?? null,
-        local.id,
-        'newer'
-      )
-      result.superseded++
-      result.unchanged++
+      this.mergeInto(incoming, local, secrets, material, result)
     }
 
     // The keys.
@@ -320,10 +312,17 @@ export class ExportService {
   private applyConnection(
     incoming: ExportedConnection,
     secrets: ExportSecrets | null,
-    material: MasterKeyMaterial | null
+    material: MasterKeyMaterial | null,
+    targetId?: string
   ): void {
+    const id = targetId ?? incoming.id
+
     this.storage.hosts.save({
       ...incoming,
+      id,
+      // The host comes back to life — the tombstone of the deleted row
+      // must not travel with it.
+      deletedAt: null,
       deviceId: incoming.deviceId || ''
     })
 
@@ -334,7 +333,7 @@ export class ExportService {
       // The device has no master password yet. The sealed password is
       // stored as it is — it opens as soon as the user enters the master
       // password of the account.
-      this.storage.passwords.saveSealed(incoming.id, envelope, incoming.deviceId || '')
+      this.storage.passwords.saveSealed(id, envelope, incoming.deviceId || '')
       return
     }
 
@@ -343,16 +342,71 @@ export class ExportService {
     // device derives the same key.
     try {
       const plaintext = decryptWithMasterKey(envelope, material)
-      this.storage.passwords.save(incoming.id, plaintext, material, incoming.deviceId || '')
+      this.storage.passwords.save(id, plaintext, material, incoming.deviceId || '')
     } catch {
       // The master passwords differ — the password stays sealed. It is
       // kept, not lost: the user can unlock it with the account password.
-      this.storage.passwords.saveSealed(incoming.id, envelope, incoming.deviceId || '')
+      this.storage.passwords.saveSealed(id, envelope, incoming.deviceId || '')
       logger.warn(`The password of ${incoming.name} stays sealed`)
     }
   }
 
-  /** Stores the local version that lost a merge. */
+  /**
+   * Merges an incoming version into the local one.
+   *
+   * The newer record wins — the dates decide, not the ids. The loser is
+   * not deleted: it goes to the old folder with the password it had, so
+   * the old password is never lost.
+   */
+  private mergeInto(
+    incoming: ExportedConnection,
+    local: Host,
+    secrets: ExportSecrets | null,
+    material: MasterKeyMaterial | null,
+    result: ImportResult
+  ): void {
+    // The newer record wins. The timestamps are ISO strings, so the
+    // lexicographic order is the chronological one.
+    if (incoming.updatedAt > local.updatedAt) {
+      // The local version loses — it is kept, not deleted, together
+      // with the password it had.
+      //
+      // The winner is stored under the local id: the host keeps its
+      // place in the list, only its content changes.
+      this.storeSuperseded(
+        local,
+        this.localPasswordEnvelope(local.id),
+        local.id,
+        'newer'
+      )
+      result.superseded++
+
+      this.applyConnection(incoming, secrets, material, local.id)
+      result.updated++
+      return
+    }
+
+    // The incoming version is older — it loses. Its password goes to
+    // the old folder too: that is the version the user may still need
+    // (the old password of a host that was changed elsewhere).
+    this.storeSuperseded(
+      incoming,
+      secrets?.passwords[incoming.id] ?? null,
+      local.id,
+      'newer'
+    )
+    result.superseded++
+    result.unchanged++
+  }
+
+  /**
+   * Stores the local version that lost a merge.
+   *
+   * The same version can be stored again and again — every import of the
+   * same archive would add another copy of it. One copy per host and
+   * per version is enough: the old folder is a list of versions, not a
+   * log of the imports.
+   */
   private storeSuperseded(
     local: Host,
     encryptedPassword: string | null,
@@ -362,6 +416,22 @@ export class ExportService {
     const connection: ExportedConnection = {
       ...local,
       hasPassword: Boolean(encryptedPassword)
+    }
+
+    const payload = JSON.stringify({
+      connection,
+      encryptedPassword
+    } satisfies SupersededPayload)
+
+    // The same version of the same host is already in the folder — the
+    // import does not add it a second time.
+    const existing = this.storage.superseded
+      .listForHost(local.id)
+      .find((record) => record.payload === payload)
+
+    if (existing) {
+      this.storage.superseded.touch(existing.id)
+      return
     }
 
     this.storage.superseded.record({
@@ -374,11 +444,27 @@ export class ExportService {
 
   /** Stores a superseded version that came from the archive. */
   private storeSupersededPayload(entry: ExportSuperseded): void {
+    const payload = JSON.stringify({
+      connection: entry.connection,
+      encryptedPassword: entry.encryptedPassword ?? null
+    } satisfies SupersededPayload)
+
+    // The archive can be imported more than once — the version it
+    // carries is stored once, not once per import.
+    const existing = this.storage.superseded
+      .listForHost(entry.hostId)
+      .find((record) => record.payload === payload)
+
+    if (existing) {
+      this.storage.superseded.touch(existing.id)
+      return
+    }
+
     this.storage.superseded.record({
       hostId: entry.hostId,
       payload: {
         connection: entry.connection,
-        encryptedPassword: entry.encryptedPassword
+        encryptedPassword: entry.encryptedPassword ?? null
       } satisfies SupersededPayload,
       replacedBy: entry.replacedBy,
       reason: entry.reason === 'deleted' ? 'deleted' : 'newer',

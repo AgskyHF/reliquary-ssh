@@ -306,6 +306,38 @@ async function main(): Promise<void> {
       await waitFor(cdpA, exists('.transfer-panel__restore'), 15)
     )
 
+    // The version shows both sides: what was replaced and what replaced
+    // it, with the date of each.
+    const details = await cdpA.evaluate(`(() => {
+      const item = document.querySelector('.transfer-panel__old-item')
+      if (!item) return null
+      return {
+        tags: Array.from(item.querySelectorAll('.transfer-panel__old-tag')).map(
+          (node) => node.textContent
+        ),
+        names: Array.from(item.querySelectorAll('.transfer-panel__old-name')).map(
+          (node) => node.textContent
+        ),
+        times: Array.from(item.querySelectorAll('.transfer-panel__old-time')).map(
+          (node) => node.textContent
+        )
+      }
+    })()`) as { tags: string[]; names: string[]; times: string[] } | null
+
+    checks.check('the version shows both versions', Boolean(details && details.tags.length === 2))
+    checks.check(
+      'the replaced version is named',
+      Boolean(details?.names[0]?.includes('prod'))
+    )
+    checks.check(
+      'the current version is named',
+      Boolean(details?.names[1]?.includes('prod-new'))
+    )
+    checks.check(
+      'both dates are shown',
+      Boolean(details && details.times.length === 2 && details.times.every((time) => time.length > 0))
+    )
+
     await cdpA.evaluate(`document.querySelector('.transfer-panel__restore')?.click(), true`)
 
     checks.check(
@@ -334,6 +366,52 @@ async function main(): Promise<void> {
       return window.reliquary.hostPassword.has({ hostId: hosts[0].id })
     })()`)
     checks.check('the restored version keeps its password', passwordIsBack === true)
+
+    // 8. the old folder can be emptied in one click.
+    checks.check(
+      'the old folder has a "forget all" button',
+      await waitFor(cdpA, exists('.transfer-panel__forget-all'), 15)
+    )
+
+    await cdpA.evaluate(`document.querySelector('.transfer-panel__forget-all')?.click(), true`)
+
+    checks.check(
+      'the old folder is empty',
+      await waitFor(cdpA, `window.reliquary.transfer.superseded().then(l => l.length === 0)`, 25)
+    )
+
+    // 9. the deleted host comes back with the import — right away, as a
+    // live host, and not as a version waiting in the old folder.
+    const roundTrip = await cdpA.evaluate(`(async () => {
+      const hosts = await window.reliquary.host.list()
+      const target = hosts[0]
+      await window.reliquary.host.remove(target.id)
+      const afterDelete = await window.reliquary.host.list()
+
+      const result = await window.reliquary.transfer.import({
+        path: ${JSON.stringify(sealedArchive)}
+      })
+
+      const afterImport = await window.reliquary.host.list()
+      const old = await window.reliquary.transfer.superseded()
+
+      return {
+        deleted: afterDelete.length,
+        added: result.added,
+        hosts: afterImport.map((host) => host.name),
+        old: old.length
+      }
+    })()`) as {
+      deleted: number
+      added: number
+      hosts: string[]
+      old: number
+    }
+
+    checks.check('the host was deleted', roundTrip.deleted === 0)
+    checks.check('the import brings the host back', roundTrip.added === 1)
+    checks.check('the host is in the list again', roundTrip.hosts.includes('prod'))
+    checks.check('nothing waits in the old folder', roundTrip.old === 0)
 
     exitCode = checks.allPassed ? 0 : 1
   } catch (error) {

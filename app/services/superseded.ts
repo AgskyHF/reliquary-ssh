@@ -141,6 +141,37 @@ export class SupersededRepository {
       .run(now, now, id)
   }
 
+  /**
+   * Moves a version to the top of the old folder.
+   *
+   * The version was already there — the import found it again. It is
+   * touched, not copied: the folder is a list of versions, not a log.
+   */
+  touch(id: string): void {
+    const now = new Date().toISOString()
+    this.db
+      .prepare('UPDATE superseded_connections SET updated_at = ? WHERE id = ?')
+      .run(now, id)
+  }
+
+  /**
+   * Removes every superseded version at once.
+   *
+   * The user does not want the old folder — one click instead of one
+   * click per version.
+   */
+  removeAll(): number {
+    const now = new Date().toISOString()
+    const result = this.db
+      .prepare(
+        `UPDATE superseded_connections SET deleted_at = ?, updated_at = ?, version = version + 1
+           WHERE deleted_at IS NULL`
+      )
+      .run(now, now)
+
+    return Number(result.changes ?? 0)
+  }
+
   /** The number of stored versions. */
   count(): number {
     const row = this.db

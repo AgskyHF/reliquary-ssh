@@ -67,18 +67,52 @@
 }
 
 .transfer-panel__old-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-xs);
   font-size: var(--font-size-sm);
   font-weight: var(--font-weight-medium);
   color: var(--color-text-muted);
   margin-bottom: var(--space-xs);
 }
 
+.transfer-panel__forget-all {
+  font-size: var(--font-size-xs);
+  padding: 2px var(--space-xs);
+}
+
 .transfer-panel__old-item {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: var(--space-xs);
   padding: var(--space-xs) 0;
   border-bottom: 1px solid var(--color-border);
+}
+
+/* One version of a host: the replaced one and the current one. */
+.transfer-panel__old-version {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding-left: var(--space-xs);
+  border-left: 2px solid var(--color-border);
+}
+
+.transfer-panel__old-version:has(.transfer-panel__old-tag--current) {
+  border-left-color: var(--color-accent);
+}
+
+.transfer-panel__old-tag {
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-faint);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.transfer-panel__old-tag--current {
+  color: var(--color-accent);
 }
 
 .transfer-panel__old-name {
