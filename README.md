@@ -13,7 +13,7 @@ reserved in the protocol interface but not implemented yet.
 | --- | --- |
 | Terminal | xterm.js with a real PTY, resize, reconnect banner after a drop |
 | Tabs | several independent sessions at once, the layout is restored on restart |
-| SFTP | file manager: list, navigate, download, upload |
+| SFTP | file manager: list, navigate, download, upload, delete a file or a folder |
 | Keys | generate RSA / Ed25519 / ECDSA, import an existing private key, export the public key, SHA256 fingerprints |
 | Hosts | name, address, port, user, notes; password or a key from the key store |
 | Themes | ten terminal themes — each sets the background, the text, the ANSI palette, the font and the size |
