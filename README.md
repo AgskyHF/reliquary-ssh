@@ -7,6 +7,8 @@ machine, without an account and without a server.
 Electron + React + TypeScript. SSH and SFTP work; FTP, Telnet and Serial are
 reserved in the protocol interface but not implemented yet.
 
+![The host list of the sidebar](docs/screenshots/01-hosts.png)
+
 ## What it does
 
 | | |
@@ -20,6 +22,37 @@ reserved in the protocol interface but not implemented yet.
 | Language | English and Russian |
 | Export | one ZIP archive with the connections, the keys and the replaced versions |
 
+## The terminal
+
+A real shell over SSH — `ssh2` on the main process, xterm.js in the renderer.
+The PTY is resized with the window, and the session survives a broken
+connection: the app shows a reconnect banner instead of dying.
+
+![A live SSH session](docs/screenshots/02-terminal.png)
+
+Several sessions run at the same time, each in its own tab. The tabs are
+restored when the app starts again, with the output that was there — the
+session has to be reconnected on purpose.
+
+## The file manager
+
+The SFTP tab is a file manager: it lists the remote directory, walks into
+the folders, downloads and uploads the files, and deletes them. A folder goes
+with everything inside it, and the deletion is always asked for first.
+
+![The SFTP file manager](docs/screenshots/03-sftp.png)
+
+## The key store
+
+Keys are generated inside the app (RSA, Ed25519, ECDSA) or imported from an
+existing private key. The public key is ready for `authorized_keys`, the
+SHA256 fingerprint is the same one `ssh-keygen -lf` prints.
+
+The private part never leaves the main process — the renderer only ever gets
+the public half.
+
+![The key store](docs/screenshots/04-keychain.png)
+
 ## The data stays on the machine
 
 There is no server, no account and no cloud. Everything is stored in a local
@@ -27,7 +60,7 @@ SQLite database in the user data directory.
 
 The private keys and the passwords of the hosts are encrypted at rest
 (AES-256-GCM) with a key that belongs to this machine. The plaintext never
-leaves the main process — the renderer gets only the public part of a key.
+leaves the main process.
 
 To move the data to another machine, export an archive and carry the file —
 a USB stick, a cloud disk, a messenger, whatever suits:
@@ -46,6 +79,31 @@ key.
 The merge is last-write-wins on the modification date. A version that loses is
 not deleted — it goes to the "replaced versions" list with its password, and
 any of them can be restored with one click. The old password is never lost.
+
+## The themes
+
+Ten terminal themes, each with its own background, text colour, ANSI palette,
+font and size. A theme can be picked in the settings or in a live session —
+the drawer belongs to the tab it was opened in, so it never closes by itself.
+
+![The theme drawer](docs/screenshots/05-themes.png)
+
+## Install
+
+The releases carry macOS builds for Apple Silicon and for Intel:
+
+| File | Chip |
+| --- | --- |
+| `ReliquarySSH-0.1.1-arm64.dmg` | Apple Silicon (M1/M2/M3/M4) |
+| `ReliquarySSH-0.1.1.dmg` | Intel |
+| `ReliquarySSH-0.1.1-arm64-mac.zip` / `ReliquarySSH-0.1.1-mac.zip` | the same, unpacked |
+
+The builds are not signed and not notarised, so macOS shows a warning on the
+first launch — right-click the app and choose "Open", or allow it in
+System Settings → Privacy & Security.
+
+Windows and Linux are not built yet; the electron-builder targets are
+prepared but commented out.
 
 ## Status
 
@@ -97,7 +155,7 @@ npm run icon       # regenerate build/icon.png and build/icon.icns from build/as
 ### Verification harnesses
 
 Every stage has a GUI harness that drives the real app over the Chrome DevTools
-Protocol, against a real SSH server:
+Protocol, against a real SSH or SFTP server:
 
 ```sh
 node --experimental-strip-types scripts/verify-stage2.ts
@@ -111,15 +169,17 @@ node --experimental-strip-types scripts/verify-sftp-layout.ts
 node --experimental-strip-types scripts/verify-i18n.ts
 node --experimental-strip-types scripts/verify-export.ts
 node --experimental-strip-types scripts/verify-theme.ts
+node --experimental-strip-types scripts/verify-file-delete.ts
 ```
 
 `verify-stage3` and `verify-host-form` are outdated: they expect a layout that
 moved into SQLite and a button that was removed. They are not regressions.
 
-The interface can be looked at without a window on the desktop:
+The pictures of this page are made by a harness too — `scripts/shoot-readme.ts`
+opens the real app against the test servers and takes the shots:
 
 ```sh
-node --experimental-strip-types scripts/shoot-ui.ts russian /tmp/rel.png
+node --experimental-strip-types scripts/shoot-readme.ts docs/screenshots
 ```
 
 ## Known limitations
