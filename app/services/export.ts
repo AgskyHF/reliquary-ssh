@@ -70,7 +70,7 @@ export class ExportService {
    * go into the archive as they are, so any device that imports it has
    * them. Without the option the archive carries no secret at all.
    */
-  async build(options: ExportOptions, appVersion = '0.1.0'): Promise<ExportBuildResult> {
+  async build(options: ExportOptions, appVersion = '0.1.1'): Promise<ExportBuildResult> {
     const withPasswords = options.mode === 'with-passwords'
     // The private keys travel sealed — a key needs a master password on
     // the other side anyway, and it is not what this option is about.

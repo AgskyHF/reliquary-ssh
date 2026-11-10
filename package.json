@@ -1,6 +1,6 @@
 {
   "name": "reliquary-ssh",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "SSH and SFTP terminal client — tabs, a key store and a portable export",
   "main": "./out/main/index.js",
   "author": "AgskyHF",
