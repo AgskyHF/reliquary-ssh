@@ -82,6 +82,32 @@ describe('SftpAdapter against a real SFTP server', () => {
     expect(listing.entries.map((entry) => entry.name)).toContain('uploaded.txt')
   })
 
+  it('deletes a remote file', async () => {
+    const target = join(server.root, 'doomed.txt')
+    writeServerFile(server.root, 'doomed.txt', 'goodbye\n')
+
+    await adapter.delete({ remotePath: target })
+
+    expect(existsSync(target)).toBe(false)
+    const listing = await adapter.list(server.root)
+    expect(listing.entries.map((entry) => entry.name)).not.toContain('doomed.txt')
+  })
+
+  it('deletes a remote directory with its contents', async () => {
+    const dir = makeServerDir(server.root, 'doomed-dir')
+    writeFileSync(join(dir, 'inner.txt'), 'inner\n', 'utf8')
+
+    await adapter.delete({ remotePath: dir })
+
+    expect(existsSync(dir)).toBe(false)
+  })
+
+  it('refuses to delete a file that is not there', async () => {
+    await expect(
+      adapter.delete({ remotePath: join(server.root, 'never-existed.txt') })
+    ).rejects.toThrow()
+  })
+
   it('rejects a connection with a wrong password', async () => {
     const bad = new SftpAdapter()
     await expect(

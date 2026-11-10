@@ -131,6 +131,12 @@ const en = {
   'files.empty': 'Directory is empty',
   'files.open': 'Open',
   'files.download': 'Download',
+  'files.delete': 'Delete',
+  'files.deleteYes': 'Yes, delete',
+  'files.deleteNo': 'Cancel',
+  'files.deleting': 'Deleting {name}…',
+  'files.confirmDeleteFile': 'Delete the file "{name}"?',
+  'files.confirmDeleteDir': 'Delete the folder "{name}" with everything inside it?',
 
   // ---- keychain ----
   'key.new': 'New key',
@@ -323,6 +329,12 @@ const ru: Record<TranslationKey, string> = {
   'files.empty': 'Каталог пуст',
   'files.open': 'Открыть',
   'files.download': 'Скачать',
+  'files.delete': 'Удалить',
+  'files.deleteYes': 'Да, удалить',
+  'files.deleteNo': 'Отмена',
+  'files.deleting': 'Удаление {name}…',
+  'files.confirmDeleteFile': 'Удалить файл «{name}»?',
+  'files.confirmDeleteDir': 'Удалить папку «{name}» со всем содержимым?',
 
   'key.new': 'Новый ключ',
   'key.import': 'Импорт',

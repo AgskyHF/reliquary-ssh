@@ -17,7 +17,11 @@ export interface FileManagerProps {
   onError?: (message: string) => void
 }
 
-type Status = { kind: 'idle' } | { kind: 'busy'; text: string } | { kind: 'error'; text: string }
+type Status =
+  | { kind: 'idle' }
+  | { kind: 'busy'; text: string }
+  | { kind: 'message'; text: string }
+  | { kind: 'error'; text: string }
 
 const PATH_SEPARATOR = '/'
 
@@ -46,6 +50,8 @@ export function FileManager({ sessionId, onError }: FileManagerProps) {
   const [listing, setListing] = useState<RemoteListing | null>(null)
   const [status, setStatus] = useState<Status>({ kind: 'idle' })
   const [selected, setSelected] = useState<string | null>(null)
+  // The path of the entry whose deletion is waiting for an answer.
+  const [confirming, setConfirming] = useState<string | null>(null)
   const { t } = useI18n()
 
   const load = useCallback(
@@ -55,6 +61,7 @@ export function FileManager({ sessionId, onError }: FileManagerProps) {
         const result = await api.file.list({ sessionId, path })
         setListing(result)
         setSelected(null)
+        setConfirming(null)
         setStatus({ kind: 'idle' })
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error)
@@ -130,6 +137,51 @@ export function FileManager({ sessionId, onError }: FileManagerProps) {
     }
   }, [listing, load, sessionId, t])
 
+  /**
+   * Deletes the entry. A directory goes with everything inside it, so the
+   * user is asked first — the question names what will be removed.
+   */
+  const remove = useCallback(
+    async (entry: RemoteFileEntry) => {
+      setStatus({ kind: 'busy', text: t('files.deleting', { name: entry.name }) })
+      try {
+        await api.file.delete({ sessionId, remotePath: entry.path })
+        await load(listing?.path ?? '')
+        setStatus({ kind: 'idle' })
+      } catch (error) {
+        setStatus({
+          kind: 'error',
+          text: error instanceof Error ? error.message : String(error)
+        })
+      }
+    },
+    [listing, load, sessionId, t]
+  )
+
+  /**
+   * Asks before the deletion. The question goes into the status bar — it
+   * is a sentence, and the column of the row is too narrow to hold it.
+   */
+  const askToDelete = useCallback(
+    (entry: RemoteFileEntry) => {
+      setConfirming(entry.path)
+      setStatus({
+        kind: 'message',
+        text:
+          entry.type === 'd'
+            ? t('files.confirmDeleteDir', { name: entry.name })
+            : t('files.confirmDeleteFile', { name: entry.name })
+      })
+    },
+    [t]
+  )
+
+  /** Drops the question — the file stays. */
+  const cancelDelete = useCallback(() => {
+    setConfirming(null)
+    setStatus({ kind: 'idle' })
+  }, [])
+
   const entries = listing?.entries ?? []
 
   return (
@@ -153,6 +205,9 @@ export function FileManager({ sessionId, onError }: FileManagerProps) {
 
       {status.kind === 'busy' ? (
         <div className="file-manager__status">{status.text}</div>
+      ) : null}
+      {status.kind === 'message' ? (
+        <div className="file-manager__status file-manager__status--message">{status.text}</div>
       ) : null}
       {status.kind === 'error' ? (
         <div className="file-manager__status file-manager__status--error">{status.text}</div>
@@ -198,28 +253,69 @@ export function FileManager({ sessionId, onError }: FileManagerProps) {
               {formatDate(entry.modifiedAt)}
             </span>
             <span className="file-manager__cell file-manager__cell--actions">
-              {entry.type === 'd' ? (
-                <button
-                  type="button"
-                  className="button button--ghost"
-                  onClick={(event) => {
-                    event.stopPropagation()
-                    void openEntry(entry)
-                  }}
-                >
-                  {t('files.open')}
-                </button>
+              {confirming === entry.path ? (
+                // While the question waits, the row shows the two answers
+                // only — the download button would make the row too wide.
+                <span className="file-manager__confirm">
+                  <button
+                    type="button"
+                    className="button button--primary file-manager__confirm-yes"
+                    onClick={(event) => {
+                      event.stopPropagation()
+                      setConfirming(null)
+                      void remove(entry)
+                    }}
+                  >
+                    {t('files.deleteYes')}
+                  </button>
+                  <button
+                    type="button"
+                    className="button button--ghost file-manager__confirm-no"
+                    onClick={(event) => {
+                      event.stopPropagation()
+                      cancelDelete()
+                    }}
+                  >
+                    {t('files.deleteNo')}
+                  </button>
+                </span>
               ) : (
-                <button
-                  type="button"
-                  className="button button--ghost"
-                  onClick={(event) => {
-                    event.stopPropagation()
-                    void download(entry)
-                  }}
-                >
-                  {t('files.download')}
-                </button>
+                <>
+                  {entry.type === 'd' ? (
+                    <button
+                      type="button"
+                      className="button button--ghost"
+                      onClick={(event) => {
+                        event.stopPropagation()
+                        void openEntry(entry)
+                      }}
+                    >
+                      {t('files.open')}
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      className="button button--ghost"
+                      onClick={(event) => {
+                        event.stopPropagation()
+                        void download(entry)
+                      }}
+                    >
+                      {t('files.download')}
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    className="button button--ghost file-manager__delete"
+                    title={t('files.delete')}
+                    onClick={(event) => {
+                      event.stopPropagation()
+                      askToDelete(entry)
+                    }}
+                  >
+                    {t('files.delete')}
+                  </button>
+                </>
               )}
             </span>
           </div>

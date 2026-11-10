@@ -41,6 +41,13 @@
   color: var(--color-danger);
 }
 
+/* The question of the deletion — it is a sentence, so it goes where
+   there is room for it. */
+.file-manager__status--message {
+  color: var(--color-text);
+  background: var(--color-bg-hover);
+}
+
 .file-manager__list {
   flex: 1;
   min-height: 0;
@@ -49,7 +56,7 @@
 
 .file-manager__row {
   display: grid;
-  grid-template-columns: minmax(0, 3fr) 90px 70px 120px 100px;
+  grid-template-columns: minmax(0, 3fr) 90px 70px 120px 180px;
   align-items: center;
   gap: var(--space-md);
   padding: var(--space-xs) var(--space-lg);
@@ -97,7 +104,45 @@
 }
 
 .file-manager__cell--actions {
-  text-align: right;
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-xs);
+}
+
+.file-manager__cell--actions .button {
+  padding: var(--space-xs) var(--space-sm);
+  font-size: var(--font-size-sm);
+}
+
+/* The delete button is the destructive one — it has to look different
+   from the neutral actions next to it. */
+.file-manager__delete {
+  color: var(--color-danger);
+  border-color: var(--color-danger);
+}
+
+.file-manager__delete:hover:not(:disabled) {
+  color: var(--color-text-inverse);
+  background: var(--color-danger);
+}
+
+/* The confirmation replaces the delete button in the row: the two
+   answers sit where the action was, and the question itself is in the
+   status bar above. */
+.file-manager__confirm {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+}
+
+.file-manager__confirm-yes {
+  color: var(--color-text-inverse);
+  background: var(--color-danger);
+}
+
+.file-manager__confirm-yes:hover:not(:disabled) {
+  background: var(--color-danger);
+  opacity: 0.85;
 }
 
 .file-manager__icon {

@@ -222,6 +222,13 @@ export interface FileManagerAdapter extends ConnectionAdapter {
   download(request: FileTransferRequest): Promise<string>
   /** Uploads a local file to a remote path. */
   upload(request: FileTransferRequest): Promise<string>
+  /**
+   * Deletes a remote file or directory.
+   *
+   * A directory goes with everything inside it — the user asked for the
+   * deletion, not for a half-deleted tree.
+   */
+  delete(request: FileTransferRequest): Promise<string>
   /** The directory the session starts in. */
   readonly cwd: string
 }
@@ -328,6 +335,7 @@ export const IPC = {
   FILE_LIST: 'file:list',
   FILE_DOWNLOAD: 'file:download',
   FILE_UPLOAD: 'file:upload',
+  FILE_DELETE: 'file:delete',
   FILE_CWD: 'file:cwd',
   FILE_PICK_LOCAL: 'file:pickLocal',
   TAB_SNAPSHOT_LOAD: 'tab:snapshot:load',

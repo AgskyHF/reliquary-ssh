@@ -133,6 +133,11 @@ export class SessionManager {
     return this.requireFileManager(sessionId).upload(request)
   }
 
+  /** Deletes a remote file or directory. */
+  async delete(sessionId: string, request: FileTransferRequest): Promise<string> {
+    return this.requireFileManager(sessionId).delete(request)
+  }
+
   /** The directory a file-manager session currently sits in. */
   cwd(sessionId: string): string {
     return this.requireFileManager(sessionId).cwd

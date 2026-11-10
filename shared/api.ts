@@ -243,6 +243,11 @@ export interface ReliquaryApi {
       remotePath: string
       localPath: string
     }): Promise<string>
+    /**
+     * Deletes a remote file or directory. A directory goes with
+     * everything inside it.
+     */
+    delete(payload: { sessionId: string; remotePath: string }): Promise<string>
     /** The directory a file-manager session currently sits in. */
     cwd(sessionId: string): Promise<string>
     /**

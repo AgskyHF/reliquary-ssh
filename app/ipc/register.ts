@@ -288,6 +288,12 @@ export function registerIpcHandlers(): void {
     ) => sessionManager.upload(payload.sessionId, payload)
   )
 
+  handle(
+    IPC.FILE_DELETE,
+    async (_event, payload: { sessionId: string; remotePath: string }) =>
+      sessionManager.delete(payload.sessionId, payload)
+  )
+
   handle(IPC.FILE_CWD, async (_event, sessionId: string) =>
     sessionManager.cwd(sessionId)
   )

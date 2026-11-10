@@ -174,6 +174,34 @@ export class SftpAdapter extends BaseAdapter implements FileManagerAdapter {
     return remotePath
   }
 
+  /**
+   * Deletes a remote file or directory.
+   *
+   * A directory goes with everything inside it: the library removes the
+   * files first and the directories after them, so a tree never stays
+   * half-deleted. The type of the target is asked for first — a file and a
+   * directory are removed by different operations.
+   */
+  async delete(request: FileTransferRequest): Promise<string> {
+    const client = this.requireClient()
+    if (!request.remotePath) throw new Error('Delete requires a remote path')
+
+    const remotePath = absolutePath(this.currentPath, request.remotePath)
+    const kind = await client.exists(remotePath)
+
+    if (!kind) {
+      throw new Error(`No such file or directory: ${remotePath}`)
+    }
+
+    if (kind === 'd') {
+      await client.rmdir(remotePath, true)
+    } else {
+      await client.delete(remotePath)
+    }
+
+    return remotePath
+  }
+
   async disconnect(): Promise<void> {
     if (this.currentState === SessionState.CLOSED) return
     this.closing = true

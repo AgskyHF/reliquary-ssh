@@ -82,6 +82,7 @@ const api: ReliquaryApi = {
     list: (payload) => ipcRenderer.invoke(IPC.FILE_LIST, payload),
     download: (payload) => ipcRenderer.invoke(IPC.FILE_DOWNLOAD, payload),
     upload: (payload) => ipcRenderer.invoke(IPC.FILE_UPLOAD, payload),
+    delete: (payload) => ipcRenderer.invoke(IPC.FILE_DELETE, payload),
     cwd: (sessionId) => ipcRenderer.invoke(IPC.FILE_CWD, sessionId),
     pickLocalPath: (payload) => ipcRenderer.invoke(IPC.FILE_PICK_LOCAL, payload)
   },
