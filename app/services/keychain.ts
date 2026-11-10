@@ -159,11 +159,14 @@ async function generateKeyPair(
 export class KeychainService {
   /**
    * @param repository Storage for the key metadata and encrypted private parts.
-   * @param masterKey  The master key material; private keys are encrypted with it.
+   * @param deviceKey  The key of the device; private keys are encrypted with it.
+   * @param masterKey  The master key material, when the app is unlocked.
+   *   Only the keys of an older build need it — they were sealed with it.
    */
   constructor(
     private readonly repository: KeyRepository,
-    private readonly masterKey: MasterKeyMaterial
+    private readonly deviceKey: MasterKeyMaterial,
+    private readonly masterKey: () => MasterKeyMaterial | null = () => null
   ) {}
 
   /** All keys, newest first. Private parts are never included. */
@@ -209,7 +212,7 @@ export class KeychainService {
       type: detectKeyType(parsed),
       fingerprint: fingerprintFromPublicKey(publicKey),
       publicKey,
-      encryptedPrivateKey: encryptWithMasterKey(pair.private, this.masterKey),
+      encryptedPrivateKey: encryptWithMasterKey(pair.private, this.deviceKey),
       privateKeyFormat: 'openssh',
       hasPassphrase: Boolean(passphrase),
       comment,
@@ -243,7 +246,7 @@ export class KeychainService {
       type: detectKeyType(parsed),
       fingerprint: fingerprintFromPublicKey(publicKey),
       publicKey,
-      encryptedPrivateKey: encryptWithMasterKey(request.privateKey, this.masterKey),
+      encryptedPrivateKey: encryptWithMasterKey(request.privateKey, this.deviceKey),
       privateKeyFormat: 'openssh',
       hasPassphrase: Boolean(request.passphrase?.trim()),
       comment,
@@ -277,7 +280,20 @@ export class KeychainService {
   async privateKeyMaterial(id: string): Promise<string> {
     const key = await this.repository.get(id)
     if (!key || key.deletedAt) throw new Error(`Unknown key: ${id}`)
-    return decryptWithMasterKey(key.encryptedPrivateKey, this.masterKey)
+
+    // The key of the device opens it. A key of an older build was sealed
+    // with the master key — that one opens while the app is unlocked.
+    try {
+      return decryptWithMasterKey(key.encryptedPrivateKey, this.deviceKey)
+    } catch {
+      const material = this.masterKey()
+      if (!material) {
+        throw new Error(
+          'This key was saved by an older build and needs the master password'
+        )
+      }
+      return decryptWithMasterKey(key.encryptedPrivateKey, material)
+    }
   }
 
   private toSummary(key: SshKey): KeySummary {

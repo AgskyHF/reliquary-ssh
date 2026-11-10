@@ -75,13 +75,12 @@ export function HostForm({ host, onSaved, onCancel }: HostFormProps) {
     let cancelled = false
     void (async () => {
       try {
-        const status = await api.master.status()
-        if (!status.unlocked) return
-
+        // The keys need no master password — they are sealed with the
+        // key of the device.
         const list = await api.key.list()
         if (!cancelled) setKeys(list)
       } catch {
-        // The keychain is locked — the password method still works.
+        // The keys are unavailable — the password method still works.
       }
     })()
 

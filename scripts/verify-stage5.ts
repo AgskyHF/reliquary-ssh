@@ -83,24 +83,14 @@ async function main(): Promise<void> {
       await waitFor(cdp, exists('.keychain-panel'), 10)
     )
 
-    // 2. the keychain starts locked.
+    // 2. the keychain opens right away — no master password.
     checks.check(
-      'keychain asks for a master password',
-      await waitFor(cdp, exists('.master-setup__title'), 10)
-    )
-    const title = await cdp.text(paneText('.master-setup__title'))
-    checks.check('setup screen is shown for a fresh profile', title.includes('Master password'))
-
-    // 3. set the master password.
-    await setInput(cdp, 'input[name="masterPassword"]', 'master-pass-123')
-    await setInput(cdp, 'input[name="masterPasswordConfirm"]', 'master-pass-123')
-    await cdp.evaluate(
-      `document.querySelector('.master-setup .button--primary')?.click(), true`
-    )
-
-    checks.check(
-      'keychain unlocks after setting the master password',
+      'keychain opens without a master password',
       await waitFor(cdp, exists('.keychain-panel__toolbar'), 15)
+    )
+    checks.check(
+      'keychain asks for no master password',
+      !(await cdp.evaluate(`document.querySelector('.master-setup__title') !== null`))
     )
 
     // 4. generate a key.
@@ -155,7 +145,26 @@ async function main(): Promise<void> {
       await waitFor(cdp, `!document.querySelector('.keychain-panel__item')`, 15)
     )
 
-    // 7. restart — the keychain must be locked again.
+    // 7. a second key, so the restart has something to show.
+    await cdp.evaluate(
+      `document.querySelector('.keychain-panel__toolbar .button--primary')?.click(), true`
+    )
+    await waitFor(cdp, exists('.keychain-panel__dialog'), 10)
+    await setInput(cdp, '.keychain-panel__dialog input.field__input', 'kept-key')
+    await cdp.evaluate(
+      `(() => {
+        const dialog = document.querySelector('.keychain-panel__dialog')
+        const button = dialog?.querySelector('.button--primary')
+        button?.click()
+        return !!button
+      })(), true`
+    )
+    checks.check(
+      'the second key is created',
+      await waitFor(cdp, exists('.keychain-panel__item'), 15)
+    )
+
+    // 8. restart — the keychain must open without a master password.
     app.kill('SIGKILL')
     socket.close()
     await delay(1500)
@@ -174,20 +183,16 @@ async function main(): Promise<void> {
       })(), true`
     )
 
+    // After a restart the keys are there too — no master password.
     checks.check(
-      'after a restart the keychain is locked again',
-      await waitFor(cdp2, exists('.master-setup__title'), 15)
-    )
-    const unlockTitle = await cdp2.text(paneText('.master-setup__title'))
-    checks.check('the unlock screen is shown', unlockTitle.includes('Unlock'))
-
-    await setInput(cdp2, 'input[name="masterPassword"]', 'master-pass-123')
-    await cdp2.evaluate(
-      `document.querySelector('.master-setup .button--primary')?.click(), true`
-    )
-    checks.check(
-      'the master password unlocks the keychain after a restart',
+      'after a restart the keychain opens without a master password',
       await waitFor(cdp2, exists('.keychain-panel__toolbar'), 15)
+    )
+
+    const keyAfterRestart = await cdp2.text(paneText('.keychain-panel__item'))
+    checks.check(
+      'the key survived the restart',
+      keyAfterRestart.includes('kept-key')
     )
 
     exitCode = checks.allPassed ? 0 : 1

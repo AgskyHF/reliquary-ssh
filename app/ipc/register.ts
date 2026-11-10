@@ -135,17 +135,19 @@ function getMasterPassword(): MasterPasswordManager {
 }
 
 /**
- * The keychain service. It needs the master key, so it is only available
- * while the master password is unlocked.
+ * The keychain service.
+ *
+ * The private keys are sealed with the key of the device, so the panel
+ * works without a master password. A key of an older build was sealed
+ * with the master key — that one opens while the app is unlocked.
  */
 function getKeychain(): KeychainService {
-  const material = getMasterPassword().getMasterKey()
-  if (!material) {
-    throw new Error('The master password is not set — the keychain is locked')
-  }
-
   if (!keychain) {
-    keychain = new KeychainService(getStorage().keys, material)
+    keychain = new KeychainService(
+      getStorage().keys,
+      getMasterPassword().deviceKey(),
+      () => getMasterPassword().getMasterKey()
+    )
   }
   return keychain
 }
@@ -620,9 +622,8 @@ export function registerIpcHandlers(): void {
 
   // ---- keychain ----
   handle(IPC.KEY_LIST, async () => {
-    // A locked keychain has no keys to show — the renderer shows the
-    // unlock screen instead.
-    if (!getMasterPassword().unlocked) return []
+    // The list of the keys needs no master password — only the private
+    // part of a key of an older build does.
     return getKeychain().list()
   })
 

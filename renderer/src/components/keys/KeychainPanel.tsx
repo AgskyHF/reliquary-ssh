@@ -9,7 +9,6 @@ import { useCallback, useEffect, useState } from 'react'
 import { KeyType, type KeySummary } from '@shared/types'
 import { api } from '../../services/api'
 import { useI18n } from '../../i18n/I18nProvider'
-import { MasterPasswordSetup, MasterPasswordUnlock } from './MasterPassword'
 
 export interface KeychainPanelProps {
   /** Called when the key list changed, so the host form can refresh. */
@@ -33,8 +32,6 @@ function formatDate(iso: string): string {
 
 export function KeychainPanel({ onKeysChanged }: KeychainPanelProps) {
   const [keys, setKeys] = useState<KeySummary[]>([])
-  const [unlocked, setUnlocked] = useState<boolean | null>(null)
-  const [configured, setConfigured] = useState(false)
   const [dialog, setDialog] = useState<Dialog>('none')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -53,12 +50,9 @@ export function KeychainPanel({ onKeysChanged }: KeychainPanelProps) {
 
   const refresh = useCallback(async () => {
     try {
-      const status = await api.master.status()
-      setUnlocked(status.unlocked)
-      setConfigured(status.configured)
-
-      // The key list is only available while the keychain is unlocked.
-      setKeys(status.unlocked ? await api.key.list() : [])
+      // The keys are sealed with the key of the device — no master
+      // password is needed to see them.
+      setKeys(await api.key.list())
       onKeysChanged?.()
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err))
@@ -144,18 +138,6 @@ export function KeychainPanel({ onKeysChanged }: KeychainPanelProps) {
       setError(err instanceof Error ? err.message : String(err))
     }
   }, [t])
-
-  if (unlocked === false) {
-    return (
-      <div className="keychain-panel">
-        {configured ? (
-          <MasterPasswordUnlock onUnlocked={() => void refresh()} />
-        ) : (
-          <MasterPasswordSetup onUnlocked={() => void refresh()} />
-        )}
-      </div>
-    )
-  }
 
   return (
     <div className="keychain-panel">

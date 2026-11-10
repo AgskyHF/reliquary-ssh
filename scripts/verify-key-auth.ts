@@ -133,17 +133,15 @@ async function main(): Promise<void> {
         return !!item
       })(), true`
     )
+    // The keychain asks for no master password — the private keys are
+    // sealed with the key of the device.
     checks.check(
-      'the keychain asks for a master password',
-      await waitFor(cdp, exists('.master-setup__title'), 15)
-    )
-
-    await setInput(cdp, 'input[name="masterPassword"]', 'master-pass-123')
-    await setInput(cdp, 'input[name="masterPasswordConfirm"]', 'master-pass-123')
-    await cdp.evaluate(`document.querySelector('.master-setup .button--primary')?.click(), true`)
-    checks.check(
-      'the keychain unlocks',
+      'the keychain opens without a master password',
       await waitFor(cdp, exists('.keychain-panel__toolbar'), 15)
+    )
+    checks.check(
+      'the keychain asks for no master password',
+      !(await cdp.evaluate(`document.querySelector('.master-setup__title') !== null`))
     )
 
     // 2. import the private key of the test server.

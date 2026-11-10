@@ -155,21 +155,8 @@ const en = {
   'key.copyPublic': 'Copy public key',
   'key.delete': 'Delete',
 
-  // ---- master password ----
-  'master.setupTitle': 'Master password',
-  'master.setupText':
-    'The master password encrypts your private keys. It never leaves this device and cannot be recovered.',
-  'master.password': 'Master password',
-  'master.repeat': 'Repeat the password',
-  'master.cancel': 'Cancel',
-  'master.setting': 'Setting…',
-  'master.set': 'Set master password',
-  'master.unlockTitle': 'Unlock the keychain',
-  'master.unlockText': 'Enter your master password to use the stored keys.',
-  'master.checking': 'Checking…',
-  'master.unlock': 'Unlock',
-  'master.errMismatch': 'The passwords do not match',
-  'master.errShort': 'The master password must be at least 8 characters long',
+    'key.legacyNeedsMaster':
+    'This key was saved by an older build and needs the master password.',
 
   // ---- themes ----
   'theme.title': 'Themes',
@@ -359,20 +346,8 @@ const ru: Record<TranslationKey, string> = {
   'key.copyPublic': 'Скопировать открытый ключ',
   'key.delete': 'Удалить',
 
-  'master.setupTitle': 'Мастер-пароль',
-  'master.setupText':
-    'Мастер-пароль шифрует ваши приватные ключи. Он не покидает это устройство и не может быть восстановлен.',
-  'master.password': 'Мастер-пароль',
-  'master.repeat': 'Повторите пароль',
-  'master.cancel': 'Отмена',
-  'master.setting': 'Установка…',
-  'master.set': 'Задать мастер-пароль',
-  'master.unlockTitle': 'Разблокировка хранилища',
-  'master.unlockText': 'Введите мастер-пароль, чтобы использовать сохранённые ключи.',
-  'master.checking': 'Проверка…',
-  'master.unlock': 'Разблокировать',
-  'master.errMismatch': 'Пароли не совпадают',
-  'master.errShort': 'Мастер-пароль должен быть не короче 8 символов',
+  'key.legacyNeedsMaster':
+    'Этот ключ сохранён старой сборкой — для него нужен мастер-пароль.',
 
   'theme.title': 'Темы',
   'theme.change': 'Сменить тему',

@@ -21,7 +21,7 @@ describe('KeychainService', () => {
     dir = mkdtempSync(join(tmpdir(), 'reliquary-keychain-'))
     db = openDatabase(join(dir, 'reliquary.db'))
     repository = new SqliteKeyRepository(db)
-    keychain = new KeychainService(repository, createMasterKey('master'))
+    keychain = new KeychainService(repository, createMasterKey('master'), () => null)
   })
 
   afterEach(() => {
@@ -65,6 +65,26 @@ describe('KeychainService', () => {
 
     const parsed = sshUtils.parseKey(material)
     expect(parsed instanceof Error).toBe(false)
+  })
+
+  it('opens a key of an older build with the master key', async () => {
+    // The master key material of the account — the same one in both
+    // services, or the keys would not match.
+    const masterMaterial = createMasterKey('master')
+    const deviceMaterial = createMasterKey('device')
+
+    // A key of an older build was sealed with the master key.
+    const legacy = new KeychainService(repository, masterMaterial, () => null)
+    const key = await legacy.generate({ name: 'legacy', type: 'ed25519' })
+
+    // The service of the new build knows only the device key.
+    const fresh = new KeychainService(repository, deviceMaterial, () => null)
+    await expect(fresh.privateKeyMaterial(key.id)).rejects.toThrow(/master password/)
+
+    // With the master key loaded, the key opens.
+    const unlocked = new KeychainService(repository, deviceMaterial, () => masterMaterial)
+    const material = await unlocked.privateKeyMaterial(key.id)
+    expect(sshUtils.parseKey(material) instanceof Error).toBe(false)
   })
 
   it('imports an existing private key', async () => {
