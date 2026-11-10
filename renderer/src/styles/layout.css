@@ -7,82 +7,67 @@
 .topbar {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: center;
   gap: var(--space-lg);
-  padding: 0 var(--space-xl);
+  padding: 0 var(--space-lg);
   background: var(--color-bg-sidebar);
   border-bottom: 1px solid var(--color-border);
   -webkit-app-region: drag;
+  /*
+   * The name stands in the middle of the WINDOW, not of the space the
+   * traffic lights leave on the left — otherwise it sits a little to the
+   * right of the middle.
+   */
+  position: relative;
 }
 
 /*
  * The traffic lights of macOS are drawn over the top-left corner of the
- * window. The brand starts after them, so they never overlap the logo.
+ * window. The name of the app stands in the middle of the bar, so the
+ * lights never touch it — and the free space they leave on the left
+ * balances the free space on the right.
  */
 :root[data-platform='darwin'] .topbar {
-  padding-left: 82px;
+  padding-left: 74px;
 }
 
+/*
+ * The group of the brand: the name and the note about what the app is.
+ * The gaps are even, so the group reads as one mark.
+ */
 .topbar__brand {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
   display: flex;
   align-items: center;
-  gap: var(--space-md);
+  gap: var(--space-sm);
 }
 
-.logo {
-  display: block;
-  flex: none;
-}
-
+/*
+ * The rule between the name and the note. It is as tall as the text of
+ * the note, so the group keeps one line.
+ */
 .topbar__divider {
   width: 1px;
-  height: 20px;
+  height: 14px;
+  margin: 0 var(--space-xs);
   background: var(--color-border-strong);
 }
 
 .topbar__title {
-  font-size: var(--font-size-xl);
+  font-size: var(--font-size-lg);
   font-weight: var(--font-weight-semibold);
   color: var(--color-text);
   letter-spacing: -0.01em;
 }
 
 .topbar__subtitle {
-  font-size: var(--font-size-md);
-  color: var(--color-text-faint);
-}
-
-.topbar__actions {
-  display: flex;
-  align-items: center;
-  gap: var(--space-md);
-  -webkit-app-region: no-drag;
-}
-
-.topbar__button {
-  padding: var(--space-xs) var(--space-md);
-  color: var(--color-text);
-  background: var(--color-bg-elevated);
-  border: 1px solid var(--color-border-strong);
-  border-radius: var(--radius-sm);
   font-size: var(--font-size-sm);
-  transition: background var(--transition-fast);
+  color: var(--color-text-muted);
 }
 
-.topbar__button:hover:not(:disabled) {
-  background: var(--color-bg-hover);
-}
 
-.topbar__button:disabled {
-  color: var(--color-text-faint);
-  cursor: not-allowed;
-}
-
-.topbar__status {
-  display: flex;
-  align-items: center;
-  gap: var(--space-xs);
-}
 
 .topbar__status-label {
   font-size: var(--font-size-xs);

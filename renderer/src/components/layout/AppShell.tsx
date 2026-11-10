@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { ProtocolType, TabKind } from '@shared/types'
 import { useI18n } from '../../i18n/I18nProvider'
-import { Logo } from './Logo'
 import { KeychainPanel } from '../keys/KeychainPanel'
 import { HostList } from '../hosts/HostList'
 import { SettingsPanel } from '../settings/SettingsPanel'
@@ -61,8 +60,12 @@ function TopBar() {
 
   return (
     <header className="app-shell__topbar topbar">
+      {/*
+        The traffic lights of macOS live in the left corner of the bar, so
+        the name of the app stands in the middle of it — the free space on
+        both sides keeps it balanced.
+      */}
       <div className="topbar__brand">
-        <Logo size={32} variant="emblem" />
         <span className="topbar__title">{t('app.title')}</span>
         <span className="topbar__divider" />
         <span className="topbar__subtitle">{t('app.subtitle')}</span>

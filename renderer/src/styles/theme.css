@@ -68,7 +68,11 @@
   /* ---- layout ---- */
   --sidebar-width: 320px;
   --sidebar-width-collapsed: 56px;
-  --topbar-height: 64px;
+  /*
+   * The bar of the header is as tall as the traffic lights of macOS
+   * need — no more. The brand of the app shares their line.
+   */
+  --topbar-height: 44px;
   --tabbar-height: 40px;
   --tab-max-width: 220px;
 

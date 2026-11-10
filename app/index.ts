@@ -26,6 +26,12 @@ function createWindow(): BrowserWindow {
     title: 'ReliquarySSH',
     backgroundColor: '#1c2128',
     titleBarStyle: process.platform === 'darwin' ? 'hiddenInset' : 'default',
+    /*
+     * The traffic lights of macOS are drawn over the top-left corner of
+     * the window. Their place is set by hand, so they share the line of
+     * the brand of the app instead of floating above it.
+     */
+    trafficLightPosition: process.platform === 'darwin' ? { x: 16, y: 16 } : undefined,
     webPreferences: {
       preload: join(__dirname, '../preload/index.cjs'),
       sandbox: false,
