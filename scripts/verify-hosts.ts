@@ -12,6 +12,13 @@ import { spawn } from 'node:child_process'
 import type { ChildProcess } from 'node:child_process'
 import { attach, cleanupApp, portIsFree, startElectron, waitFor } from './lib/cdp.ts'
 
+
+// The name of the local user the test sshd accepts. It is the
+// system user of this machine — it must not be written down here,
+// the pictures and the logs of the harnesses travel to a public
+// repository.
+const SSH_USER = process.env.USER ?? 'tester'
+
 const CDP_PORT = 9255
 const SSH_PORT = 22222
 const CLIENT_KEY = '/tmp/reliquary_client_key'
@@ -67,7 +74,7 @@ async function main(): Promise<void> {
       protocol: 'ssh',
       host: '127.0.0.1',
       port: ${SSH_PORT},
-      username: SSH_USER,
+      username: ${JSON.stringify(SSH_USER)},
       authMethod: 'password',
       keyId: null
     })`)) as { id?: string } | null
@@ -85,7 +92,7 @@ async function main(): Promise<void> {
       protocol: 'ssh',
       host: '127.0.0.1',
       port: ${SSH_PORT},
-      username: SSH_USER,
+      username: ${JSON.stringify(SSH_USER)},
       authMethod: 'key',
       keyId: ${JSON.stringify(imported?.id ?? null)}
     })`)) as { id?: string } | null
@@ -360,7 +367,7 @@ async function main(): Promise<void> {
       set('connectionName', 'MyServer')
       set('connectionNotes', 'the note of the host')
       set('host', '10.0.0.77')
-      set('username', SSH_USER)
+      set('username', ${JSON.stringify(SSH_USER)})
       return true
     })()`)
     await delay(400)

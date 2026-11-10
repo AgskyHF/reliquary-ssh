@@ -10,6 +10,13 @@ import { setTimeout as delay } from 'node:timers/promises'
 import { spawn } from 'node:child_process'
 import { attach, cleanupApp, portIsFree, startElectron, waitFor } from './lib/cdp.ts'
 
+
+// The name of the local user the test sshd accepts. It is the
+// system user of this machine — it must not be written down here,
+// the pictures and the logs of the harnesses travel to a public
+// repository.
+const SSH_USER = process.env.USER ?? 'tester'
+
 const CDP_PORT = 9253
 const SSH_PORT = 22222
 const CLIENT_KEY = '/tmp/reliquary_client_key'
@@ -74,7 +81,7 @@ async function main(): Promise<void> {
       }
       set('host', '127.0.0.1')
       set('port', '${SSH_PORT}')
-      set('username', SSH_USER)
+      set('username', ${JSON.stringify(SSH_USER)})
       return true
     })()`)
     await delay(800)

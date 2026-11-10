@@ -71,6 +71,9 @@ async function main(): Promise<void> {
     }
 
     // ---- the hosts of the sidebar ----
+    // The names and the addresses below are made up: the pictures of the
+    // README go into a public repository, and a real host of the
+    // machine that takes them must never end up in one.
     const keyPair = generateUsableKeyPair()
 
     await cdp.evaluate(`window.reliquary.host.save({
@@ -78,7 +81,7 @@ async function main(): Promise<void> {
       protocol: 'ssh',
       host: '192.0.2.10',
       port: 22,
-      username: SSH_USER,
+      username: 'operator',
       authMethod: 'password',
       notes: 'Ubuntu, the old box'
     })`)
@@ -87,7 +90,7 @@ async function main(): Promise<void> {
       protocol: 'ssh',
       host: '198.51.100.24',
       port: 22,
-      username: 'root',
+      username: 'deploy',
       authMethod: 'key'
     })`)
     await cdp.evaluate(`window.reliquary.host.save({
@@ -95,7 +98,7 @@ async function main(): Promise<void> {
       protocol: 'sftp',
       host: '192.0.2.10',
       port: 22,
-      username: SSH_USER,
+      username: 'operator',
       authMethod: 'password',
       notes: 'The old files'
     })`)

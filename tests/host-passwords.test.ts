@@ -6,6 +6,13 @@ import { Storage } from '@app/services/storage'
 import { createMasterKey } from '@app/services/crypto'
 import { AuthMethod, ProtocolType } from '@shared/types'
 
+
+// The name of the local user the test sshd accepts. It is the
+// system user of this machine — it must not be written down here,
+// the pictures and the logs of the harnesses travel to a public
+// repository.
+const SSH_USER = process.env.USER ?? 'tester'
+
 describe('the passwords of the hosts', () => {
   let dir: string
   let storage: Storage

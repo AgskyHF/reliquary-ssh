@@ -67,7 +67,7 @@ async function main(): Promise<void> {
     })) as { data: string }
     const { writeFileSync } = await import('node:fs')
     writeFileSync(
-      '/tmp/topbar.png',
+      join(tmpdir(), 'reliquary-topbar.png'),
       Buffer.from(shot.data, 'base64')
     )
     console.log('  info — the screenshot is written')

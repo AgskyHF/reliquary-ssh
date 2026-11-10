@@ -33,7 +33,7 @@ async function main(): Promise<void> {
     })) as { data: string }
 
     writeFileSync(
-      '/tmp/topbar2.png',
+      join(tmpdir(), 'reliquary-topbar2.png'),
       Buffer.from(shot.data, 'base64')
     )
     console.log('  info — the screenshot is written')
