@@ -101,21 +101,6 @@ export class RestoreService {
       this.storage.passwords.saveSealed(restored.id, envelope, restored.deviceId)
     }
 
-    // The journal must know about the change, so it reaches the other
-    // devices.
-    this.storage.changes.record({
-      id: crypto.randomUUID(),
-      entity: 'hosts',
-      entityId: restored.id,
-      operation: 'upsert',
-      payload: JSON.stringify(restored),
-      synced: false,
-      createdAt: now,
-      updatedAt: now,
-      version: restored.version,
-      deviceId: restored.deviceId
-    })
-
     const summary = passwordRestored
       ? `Restored ${connection.name} with its password`
       : `Restored ${connection.name}`

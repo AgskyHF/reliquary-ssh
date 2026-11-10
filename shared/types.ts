@@ -156,33 +156,6 @@ export interface TabLayoutSnapshot {
 /** What the renderer sends when saving the layout — main stamps deviceId/savedAt. */
 export type TabLayoutInput = Pick<TabLayoutSnapshot, 'tabs' | 'activeTabId'>
 
-/** Encrypted sync payload. Format is fixed by the sync contract. */
-export interface SyncBlob {
-  version: number
-  /** Base64 initialization vector (12 bytes for AES-256-GCM). */
-  iv: string
-  /** Base64 ciphertext. */
-  ciphertext: string
-  /** Base64 GCM authentication tag. */
-  tag: string
-  /** ISO timestamp of the blob creation. */
-  updated_at: string
-}
-
-/** Outbox journal entry — local changes waiting to be pushed to the backend. */
-export interface ChangeRecord {
-  id: string
-  entity: 'hosts' | 'keys' | 'tabs' | 'settings'
-  entityId: string
-  operation: 'upsert' | 'delete'
-  payload: string
-  synced: boolean
-  createdAt: string
-  updatedAt: string
-  version: number
-  deviceId: string
-}
-
 /** Connection options handed to a ConnectionAdapter. */
 export interface ConnectionOptions {
   host: string
@@ -301,6 +274,20 @@ export interface MasterKeyMaterial {
   iterations: number
 }
 
+/**
+ * The PBKDF2 parameters of an account.
+ *
+ * The salt belongs to the account, not to the device: an export made by an
+ * older build carries the salt, so a device that imports it derives the same
+ * key and can open the sealed passwords.
+ */
+export interface SyncMasterParams {
+  /** Base64 salt the key was derived from. */
+  salt: string
+  /** PBKDF2 iteration count. */
+  iterations: number
+}
+
 /** Electron IPC channel names — single source of truth for main <-> renderer. */
 export const IPC = {
   APP_INFO: 'app:info',
@@ -308,16 +295,12 @@ export const IPC = {
   HOST_SAVE: 'host:save',
   HOST_DELETE: 'host:delete',
   HOST_DUPLICATE: 'host:duplicate',
-  CHANGES_PENDING_COUNT: 'changes:pendingCount',
-  SYNC_EXPORT_FILE: 'sync:exportFile',
-  SYNC_IMPORT_FILE: 'sync:importFile',
   KEY_LIST: 'key:list',
   KEY_GENERATE: 'key:generate',
   KEY_IMPORT: 'key:import',
   KEY_DELETE: 'key:delete',
   KEY_EXPORT_PUBLIC: 'key:exportPublic',
   MASTER_SET: 'master:set',
-  MASTER_SET_FROM_ACCOUNT: 'master:setFromAccount',
   MASTER_HAS: 'master:has',
   MASTER_VERIFY: 'master:verify',
   MASTER_UNLOCK: 'master:unlock',
@@ -351,12 +334,7 @@ export const IPC = {
   TAB_SNAPSHOT_SAVE: 'tab:snapshot:save',
   SFTP_LIST: 'sftp:list',
   SFTP_DOWNLOAD: 'sftp:download',
-  SFTP_UPLOAD: 'sftp:upload',
-  SYNC_PULL: 'sync:pull',
-  SYNC_PUSH: 'sync:push',
-  SYNC_STATUS: 'sync:status',
-  SYNC_NOW: 'sync:now',
-  SYNC_AUTO_STATUS: 'sync:autoStatus'
+  SFTP_UPLOAD: 'sftp:upload'
 } as const
 
 export type IpcChannel = (typeof IPC)[keyof typeof IPC]

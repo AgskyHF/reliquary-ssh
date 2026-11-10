@@ -1,7 +1,7 @@
 /**
  * Master-password setup.
  *
- * The master password encrypts the private keys and the synced data. It is
+ * The master password encrypts the private keys. It is
  * entered once per session and never stored — the derived key lives in the
  * main process memory only.
  */

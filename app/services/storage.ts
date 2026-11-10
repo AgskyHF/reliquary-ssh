@@ -5,18 +5,16 @@
  * that needs persistent data goes through this service — the renderer never
  * touches the database directly.
  *
- * The schema follows the sync contract: id, created_at, updated_at,
- * deleted_at (soft delete), version and device_id. The `changes` table is
- * the outbox journal for the sync backend.
+ * The schema gives every entity id, created_at, updated_at, deleted_at
+ * (soft delete), version and device_id.
  */
 import { join } from 'node:path'
 import type { TabLayoutInput, TabLayoutSnapshot, TabState } from '@shared/types'
-import { ChangeRepository, HostRepository, SqliteKeyRepository, TabRepository as SqliteTabRepository, openDatabase, type SqliteDatabase } from './database'
+import { HostRepository, SqliteKeyRepository, TabRepository as SqliteTabRepository, openDatabase, type SqliteDatabase } from './database'
 import { getDeviceId } from './device-id'
 import { SettingsService } from './settings'
 import { HostPasswordRepository } from './host-passwords'
 import { SupersededRepository } from './superseded'
-import { ReplicaRepository } from './sync-replicas'
 
 /** The tab repository contract the main process uses. */
 export interface TabRepository {
@@ -84,14 +82,11 @@ export class Storage {
   readonly hosts: HostRepository
   readonly keys: SqliteKeyRepository
   readonly tabs: TabRepository
-  readonly changes: ChangeRepository
   readonly settings: SettingsService
   /** The saved passwords of the hosts, encrypted with the master key. */
   readonly passwords: HostPasswordRepository
   /** The versions that lost a merge — they are never deleted. */
   readonly superseded: SupersededRepository
-  /** The replicas this device knows — the payload of the sync file. */
-  readonly replicas: ReplicaRepository
 
   constructor(
     filePath: string,
@@ -101,11 +96,9 @@ export class Storage {
     this.hosts = new HostRepository(this.db)
     this.keys = new SqliteKeyRepository(this.db)
     this.tabs = new SqliteTabStore(this.db, deviceId)
-    this.changes = new ChangeRepository(this.db)
     this.settings = new SettingsService(this.db)
     this.passwords = new HostPasswordRepository(this.db)
     this.superseded = new SupersededRepository(this.db)
-    this.replicas = new ReplicaRepository(this.db)
   }
 
   /** Creates the storage in the app's userData directory. */

@@ -3,8 +3,8 @@
  *
  * The panel owns the settings that belong to this device: the interface
  * language and the log options. The connections themselves live in the
- * Hosts section, and the sync happens through a file — see the Sync
- * section.
+ * Hosts section, and the data travels in an export archive — see the
+ * Export section.
  */
 import { useCallback, useEffect, useState } from 'react'
 import type { AppSettings } from '@shared/api'

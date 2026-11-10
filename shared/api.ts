@@ -12,7 +12,6 @@ import type {
   TabLayoutInput,
   TabLayoutSnapshot
 } from './types'
-import type { SyncResult, SyncStatus } from './sync'
 import type { ExportOptions, ImportResult } from './export'
 
 export interface AppInfo {
@@ -126,26 +125,6 @@ export interface ReliquaryApi {
     duplicate(id: string): Promise<Host>
   }
 
-  changes: {
-    /** The number of local changes waiting to be put into the next sync file. */
-    pendingCount(): Promise<number>
-  }
-
-  sync: {
-    /**
-     * Writes the sync file the user carries to the other devices.
-     * Without a path the native save dialog is shown.
-     */
-    exportFile(payload?: { path?: string }): Promise<{ path: string; exported: number }>
-    /**
-     * Reads the sync file the user picked and merges it into the local
-     * database. Without a path the native open dialog is shown.
-     */
-    importFile(payload?: { path?: string }): Promise<SyncResult>
-    /** The state of the sync engine. */
-    status(): Promise<SyncStatus>
-  }
-
   key: {
     /** All stored keys; the private part is never included. */
     list(): Promise<KeySummary[]>
@@ -172,12 +151,6 @@ export interface ReliquaryApi {
   master: {
     /** Sets the master password and stores the derived key material. */
     set(password: string): Promise<MasterStatus>
-    /**
-     * Sets the master password of an account that already has one on the
-     * server: the PBKDF2 salt is taken from the account, so this device
-     * derives the same key and can read the synced data.
-     */
-    setFromAccount(password: string): Promise<MasterStatus>
     /** True when a master password has been configured. */
     has(): Promise<boolean>
     /** Checks a password against the stored material. */

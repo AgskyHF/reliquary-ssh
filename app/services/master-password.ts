@@ -1,9 +1,9 @@
 /**
  * Master-password manager.
  *
- * The master password encrypts the private keys and the synced data. It is
- * never stored — only the derived key material is, encrypted with a
- * device-bound secret so the file is useless on another machine.
+ * The master password encrypts the private keys. It is never stored —
+ * only the derived key material is, encrypted with a device-bound secret
+ * so the file is useless on another machine.
  *
  * The key material stays in memory only while the app is unlocked:
  *  - on startup the manager only learns that a password was configured;
@@ -12,9 +12,8 @@
  */
 import { existsSync, mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs'
 import { dirname } from 'node:path'
-import type { MasterStatus } from '@shared/types'
+import type { MasterStatus, SyncMasterParams } from '@shared/types'
 import { KDF_ITERATIONS } from '@shared/crypto'
-import type { SyncMasterParams } from '@shared/sync'
 import {
   MASTER_MARKER,
   createMasterKey,
@@ -94,7 +93,7 @@ export class MasterPasswordManager {
    *
    * `kdf` carries the PBKDF2 parameters of the account. A device that joins
    * an existing account must reuse them, otherwise the same password would
-   * derive a different key and the synced data would be unreadable.
+   * derive a different key and the imported passwords would stay sealed.
    *
    * When no parameters are given, the ones an import brought are used —
    * that is how a second device of the same account derives the same key.
@@ -126,8 +125,8 @@ export class MasterPasswordManager {
    * The PBKDF2 parameters an import brought, or null when there are none.
    *
    * They are read from the settings table, which the import filled. A
-   * device that imported a sync file adopts them, so the same master
-   * password derives the same key as on the other devices.
+   * device that imported an archive adopts them, so the same master
+   * password derives the same key as on the other device.
    */
   getImportedParams(): SyncMasterParams | null {
     return this.importedKdf()

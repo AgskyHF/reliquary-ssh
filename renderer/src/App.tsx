@@ -10,8 +10,8 @@ import { api } from './services/api'
  * The application root.
  *
  * There is no account and no server: the connections live on the device,
- * and the sync happens through a file the user carries himself. The app
- * therefore opens straight into the terminal.
+ * and the user copies them to another device with an export archive. The
+ * app therefore opens straight into the terminal.
  */
 /** A host the user picked in the sidebar. */
 export interface PendingHost {

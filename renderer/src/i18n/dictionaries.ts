@@ -25,7 +25,6 @@ const en = {
   'app.connect': 'Connect',
   'app.signOut': 'Sign out',
   'app.offline': 'Offline',
-  'app.syncStatus': 'Sync status',
 
   // ---- sidebar ----
   'search.hosts': 'Search hosts…',
@@ -33,7 +32,6 @@ const en = {
 
   'nav.hosts': 'Hosts',
   'nav.keychain': 'Keychain',
-  'nav.sync': 'Sync',
   'nav.export': 'Export',
   'nav.settings': 'Settings',
 
@@ -160,7 +158,7 @@ const en = {
   // ---- master password ----
   'master.setupTitle': 'Master password',
   'master.setupText':
-    'The master password encrypts your private keys and the data you sync. It never leaves this device and cannot be recovered.',
+    'The master password encrypts your private keys. It never leaves this device and cannot be recovered.',
   'master.password': 'Master password',
   'master.repeat': 'Repeat the password',
   'master.cancel': 'Cancel',
@@ -172,25 +170,6 @@ const en = {
   'master.unlock': 'Unlock',
   'master.errMismatch': 'The passwords do not match',
   'master.errShort': 'The master password must be at least 8 characters long',
-  'master.accountTitle': 'Master password',
-  'master.accountText':
-    'This account already has a master password. Enter it to read your synced hosts and keys on this device.',
-  'master.unlockDevice': 'Unlock this device',
-
-  // ---- sync ----
-  'sync.loading': 'Loading…',
-  'sync.lead':
-    'There is no server: the data travels in one file you carry between the devices yourself.',
-  'sync.pending': 'Pending changes',
-  'sync.replicas': 'Records in the file',
-  'sync.lastSync': 'Last sync',
-  'sync.never': 'Never',
-  'sync.result': 'Exported {exported}, imported {imported}, applied {applied}',
-  'sync.working': 'Working…',
-  'sync.export': 'Export the file',
-  'sync.import': 'Import the file',
-  'sync.hint':
-    'The file holds encrypted records — without the master password it says nothing. Copy it to the other device and import it there.',
 
   // ---- themes ----
   'theme.title': 'Themes',
@@ -201,13 +180,6 @@ const en = {
   // ---- settings ----
   'settings.title': 'Settings',
   'settings.signedInAs': 'Signed in as {email}',
-  'settings.transport': 'Sync transport',
-  'settings.transportServer': 'Server (account)',
-  'settings.transportFolder': 'Shared folder (no server)',
-  'settings.server': 'Sync server',
-  'settings.folder': 'Shared folder',
-  'settings.folderHint':
-    'The folder is shared by every device — Syncthing, a NAS share or a cloud disk. It holds encrypted entries only.',
   'settings.logLevel': 'Log level',
   'settings.logFile': 'Log file: {path}',
   'settings.language': 'Language',
@@ -265,14 +237,12 @@ const ru: Record<TranslationKey, string> = {
   'app.connect': 'Подключиться',
   'app.signOut': 'Выйти',
   'app.offline': 'Не в сети',
-  'app.syncStatus': 'Состояние синхронизации',
 
   'search.hosts': 'Поиск хостов…',
   'hosts.title': 'Хосты',
 
   'nav.hosts': 'Хосты',
   'nav.keychain': 'Ключи',
-  'nav.sync': 'Синхронизация',
   'nav.export': 'Экспорт',
   'nav.settings': 'Настройки',
 
@@ -391,7 +361,7 @@ const ru: Record<TranslationKey, string> = {
 
   'master.setupTitle': 'Мастер-пароль',
   'master.setupText':
-    'Мастер-пароль шифрует ваши приватные ключи и синхронизируемые данные. Он не покидает это устройство и не может быть восстановлен.',
+    'Мастер-пароль шифрует ваши приватные ключи. Он не покидает это устройство и не может быть восстановлен.',
   'master.password': 'Мастер-пароль',
   'master.repeat': 'Повторите пароль',
   'master.cancel': 'Отмена',
@@ -403,24 +373,6 @@ const ru: Record<TranslationKey, string> = {
   'master.unlock': 'Разблокировать',
   'master.errMismatch': 'Пароли не совпадают',
   'master.errShort': 'Мастер-пароль должен быть не короче 8 символов',
-  'master.accountTitle': 'Мастер-пароль',
-  'master.accountText':
-    'У этого аккаунта уже есть мастер-пароль. Введите его, чтобы прочитать синхронизированные хосты и ключи на этом устройстве.',
-  'master.unlockDevice': 'Разблокировать устройство',
-
-  'sync.loading': 'Загрузка…',
-  'sync.lead':
-    'Сервера нет: данные переносятся одним файлом, который вы сами переносите между устройствами.',
-  'sync.pending': 'Незавершённых изменений',
-  'sync.replicas': 'Записей в файле',
-  'sync.lastSync': 'Последняя синхронизация',
-  'sync.never': 'Никогда',
-  'sync.result': 'Экспортировано {exported}, импортировано {imported}, применено {applied}',
-  'sync.working': 'Обработка…',
-  'sync.export': 'Экспортировать файл',
-  'sync.import': 'Импортировать файл',
-  'sync.hint':
-    'В файле лежат зашифрованные записи — без мастер-пароля он ничего не значит. Скопируйте файл на другое устройство и импортируйте там.',
 
   'theme.title': 'Темы',
   'theme.change': 'Сменить тему',
@@ -429,13 +381,6 @@ const ru: Record<TranslationKey, string> = {
 
   'settings.title': 'Настройки',
   'settings.signedInAs': 'Вы вошли как {email}',
-  'settings.transport': 'Транспорт синхронизации',
-  'settings.transportServer': 'Сервер (аккаунт)',
-  'settings.transportFolder': 'Общая папка (без сервера)',
-  'settings.server': 'Сервер синхронизации',
-  'settings.folder': 'Общая папка',
-  'settings.folderHint':
-    'Папка общая для всех устройств — Syncthing, NAS-шар или облачный диск. В ней лежат только зашифрованные записи.',
   'settings.logLevel': 'Уровень журнала',
   'settings.logFile': 'Файл журнала: {path}',
   'settings.language': 'Язык',

@@ -142,19 +142,6 @@ describe('restoring a replaced version', () => {
     expect(current?.version).toBe(3)
   })
 
-  it('journals the restore so it reaches the other devices', async () => {
-    await master.set(PASSWORD)
-    const hostId = makeHostWithOldVersion()
-
-    const old = storage.superseded.list()
-    restore.restore(old[0]!.id, master.getMasterKey())
-
-    const pending = storage.changes.pending()
-    expect(pending).toHaveLength(1)
-    expect(pending[0]?.entity).toBe('hosts')
-    expect(pending[0]?.entityId).toBe(hostId)
-  })
-
   it('keeps the password sealed when the master password is locked', async () => {
     await master.set(PASSWORD)
     const hostId = makeHostWithOldVersion()

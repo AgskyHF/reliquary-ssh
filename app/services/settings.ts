@@ -2,7 +2,7 @@
  * The settings service.
  *
  * The settings live in the `settings` table of the local database. They
- * are device settings — the synced settings are a separate thing (the KDF
+ * are device settings — the account ones are a separate thing (the KDF
  * parameters of the account).
  *
  * The backend address is the only setting the app really needs: it has to

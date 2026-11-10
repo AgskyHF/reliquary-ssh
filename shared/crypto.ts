@@ -1,9 +1,9 @@
 /**
  * Envelope format for encrypted payloads.
  *
- * The same envelope is used for the private keys stored on disk (stage 5)
- * and for the sync blobs exchanged with the backend (stage 8). Keeping one
- * format means the sync code does not have to know about local storage.
+ * The same envelope is used for the private keys stored on disk and for
+ * the passwords of the hosts. Keeping one format means the code does not
+ * have to know about local storage.
  *
  * Layout (JSON, base64 fields):
  * {

@@ -15,12 +15,10 @@ import type { MasterKeyMaterial } from '../services/crypto'
 import type { AppSettings, SupersededSummary } from '@shared/api'
 import type { ExportOptions } from '@shared/export'
 import { EXPORT_FILE_NAME } from '@shared/export'
-import { SYNC_FILE_NAME } from '@shared/sync'
 import { SessionManager } from '../services/session-manager'
 import { Storage, type TabRepository } from '../services/storage'
 import { KeychainService } from '../services/keychain'
 import { MasterPasswordManager } from '../services/master-password'
-import { SyncService } from '../services/sync-file'
 import { ExportService } from '../services/export'
 import { RestoreService } from '../services/restore'
 import { getDeviceId, getDeviceSecret } from '../services/device-id'
@@ -32,7 +30,6 @@ const sessionManager = new SessionManager()
 let storage: Storage | null = null
 let masterPassword: MasterPasswordManager | null = null
 let keychain: KeychainService | null = null
-let sync: SyncService | null = null
 let exporter: ExportService | null = null
 let restorer: RestoreService | null = null
 
@@ -73,7 +70,7 @@ function getTabStore(): TabRepository {
  * The passwords of the hosts belong to the device: they are sealed with
  * the device secret, so they are readable without a master password and
  * survive a restart. A master password, when the user has one, protects
- * the keys and the sync — not this.
+ * the keys — not this.
  */
 function getPasswordMaterial(): MasterKeyMaterial {
   return getMasterPassword().deviceKey()
@@ -151,53 +148,6 @@ function getKeychain(): KeychainService {
     keychain = new KeychainService(getStorage().keys, material)
   }
   return keychain
-}
-
-/**
- * The sync engine — encryption, push and pull of the local changes.
- * It is built once and keeps its last-run state for the UI.
- */
-function getSync(): SyncService {
-  if (!sync) {
-    sync = new SyncService(
-      getStorage(),
-      getMasterPassword(),
-      getStorage().replicas,
-      () => getDeviceId(app.getPath('userData'))
-    )
-  }
-  return sync
-}
-
-/**
- * Journals a key change for the sync backend.
- *
- * The keychain writes the row; the sync engine needs a trigger and the
- * device id of the row, which is why the change is recorded here and not
- * inside the keychain service.
- */
-async function recordKeyChange(id: string): Promise<void> {
-  const store = getStorage()
-  const key = await store.keys.get(id)
-  if (!key) return
-
-  const deviceId = getDeviceId(app.getPath('userData'))
-  const saved = { ...key, deviceId: key.deviceId || deviceId }
-  await store.keys.save(saved)
-
-  const now = new Date().toISOString()
-  store.changes.record({
-    id: crypto.randomUUID(),
-    entity: 'keys',
-    entityId: saved.id,
-    operation: saved.deletedAt ? 'delete' : 'upsert',
-    payload: JSON.stringify(saved),
-    synced: false,
-    createdAt: now,
-    updatedAt: now,
-    version: saved.version,
-    deviceId
-  })
 }
 
 sessionManager.on('data', ({ sessionId, chunk }) => {
@@ -377,29 +327,6 @@ export function registerIpcHandlers(): void {
     // An import may have brought sealed passwords — they open now.
     const material = manager.getMasterKey()
     if (material) await getExport().openSealedPasswords(material)
-    // The records that came in with a sync file were waiting for the key.
-    await getSync().applyReplicas()
-    return manager.status()
-  })
-
-  /**
-   * Sets the master password of an account that already has one.
-   *
-   * The PBKDF2 salt travels with the sync file, so this device derives
-   * exactly the key the other devices use. The salt is only there after a
-   * file was imported — before that the user sets a new password.
-   */
-  handle(IPC.MASTER_SET_FROM_ACCOUNT, async (_event, password: string) => {
-    const params = getMasterPassword().getImportedParams()
-    if (!params) {
-      throw new Error('No sync file was imported yet — set a new master password instead')
-    }
-
-    const manager = getMasterPassword()
-    await manager.set(password, params)
-    keychain = null
-    // The records that came in with a sync file were waiting for the key.
-    await getSync().applyReplicas()
     return manager.status()
   })
 
@@ -450,20 +377,6 @@ export function registerIpcHandlers(): void {
       deviceId
     })
 
-    // Every local change is journalled for the sync backend.
-    storage.changes.record({
-      id: crypto.randomUUID(),
-      entity: 'hosts',
-      entityId: saved.id,
-      operation: 'upsert',
-      payload: JSON.stringify(saved),
-      synced: false,
-      createdAt: now,
-      updatedAt: now,
-      version: saved.version,
-      deviceId
-    })
-
     return saved
   })
 
@@ -502,80 +415,8 @@ export function registerIpcHandlers(): void {
   })
 
   handle(IPC.HOST_DELETE, async (_event, id: string) => {
-    const storage = getStorage()
-    storage.hosts.remove(id)
-
-    const now = new Date().toISOString()
-    storage.changes.record({
-      id: crypto.randomUUID(),
-      entity: 'hosts',
-      entityId: id,
-      operation: 'delete',
-      payload: JSON.stringify({ id }),
-      synced: false,
-      createdAt: now,
-      updatedAt: now,
-      version: 2,
-      deviceId: getDeviceId(app.getPath('userData'))
-    })
+    getStorage().hosts.remove(id)
   })
-
-  // ---- sync ----
-  /**
-   * Writes the sync file the user carries to the other devices.
-   * Without a path the native save dialog is shown.
-   */
-  handle(IPC.SYNC_EXPORT_FILE, async (_event, path?: string) => {
-    const bundle = await getSync().exportBundle()
-    const text = JSON.stringify(bundle, null, 2)
-
-    let target = path
-    if (!target) {
-      const window = BrowserWindow.getFocusedWindow() ?? BrowserWindow.getAllWindows()[0]
-      if (!window) throw new Error('The app window is not available')
-
-      const result = await dialog.showSaveDialog(window, {
-        title: 'Save the sync file',
-        defaultPath: SYNC_FILE_NAME,
-        filters: [{ name: 'ReliquarySSH sync file', extensions: ['json'] }]
-      })
-      if (result.canceled || !result.filePath) return { path: '', exported: bundle.entries.length }
-      target = result.filePath
-    }
-
-    writeFileSync(target, text, 'utf8')
-    logger.info('The sync file was written', { path: target, replicas: bundle.entries.length })
-    return { path: target, exported: bundle.entries.length }
-  })
-
-  /**
-   * Reads the sync file the user picked and merges it into the local
-   * database. Without a path the native open dialog is shown.
-   */
-  handle(IPC.SYNC_IMPORT_FILE, async (_event, path?: string) => {
-    let target = path
-    if (!target) {
-      const window = BrowserWindow.getFocusedWindow() ?? BrowserWindow.getAllWindows()[0]
-      if (!window) throw new Error('The app window is not available')
-
-      const result = await dialog.showOpenDialog(window, {
-        title: 'Open the sync file',
-        properties: ['openFile'],
-        filters: [{ name: 'ReliquarySSH sync file', extensions: ['json'] }]
-      })
-      if (result.canceled || result.filePaths.length === 0) {
-        return { imported: 0, applied: 0, skipped: 0, conflicts: 0, undecryptable: 0 }
-      }
-      target = result.filePaths[0]
-    }
-
-    const text = readFileSync(target, 'utf8')
-    const result = await getSync().importBundle(text)
-    return result
-  })
-
-  /** The state of the sync engine — the sync screen shows it. */
-  handle(IPC.SYNC_STATUS, async () => getSync().status())
 
   // ---- settings ----
   handle(IPC.SETTINGS_GET, async () => getStorage().settings.all())
@@ -777,9 +618,6 @@ export function registerIpcHandlers(): void {
     }
   )
 
-  // ---- sync outbox ----
-  handle(IPC.CHANGES_PENDING_COUNT, async () => getStorage().changes.count())
-
   // ---- keychain ----
   handle(IPC.KEY_LIST, async () => {
     // A locked keychain has no keys to show — the renderer shows the
@@ -794,9 +632,7 @@ export function registerIpcHandlers(): void {
       _event,
       payload: { name: string; type: string; passphrase?: string; comment?: string; bits?: number }
     ) => {
-      const summary = await getKeychain().generate(payload)
-      await recordKeyChange(summary.id)
-      return summary
+      return getKeychain().generate(payload)
     }
   )
 
@@ -806,16 +642,12 @@ export function registerIpcHandlers(): void {
       _event,
       payload: { name: string; privateKey: string; passphrase?: string; comment?: string }
     ) => {
-      const summary = await getKeychain().import(payload)
-      await recordKeyChange(summary.id)
-      return summary
+      return getKeychain().import(payload)
     }
   )
 
   handle(IPC.KEY_DELETE, async (_event, id: string) => {
     await getKeychain().remove(id)
-    // The row is soft-deleted; the tombstone has to reach the other devices.
-    await recordKeyChange(id)
   })
 
   handle(IPC.KEY_EXPORT_PUBLIC, async (_event, id: string) =>

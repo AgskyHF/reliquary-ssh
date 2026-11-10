@@ -62,9 +62,9 @@ export function TransferPanel({ onHostsChanged }: { onHostsChanged?: () => void 
   }, [refresh])
 
   /**
-   * The old folder changes outside the panel — an import adds versions,
-   * a sync brings them from another device. The panel polls the state
-   * instead of waiting for an event that every writer would have to send.
+   * The old folder changes outside the panel — an import adds versions.
+   * The panel polls the state instead of waiting for an event that every
+   * writer would have to send.
    */
   useEffect(() => {
     const timer = setInterval(() => {

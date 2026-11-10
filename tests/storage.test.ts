@@ -244,77 +244,8 @@ describe('SQLite storage', () => {
     })
   })
 
-  describe('outbox', () => {
-    it('starts with no pending changes', () => {
-      expect(storage.changes.count()).toBe(0)
-    })
-
-    it('records a change', () => {
-      storage.changes.record({
-        id: 'change-1',
-        entity: 'hosts',
-        entityId: 'host-1',
-        operation: 'upsert',
-        payload: '{}',
-        synced: false,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-        version: 1,
-        deviceId: 'test-device'
-      })
-
-      expect(storage.changes.count()).toBe(1)
-      expect(storage.changes.pending()).toHaveLength(1)
-    })
-
-    it('marks changes as synced', () => {
-      storage.changes.record({
-        id: 'change-1',
-        entity: 'hosts',
-        entityId: 'host-1',
-        operation: 'upsert',
-        payload: '{}',
-        synced: false,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-        version: 1,
-        deviceId: 'test-device'
-      })
-
-      storage.changes.markSynced(['change-1'])
-
-      expect(storage.changes.count()).toBe(0)
-      expect(storage.changes.pending()).toHaveLength(0)
-    })
-
-    it('returns the pending changes oldest first', () => {
-      const base = Date.now()
-      for (let index = 0; index < 3; index++) {
-        storage.changes.record({
-          id: `change-${index}`,
-          entity: 'hosts',
-          entityId: `host-${index}`,
-          operation: 'upsert',
-          payload: '{}',
-          synced: false,
-          createdAt: new Date(base + index).toISOString(),
-          updatedAt: new Date(base + index).toISOString(),
-          version: 1,
-          deviceId: 'test-device'
-        })
-      }
-
-      const pending = storage.changes.pending()
-      expect(pending.map((change) => change.id)).toEqual([
-        'change-0',
-        'change-1',
-        'change-2'
-      ])
-    })
-  })
-
   describe('schema', () => {
-    it('creates every table of the sync contract', () => {
+    it('creates every table of the app', () => {
       const tables = storage.db
         .prepare("SELECT name FROM sqlite_master WHERE type = 'table'")
         .all() as { name: string }[]
@@ -324,8 +255,11 @@ describe('SQLite storage', () => {
       expect(names).toContain('keys')
       expect(names).toContain('tabs')
       expect(names).toContain('settings')
-      expect(names).toContain('changes')
       expect(names).toContain('meta')
+
+      // The tables of the removed sync engine are gone.
+      expect(names).not.toContain('changes')
+      expect(names).not.toContain('sync_replicas')
     })
 
     it('stores the schema version', () => {

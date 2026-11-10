@@ -1,9 +1,8 @@
 /**
  * SQLite schema and migrations.
  *
- * Every entity follows the sync contract: id, created_at, updated_at,
- * deleted_at (soft delete), version and device_id. The `changes` table is
- * the outbox journal — local changes waiting to be pushed to the backend.
+ * Every entity carries id, created_at, updated_at, deleted_at (soft
+ * delete), version and device_id.
  */
 export const SCHEMA_VERSION = 1
 
@@ -109,45 +108,15 @@ export const SCHEMA_STATEMENTS: string[] = [
     device_id     TEXT NOT NULL DEFAULT ''
   )`,
 
-  // The outbox journal: every local change is recorded here and marked as
-  // synced once the backend has accepted it.
-  `CREATE TABLE IF NOT EXISTS changes (
-    id         TEXT PRIMARY KEY,
-    entity     TEXT NOT NULL,
-    entity_id  TEXT NOT NULL,
-    operation  TEXT NOT NULL,
-    payload    TEXT NOT NULL,
-    synced     INTEGER NOT NULL DEFAULT 0,
-    created_at TEXT NOT NULL,
-    updated_at TEXT NOT NULL,
-    version    INTEGER NOT NULL DEFAULT 1,
-    device_id  TEXT NOT NULL DEFAULT ''
-  )`,
-
-  // The replicas this device knows. They are the payload of the sync
-  // file: every device writes its own replica of an entity, and the ones
-  // that came in with a file keep travelling, so a file can be passed
-  // along a chain of devices.
-  `CREATE TABLE IF NOT EXISTS sync_replicas (
-    entity       TEXT NOT NULL,
-    entity_id    TEXT NOT NULL,
-    device_id    TEXT NOT NULL,
-    version      INTEGER NOT NULL DEFAULT 1,
-    iv           TEXT NOT NULL DEFAULT '',
-    ciphertext   TEXT NOT NULL,
-    tag          TEXT NOT NULL DEFAULT '',
-    updated_at   TEXT NOT NULL,
-    deleted_at   TEXT,
-    created_at   TEXT NOT NULL,
-    PRIMARY KEY (entity, entity_id, device_id)
-  )`,
+  // The tables of the removed sync engine. They held nothing but the
+  // sync state, so they are dropped — the data of the hosts, the keys
+  // and the tabs stays untouched.
+  `DROP TABLE IF EXISTS changes`,
+  `DROP TABLE IF EXISTS sync_replicas`,
 
   `CREATE INDEX IF NOT EXISTS idx_hosts_deleted ON hosts (deleted_at)`,
   `CREATE INDEX IF NOT EXISTS idx_keys_deleted ON keys (deleted_at)`,
   `CREATE INDEX IF NOT EXISTS idx_tabs_deleted ON tabs (deleted_at)`,
-  `CREATE INDEX IF NOT EXISTS idx_changes_synced ON changes (synced)`,
-  `CREATE INDEX IF NOT EXISTS idx_sync_replicas_entity ON sync_replicas (entity, entity_id)`,
-  `CREATE INDEX IF NOT EXISTS idx_changes_entity ON changes (entity, entity_id)`,
   `CREATE INDEX IF NOT EXISTS idx_host_passwords_host ON host_passwords (host_id)`,
   `CREATE INDEX IF NOT EXISTS idx_superseded_host ON superseded_connections (host_id)`
 ]

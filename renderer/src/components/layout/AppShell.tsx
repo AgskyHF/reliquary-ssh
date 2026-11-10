@@ -4,7 +4,6 @@ import { useI18n } from '../../i18n/I18nProvider'
 import { Logo } from './Logo'
 import { KeychainPanel } from '../keys/KeychainPanel'
 import { HostList } from '../hosts/HostList'
-import { SyncPanel } from '../sync/SyncPanel'
 import { SettingsPanel } from '../settings/SettingsPanel'
 import { TransferPanel } from '../transfer/TransferPanel'
 
@@ -27,7 +26,7 @@ interface AppShellProps {
   ) => void
 }
 
-type SidebarSection = 'hosts' | 'keychain' | 'sync' | 'transfer' | 'settings'
+type SidebarSection = 'hosts' | 'keychain' | 'transfer' | 'settings'
 
 /**
  * Root layout: TopBar + Sidebar + MainArea.
@@ -104,15 +103,6 @@ function MenuIcon({ name }: { name: SidebarSection }) {
     )
   }
 
-  if (name === 'sync') {
-    return (
-      <svg {...common}>
-        <path d="M20 11a8 8 0 0 0-14.3-4.6M4 13a8 8 0 0 0 14.3 4.6" />
-        <path d="M18 3v4h-4M6 21v-4h4" />
-      </svg>
-    )
-  }
-
   if (name === 'transfer') {
     // A box with an arrow leaving it — an export.
     return (
@@ -172,7 +162,6 @@ function Sidebar({
     () => [
       { id: 'hosts' as const, label: t('nav.hosts') },
       { id: 'keychain' as const, label: t('nav.keychain') },
-      { id: 'sync' as const, label: t('nav.sync') },
       { id: 'transfer' as const, label: t('nav.export') },
       { id: 'settings' as const, label: t('nav.settings') }
     ],
@@ -229,11 +218,6 @@ function Sidebar({
           <>
             <div className="sidebar__section-header">{t('settings.title')}</div>
             <SettingsPanel />
-          </>
-        ) : section === 'sync' ? (
-          <>
-            <div className="sidebar__section-header">{t('nav.sync')}</div>
-            <SyncPanel />
           </>
         ) : section === 'transfer' ? (
           <>

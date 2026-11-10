@@ -2,7 +2,7 @@
  * Stable device identifier and device-bound secret.
  *
  * The identifier is persisted in the userData directory and is used by every
- * entity model (hosts/keys/tabs) and by the sync outbox later on.
+ * entity model (hosts/keys/tabs).
  *
  * The secret is a 32-byte random value kept next to the identifier. It
  * encrypts the master key material on disk, so the store file is useless on

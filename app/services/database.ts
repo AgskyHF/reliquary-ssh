@@ -11,7 +11,6 @@ import {
   AuthMethod,
   ProtocolType,
   TabKind,
-  type ChangeRecord,
   type ConnectionTarget,
   type Host,
   type SshKey,
@@ -399,99 +398,5 @@ export class TabRepository {
 
     run(tabs)
     return tabs
-  }
-}
-
-/** Row shape of the changes table. */
-interface ChangeRow {
-  id: string
-  entity: string
-  entity_id: string
-  operation: string
-  payload: string
-  synced: number
-  created_at: string
-  updated_at: string
-  version: number
-  device_id: string
-}
-
-function rowToChange(row: ChangeRow): ChangeRecord {
-  return {
-    id: row.id,
-    entity: row.entity as ChangeRecord['entity'],
-    entityId: row.entity_id,
-    operation: row.operation as ChangeRecord['operation'],
-    payload: row.payload,
-    synced: row.synced === 1,
-    createdAt: row.created_at,
-    updatedAt: row.updated_at,
-    version: row.version,
-    deviceId: row.device_id
-  }
-}
-
-/** The outbox journal — local changes waiting to be pushed. */
-export class ChangeRepository {
-  constructor(private readonly db: SqliteDatabase) {}
-
-  record(change: ChangeRecord): ChangeRecord {
-    this.db
-      .prepare(
-        `INSERT INTO changes (id, entity, entity_id, operation, payload, synced,
-           created_at, updated_at, version, device_id)
-         VALUES (@id, @entity, @entity_id, @operation, @payload, @synced,
-           @created_at, @updated_at, @version, @device_id)
-         ON CONFLICT(id) DO UPDATE SET
-           payload = excluded.payload, synced = excluded.synced,
-           updated_at = excluded.updated_at, version = excluded.version`
-      )
-      .run({
-        id: change.id,
-        entity: change.entity,
-        entity_id: change.entityId,
-        operation: change.operation,
-        payload: change.payload,
-        synced: change.synced ? 1 : 0,
-        created_at: change.createdAt,
-        updated_at: change.updatedAt,
-        version: change.version,
-        device_id: change.deviceId
-      })
-
-    return change
-  }
-
-  /** The changes that have not been pushed yet, oldest first. */
-  pending(limit = 100): ChangeRecord[] {
-    const rows = this.db
-      .prepare(
-        'SELECT * FROM changes WHERE synced = 0 ORDER BY created_at LIMIT ?'
-      )
-      .all(limit) as ChangeRow[]
-    return rows.map(rowToChange)
-  }
-
-  /** Marks the given changes as pushed. */
-  markSynced(ids: string[]): void {
-    if (ids.length === 0) return
-
-    const statement = this.db.prepare(
-      'UPDATE changes SET synced = 1, updated_at = ? WHERE id = ?'
-    )
-    const now = new Date().toISOString()
-
-    const run = this.db.transaction((list: string[]) => {
-      for (const id of list) statement.run(now, id)
-    })
-
-    run(ids)
-  }
-
-  count(): number {
-    const row = this.db
-      .prepare('SELECT COUNT(*) AS total FROM changes WHERE synced = 0')
-      .get() as { total: number }
-    return row.total
   }
 }
