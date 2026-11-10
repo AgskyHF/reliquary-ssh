@@ -309,8 +309,7 @@ export class ExportService {
 
     // The old folder of the archive comes back as superseded versions.
     for (const entry of this.readSuperseded(zip)) {
-      this.storeSupersededPayload(entry)
-      result.superseded++
+      if (this.storeSupersededPayload(entry)) result.superseded++
     }
 
     result.summary = this.summarize(result)
@@ -458,13 +457,18 @@ export class ExportService {
     // The incoming version is older — it loses. Its password goes to
     // the old folder too: that is the version the user may still need
     // (the old password of a host that was changed elsewhere).
-    this.storeSuperseded(
-      incoming,
-      secrets?.passwords[incoming.id] ?? null,
-      local.id,
-      'newer'
-    )
-    result.superseded++
+    //
+    // A version that carries the very same content as the live host
+    // replaces nothing: it would show the host against itself.
+    if (!this.sameVersion(local, incoming)) {
+      this.storeSuperseded(
+        incoming,
+        secrets?.passwords[incoming.id] ?? null,
+        local.id,
+        'newer'
+      )
+      result.superseded++
+    }
     result.unchanged++
   }
 
@@ -520,11 +524,25 @@ export class ExportService {
     return true
   }
 
-  /** Stores a superseded version that came from the archive. */
-  private storeSupersededPayload(entry: ExportSuperseded): void {
+  /**
+   * Stores a superseded version that came from the archive.
+   *
+   * It returns false when the version does not belong in the old folder:
+   * the host of that version is alive and carries the very same content,
+   * so there is nothing to replace and nothing to restore. Such a version
+   * comes from an archive that was exported with the old folder in it —
+   * without this check every import would fill the old folder with copies
+   * of the live hosts.
+   */
+  private storeSupersededPayload(entry: ExportSuperseded): boolean {
     // The archive can be imported more than once — the version it
     // carries is stored once, not once per import.
-    if (this.touchSame(entry.connection)) return
+    if (this.touchSame(entry.connection)) return false
+
+    // The version that is alive and holds the same content — the old
+    // folder would show a host against itself.
+    const live = this.storage.hosts.get(entry.connection.id)
+    if (live && this.sameVersion(live, entry.connection)) return false
 
     this.storage.superseded.record({
       hostId: entry.hostId,
@@ -536,6 +554,25 @@ export class ExportService {
       reason: entry.reason === 'deleted' ? 'deleted' : 'newer',
       replacedAt: entry.replacedAt
     })
+
+    return true
+  }
+
+  /**
+   * Tells whether the host and the version carry the same content.
+   *
+   * The password is not part of it: the envelope is sealed with a fresh
+   * IV every time, so the bytes differ even for the same password.
+   */
+  private sameVersion(host: Host, connection: ExportedConnection): boolean {
+    return (
+      host.name === connection.name &&
+      host.protocol === connection.protocol &&
+      host.host === connection.host &&
+      host.port === connection.port &&
+      host.username === connection.username &&
+      host.updatedAt === connection.updatedAt
+    )
   }
 
   /** The sealed password of a local host, if it has one. */

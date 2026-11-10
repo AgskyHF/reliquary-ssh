@@ -5,11 +5,53 @@
  * terminal moves aside instead of being covered. It is the same drawer
  * Termius has: the themes live in a column on the right, the terminal
  * keeps the rest of the width.
+ *
+ * The state of the drawer belongs to the tab, not to the app: every tab
+ * has a drawer of its own, and only the one on the screen is open. A
+ * shared flag opened the drawer in every tab at once, and the drawer of a
+ * hidden tab took the click that picks a theme as a click outside of
+ * itself — the theme was never applied.
  */
-import { useCallback, useEffect, useRef } from 'react'
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
+import type { ReactNode } from 'react'
 import { useI18n } from '../../i18n/I18nProvider'
-import { useTheme } from '../../theme/ThemeProvider'
 import { ThemePicker } from '../theme/ThemePicker'
+
+interface DrawerContextValue {
+  /** True while the drawer of this tab is out. */
+  open: boolean
+  /** Slides the drawer of this tab in or out. */
+  setOpen: (open: boolean | ((prev: boolean) => boolean)) => void
+}
+
+const DrawerContext = createContext<DrawerContextValue | null>(null)
+
+/**
+ * Holds the state of the drawer of one tab.
+ *
+ * The button in the header and the drawer next to the terminal have to
+ * agree with each other, and nothing else — hence the provider.
+ */
+export function ThemeDrawerProvider({ children }: { children: ReactNode }) {
+  const [open, setOpenState] = useState(false)
+
+  const setOpen = useCallback((next: boolean | ((prev: boolean) => boolean)) => {
+    setOpenState((prev) => (typeof next === 'function' ? next(prev) : next))
+  }, [])
+
+  const value = useMemo<DrawerContextValue>(() => ({ open, setOpen }), [open, setOpen])
+
+  return <DrawerContext.Provider value={value}>{children}</DrawerContext.Provider>
+}
+
+/** The state of the drawer of the tab. */
+function useDrawer(): DrawerContextValue {
+  const context = useContext(DrawerContext)
+  if (!context) {
+    throw new Error('The theme drawer must be used inside a ThemeDrawerProvider')
+  }
+  return context
+}
 
 /**
  * The drawer of the themes. It stands next to the terminal and takes a
@@ -17,13 +59,11 @@ import { ThemePicker } from '../theme/ThemePicker'
  */
 export function ThemePanel() {
   const { t } = useI18n()
-  const { drawerOpen, setDrawerOpen } = useTheme()
-  const open = drawerOpen
-  const setOpen = setDrawerOpen
+  const { open, setOpen } = useDrawer()
   const rootRef = useRef<HTMLDivElement | null>(null)
 
   // The handler of the click outside of the panel.
-  const close = useCallback(() => setDrawerOpen(false), [setDrawerOpen])
+  const close = useCallback(() => setOpen(false), [setOpen])
 
   // A click outside of the panel takes it away.
   useEffect(() => {
@@ -48,12 +88,12 @@ export function ThemePanel() {
       if (event.key === 'Escape') close()
     }
 
-    window.addEventListener('mousedown', onPointerDown)
-    window.addEventListener('keydown', onKeyDown)
+    document.addEventListener('mousedown', onPointerDown)
+    document.addEventListener('keydown', onKeyDown)
 
     return () => {
-      window.removeEventListener('mousedown', onPointerDown)
-      window.removeEventListener('keydown', onKeyDown)
+      document.removeEventListener('mousedown', onPointerDown)
+      document.removeEventListener('keydown', onKeyDown)
     }
   }, [close, open])
 
@@ -76,7 +116,7 @@ export function ThemePanel() {
         </button>
       </div>
       <div className="theme-panel__body">
-        <ThemePicker />
+        <ThemePicker onPicked={() => setOpen(false)} />
       </div>
     </aside>
   )
@@ -88,17 +128,17 @@ export function ThemePanel() {
  */
 export function ThemeToggle() {
   const { t } = useI18n()
-  const { drawerOpen, setDrawerOpen } = useTheme()
+  const { open, setOpen } = useDrawer()
 
   return (
     <button
       type="button"
       data-theme-toggle="true"
-      className={`theme-button__toggle${drawerOpen ? ' theme-button__toggle--open' : ''}`}
+      className={`theme-button__toggle${open ? ' theme-button__toggle--open' : ''}`}
       title={t('theme.change')}
       aria-label={t('theme.change')}
-      aria-expanded={drawerOpen}
-      onClick={() => setDrawerOpen((prev) => !prev)}
+      aria-expanded={open}
+      onClick={() => setOpen((prev) => !prev)}
     >
       {/*
         The check mark slides out of the button when the drawer opens.

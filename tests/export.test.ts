@@ -503,9 +503,14 @@ describe('export and import', () => {
 
   it('does not add the same version to the old folder twice', async () => {
     await master.set(PASSWORD)
-    makeHost('prod', '2026-11-07T10:00:00.000Z', 'old password')
+    const host = makeHost('prod', '2026-11-07T10:00:00.000Z', 'old password')
 
     const { buffer } = await service.build({ mode: 'with-passwords', includeKeys: true, includeOld: true })
+
+    // The version of the host changes — now it is worth a place in the
+    // old folder.
+    const changed = { ...host, name: 'prod-new', updatedAt: '2026-11-09T10:00:00.000Z' }
+    storage.hosts.save(changed)
 
     await service.import(buffer, master.getMasterKey())
     await service.import(buffer, master.getMasterKey())
@@ -516,14 +521,49 @@ describe('export and import', () => {
 
   it('empties the old folder in one go', async () => {
     await master.set(PASSWORD)
-    makeHost('prod', '2026-11-07T10:00:00.000Z', 'old password')
-    makeHost('stage', '2026-11-07T10:00:00.000Z', 'old password')
+    const prod = makeHost('prod', '2026-11-07T10:00:00.000Z', 'old password')
+    const stage = makeHost('stage', '2026-11-07T10:00:00.000Z', 'old password')
 
     const { buffer } = await service.build({ mode: 'with-passwords', includeKeys: true, includeOld: true })
+
+    // Both hosts change — both versions are worth a place in the old
+    // folder.
+    storage.hosts.save({ ...prod, name: 'prod-new', updatedAt: '2026-11-09T10:00:00.000Z' })
+    storage.hosts.save({ ...stage, name: 'stage-new', updatedAt: '2026-11-09T10:00:00.000Z' })
+
     await service.import(buffer, master.getMasterKey())
 
-    expect(storage.superseded.list().length).toBeGreaterThan(0)
-    expect(storage.superseded.removeAll()).toBe(storage.superseded.list().length + 2)
+    expect(storage.superseded.list().length).toBe(2)
+    const stored = storage.superseded.list().length
+    expect(storage.superseded.removeAll()).toBe(stored)
     expect(storage.superseded.list()).toHaveLength(0)
+  })
+
+  it('does not bring the old folder of the archive back into the live hosts', async () => {
+    await master.set(PASSWORD)
+    const host = makeHost('prod', '2026-11-07T10:00:00.000Z', 'old password')
+
+    // The archive is made with the old folder in it — the old version of
+    // the very same host is in there.
+    const { buffer } = await service.build({ mode: 'with-passwords', includeKeys: true, includeOld: true })
+    storage.superseded.record({
+      hostId: host.id,
+      payload: {
+        connection: { ...host, hasPassword: false },
+        encryptedPassword: null
+      },
+      replacedBy: host.id,
+      reason: 'newer'
+    })
+    expect(storage.superseded.list()).toHaveLength(1)
+
+    const result = await service.import(buffer, master.getMasterKey())
+
+    // The host is alive and holds the same content — the old folder would
+    // show it against itself.
+    expect(result.added).toBe(0)
+    expect(result.superseded).toBe(0)
+    expect(storage.hosts.list().map((item) => item.name)).toEqual(['prod'])
+    expect(storage.superseded.list()).toHaveLength(1)
   })
 })

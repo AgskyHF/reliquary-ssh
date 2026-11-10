@@ -9,7 +9,7 @@ import { useSession, type SessionStatus } from '../../hooks/useSession'
 import { TerminalView } from '../TerminalView'
 import { ConnectForm, type ConnectFormValues } from '../ConnectForm'
 import { FileManager } from '../files/FileManager'
-import { ThemePanel, ThemeToggle } from '../theme/ThemePanel'
+import { ThemeDrawerProvider, ThemePanel, ThemeToggle } from '../theme/ThemePanel'
 import { ConnectingOverlay } from './ConnectingOverlay'
 
 const RESTORE_NOTE = '\r\n— restored from previous session; reconnect to continue —\r\n'
@@ -377,84 +377,88 @@ export function SessionTab({
 
   if (isFileManager) {
     return (
-      <div className="terminal-panel">
-        <div className="terminal-panel__header">
-          <span className="terminal-panel__title">{labelOf(tab)}</span>
-          <span
-            className={`status-dot status-dot--${status.state === 'connected' ? 'ok' : 'idle'}`}
-          />
-          <div className="terminal-panel__spacer" />
-          <ThemeToggle />
-          <button type="button" className="button button--ghost" onClick={closeSession}>
-            {t('session.disconnect')}
-          </button>
+      <ThemeDrawerProvider>
+        <div className="terminal-panel">
+          <div className="terminal-panel__header">
+            <span className="terminal-panel__title">{labelOf(tab)}</span>
+            <span
+              className={`status-dot status-dot--${status.state === 'connected' ? 'ok' : 'idle'}`}
+            />
+            <div className="terminal-panel__spacer" />
+            <ThemeToggle />
+            <button type="button" className="button button--ghost" onClick={closeSession}>
+              {t('session.disconnect')}
+            </button>
+          </div>
+          {/*
+            The file manager and the drawer of the themes stand in a row —
+            the drawer takes a column of its own, the content moves aside.
+          */}
+          <div className="terminal-panel__body">
+            <FileManager sessionId={sessionId} onError={setError} />
+            <ThemePanel />
+          </div>
         </div>
-        {/*
-          The file manager and the drawer of the themes stand in a row —
-          the drawer takes a column of its own, the content moves aside.
-        */}
-        <div className="terminal-panel__body">
-          <FileManager sessionId={sessionId} onError={setError} />
-          <ThemePanel />
-        </div>
-      </div>
+      </ThemeDrawerProvider>
     )
   }
 
   return (
-    <div className="terminal-panel">
-      {connected ? (
-        <div className="terminal-panel__header">
-          <span className="terminal-panel__title">{labelOf(tab)}</span>
-          <span
-            className={`status-dot status-dot--${status.state === 'connected' ? 'ok' : 'idle'}`}
+    <ThemeDrawerProvider>
+      <div className="terminal-panel">
+        {connected ? (
+          <div className="terminal-panel__header">
+            <span className="terminal-panel__title">{labelOf(tab)}</span>
+            <span
+              className={`status-dot status-dot--${status.state === 'connected' ? 'ok' : 'idle'}`}
+            />
+            <div className="terminal-panel__spacer" />
+            <ThemeToggle />
+            <button type="button" className="button button--ghost" onClick={closeSession}>
+              {t('session.disconnect')}
+            </button>
+          </div>
+        ) : (
+          <div className="reconnect-banner">
+            <span>{t('session.notConnected')}</span>
+            <button
+              type="button"
+              className="button button--ghost"
+              onClick={() => setHideRestored(true)}
+            >
+              {t('session.clearScreen')}
+            </button>
+          </div>
+        )}
+        {showRestored ? (
+          <div className="reconnect-form-wrap">
+            <ConnectForm
+              onConnect={connect}
+              onSave={(values) => void saveHost(values)}
+              busy={connecting}
+              error={error}
+              notice={
+                savedHostName ? t('connect.addedToList', { name: savedHostName }) : null
+              }
+              resetSignal={formReset}
+              initialValues={initialValues}
+              protocol={protocol}
+              allowProtocolSwitch
+              allowAuthSwitch
+            />
+          </div>
+        ) : null}
+        <div className="terminal-panel__body">
+          <TerminalView
+            sessionId={sessionId}
+            onReady={handleReady}
+            onInput={(data) => void write(data)}
+            onResize={(cols, rows) => void resize(cols, rows)}
           />
-          <div className="terminal-panel__spacer" />
-          <ThemeToggle />
-          <button type="button" className="button button--ghost" onClick={closeSession}>
-            {t('session.disconnect')}
-          </button>
+          <ThemePanel />
         </div>
-      ) : (
-        <div className="reconnect-banner">
-          <span>{t('session.notConnected')}</span>
-          <button
-            type="button"
-            className="button button--ghost"
-            onClick={() => setHideRestored(true)}
-          >
-            {t('session.clearScreen')}
-          </button>
-        </div>
-      )}
-      {showRestored ? (
-        <div className="reconnect-form-wrap">
-          <ConnectForm
-            onConnect={connect}
-            onSave={(values) => void saveHost(values)}
-            busy={connecting}
-            error={error}
-            notice={
-              savedHostName ? t('connect.addedToList', { name: savedHostName }) : null
-            }
-            resetSignal={formReset}
-            initialValues={initialValues}
-            protocol={protocol}
-            allowProtocolSwitch
-            allowAuthSwitch
-          />
-        </div>
-      ) : null}
-      <div className="terminal-panel__body">
-        <TerminalView
-          sessionId={sessionId}
-          onReady={handleReady}
-          onInput={(data) => void write(data)}
-          onResize={(cols, rows) => void resize(cols, rows)}
-        />
-        <ThemePanel />
       </div>
-    </div>
+    </ThemeDrawerProvider>
   )
 }
 

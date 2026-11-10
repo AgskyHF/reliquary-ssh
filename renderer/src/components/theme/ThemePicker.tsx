@@ -51,15 +51,14 @@ function ThemePreview({ theme }: { theme: TerminalTheme }) {
 }
 
 export function ThemePicker({ onPicked }: ThemePickerProps) {
-  const { themes, themeId, setThemeId, setDrawerOpen } = useTheme()
+  const { themes, themeId, setThemeId } = useTheme()
 
   const pick = useCallback(
     (id: string) => {
       void setThemeId(id)
-      setDrawerOpen(false)
       onPicked?.(themes.find((theme) => theme.id === id) ?? themes[0])
     },
-    [onPicked, setDrawerOpen, setThemeId, themes]
+    [onPicked, setThemeId, themes]
   )
 
   return (
