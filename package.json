@@ -1,7 +1,7 @@
 {
   "name": "reliquary-ssh",
   "version": "0.1.0",
-  "description": "ReliquarySSH — cross-platform terminal client with encrypted sync (SSH/SFTP)",
+  "description": "SSH and SFTP terminal client — tabs, a key store and a portable export",
   "main": "./out/main/index.js",
   "author": "AgskyHF",
   "license": "MIT",
